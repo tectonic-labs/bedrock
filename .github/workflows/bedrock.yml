@@ -1,0 +1,101 @@
+name: Bedrock
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - '**/*.md'
+      - rustfmt.toml
+      - .pants-ignore
+  pull_request:
+    branches:
+      - main
+    paths-ignore:
+      - '**/*.md'
+      - rustfmt.toml
+      - .pants-ignore
+
+env:
+  CARGO_INCREMENTAL: 0
+  CARGO_TERM_COLOR: always
+  RUST_LOG_STYLE: always
+  RUSTFLAGS: "-Dwarnings"
+  RUSTDOCFLAGS: "-Dwarnings"
+
+defaults:
+  run:
+    shell: bash
+
+
+jobs:
+  fmt:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@master
+        with:
+            toolchain: stable
+            components: rustfmt
+      - run: cargo fmt -- --check
+
+  clippy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@master
+        with:
+            toolchain: stable
+            components: clippy
+      - run: cargo clippy --all-features -- -D warnings
+
+  doc:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@master
+        with:
+            toolchain: stable
+      - run: cargo doc --all-features
+
+  deps:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@nightly
+      - run: cargo install cargo-udeps
+      - run: cargo udeps --all-features --all-targets
+
+  outdated:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@nightly
+      - run: cargo install cargo-outdated
+      - run: cargo outdated --root-deps-only --exit-code 1
+
+  pants:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@nightly
+      - run: cargo install cargo-pants
+      - run: cargo pants --loud --dev
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@master
+        with:
+            toolchain: stable
+      - run: cargo build
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@master
+        with:
+            toolchain: stable
+      - run: cargo test --release --benches --no-fail-fast

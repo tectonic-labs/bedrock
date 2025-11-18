@@ -1,0 +1,30 @@
+//! Error types for the library
+
+use oqs::Error as OqsError;
+use thiserror::Error as ThisError;
+
+/// Error type for the library
+#[derive(ThisError, Debug)]
+pub enum Error {
+    /// OQS error
+    #[error("OQS error: {0}")]
+    OqsError(String),
+    /// Invalid scheme
+    #[error("Invalid scheme: {0}")]
+    InvalidScheme(u8),
+    /// Invalid scheme
+    #[error("Invalid scheme: {0}")]
+    InvalidSchemeStr(String),
+    /// Invalid seed length
+    #[error("Invalid seed length: expected at least 32 bytes, got {0}")]
+    InvalidSeedLength(usize),
+}
+
+impl From<OqsError> for Error {
+    fn from(error: OqsError) -> Self {
+        Error::OqsError(error.to_string())
+    }
+}
+
+/// Result type for the library
+pub type Result<T> = std::result::Result<T, Error>;
