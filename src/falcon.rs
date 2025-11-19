@@ -26,6 +26,26 @@ macro_rules! derive_cfg_test {
     };
 }
 
+macro_rules! impl_raw {
+    ($name:ident) => {
+        impl $name {
+            #[doc = concat!("Convert [`", stringify!($name), "`] to its raw byte representation")]
+            pub fn to_raw_bytes(&self) -> Vec<u8> {
+                self.value.as_ref().to_vec()
+            }
+
+            #[doc = concat!("Convert [`", stringify!($name), "`] from its raw byte representation and scheme")]
+            pub fn from_raw_bytes(bytes: &[u8]) -> Result<Self> {
+                let inner = FalconSerde {
+                    scheme: FalconScheme::from_any_length(bytes.len())?,
+                    value: bytes.to_vec(),
+                };
+                Self::try_from(inner)
+            }
+        }
+    };
+}
+
 /// Falcon schemes
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Ord, PartialOrd, Hash)]
 pub enum FalconScheme {
@@ -185,6 +205,18 @@ impl FalconScheme {
         scheme.verify(message, &signature.value, &verification_key.value)?;
         Ok(())
     }
+
+    const fn from_any_length(length: usize) -> Result<Self> {
+        match length {
+            1281                                 // sign-key
+            | 897                                // vrfy-key
+            | 666 => Ok(FalconScheme::Dsa512),   // signature 
+            2305                                 // sign-key
+            | 1793                               // vrfy-key
+            | 1280 => Ok(FalconScheme::Dsa1024), // signature
+            _ => Err(Error::InvalidLength(length))
+        }
+    }
 }
 
 /// Falcon signing key
@@ -197,6 +229,8 @@ pub struct FalconSigningKey {
 
 derive_cfg_test!(FalconSigningKey);
 
+impl_raw!(FalconSigningKey);
+
 /// Falcon verification key
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(into = "FalconSerde", try_from = "FalconSerde")]
@@ -206,6 +240,8 @@ pub struct FalconVerificationKey {
 }
 
 derive_cfg_test!(FalconVerificationKey);
+
+impl_raw!(FalconVerificationKey);
 
 /// Falcon signature
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -217,10 +253,12 @@ pub struct FalconSignature {
 
 derive_cfg_test!(FalconSignature);
 
+impl_raw!(FalconSignature);
+
 /// Exists solely for serialization and deserialization purposes
 struct FalconSerde {
     scheme: FalconScheme,
-    key: Vec<u8>,
+    value: Vec<u8>,
 }
 
 impl From<FalconSigningKey> for FalconSerde {
@@ -233,7 +271,7 @@ impl From<&FalconSigningKey> for FalconSerde {
     fn from(key: &FalconSigningKey) -> Self {
         FalconSerde {
             scheme: key.scheme,
-            key: key.value.as_ref().to_vec(),
+            value: key.value.as_ref().to_vec(),
         }
     }
 }
@@ -245,7 +283,7 @@ impl TryFrom<FalconSerde> for FalconSigningKey {
         let alg = value.scheme.into();
         let scheme = Sig::new(alg)?;
         let key = scheme
-            .secret_key_from_bytes(&value.key)
+            .secret_key_from_bytes(&value.value)
             .ok_or(Error::OqsError("Invalid signing key".to_string()))?;
         Ok(FalconSigningKey {
             scheme: value.scheme,
@@ -264,7 +302,7 @@ impl From<&FalconVerificationKey> for FalconSerde {
     fn from(key: &FalconVerificationKey) -> Self {
         FalconSerde {
             scheme: key.scheme,
-            key: key.value.as_ref().to_vec(),
+            value: key.value.as_ref().to_vec(),
         }
     }
 }
@@ -276,7 +314,7 @@ impl TryFrom<FalconSerde> for FalconVerificationKey {
         let alg = value.scheme.into();
         let scheme = Sig::new(alg)?;
         let key = scheme
-            .public_key_from_bytes(&value.key)
+            .public_key_from_bytes(&value.value)
             .ok_or(Error::OqsError("Invalid verification key".to_string()))?;
         Ok(Self {
             scheme: value.scheme,
@@ -295,7 +333,7 @@ impl From<&FalconSignature> for FalconSerde {
     fn from(value: &FalconSignature) -> Self {
         Self {
             scheme: value.scheme,
-            key: value.value.as_ref().to_vec(),
+            value: value.value.as_ref().to_vec(),
         }
     }
 }
@@ -307,7 +345,7 @@ impl TryFrom<FalconSerde> for FalconSignature {
         let alg = value.scheme.into();
         let scheme = Sig::new(alg)?;
         let signature = scheme
-            .signature_from_bytes(&value.key)
+            .signature_from_bytes(&value.value)
             .ok_or(Error::OqsError("Invalid signature".to_string()))?;
         Ok(Self {
             scheme: value.scheme,
@@ -324,13 +362,10 @@ impl Serialize for FalconSerde {
         if s.is_human_readable() {
             let mut state = s.serialize_struct("FalconSigningKey", 2)?;
             state.serialize_field("scheme", &self.scheme)?;
-            state.serialize_field("key", &hex::encode(&self.key))?;
+            state.serialize_field("key", &hex::encode(&self.value))?;
             state.end()
         } else {
-            let mut data = Vec::with_capacity(self.key.len() + 1);
-            data.push(self.scheme.into());
-            data.extend_from_slice(&self.key);
-            s.serialize_bytes(&data)
+            self.value.serialize(s)
         }
     }
 }
@@ -341,9 +376,9 @@ impl<'de> Deserialize<'de> for FalconSerde {
         D: Deserializer<'de>,
     {
         if d.is_human_readable() {
-            struct SigningKeyVisitor;
+            struct SerdeVisitor;
 
-            impl<'de> Visitor<'de> for SigningKeyVisitor {
+            impl<'de> Visitor<'de> for SerdeVisitor {
                 type Value = FalconSerde;
 
                 fn expecting(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
@@ -372,17 +407,18 @@ impl<'de> Deserialize<'de> for FalconSerde {
                     let scheme = scheme.ok_or(DError::custom("scheme is required"))?;
                     let key = key.ok_or(DError::custom("key is required"))?;
                     let key = hex::decode(key).map_err(DError::custom)?;
-                    Ok(FalconSerde { scheme, key })
+                    Ok(FalconSerde { scheme, value: key })
                 }
             }
 
             const FIELDS: &[&str] = &["scheme", "key"];
-            d.deserialize_struct("FalconSigningKey", FIELDS, SigningKeyVisitor)
+            d.deserialize_struct("FalconSerde", FIELDS, SerdeVisitor)
         } else {
-            let mut data = Vec::<u8>::deserialize(d)?;
-            let scheme = data.remove(0).try_into().map_err(DError::custom)?;
+            let data = Vec::<u8>::deserialize(d)?;
+            let scheme = FalconScheme::from_any_length(data.len())
+                .map_err(|_| DError::custom("Invalid deserialization data".to_string()))?;
             let key = data;
-            Ok(FalconSerde { scheme, key })
+            Ok(FalconSerde { scheme, value: key })
         }
     }
 }

@@ -18,6 +18,9 @@ pub enum Error {
     /// Invalid seed length
     #[error("Invalid seed length: expected at least 32 bytes, got {0}")]
     InvalidSeedLength(usize),
+    /// Invalid length
+    #[error("Invalid length: {0}")]
+    InvalidLength(usize),
 }
 
 impl From<OqsError> for Error {
