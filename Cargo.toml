@@ -10,15 +10,19 @@ repository = "https://github.com/tectonic-labs/bedrock"
 version = "0.1.0"
 
 [features]
-default = ["kgen", "sign", "vrfy"]
-kgen = []
-sign = []
-vrfy = []
+default = ["eth_falcon", "kgen", "sign", "vrfy"]
+eth_falcon = ["rand_chacha", "rand_core", "fn-dsa-comm/eth_falcon", "fn-dsa-sign?/eth_falcon", "fn-dsa-vrfy?/eth_falcon", "zeroize"]
+kgen = ["fn-dsa-comm", "fn-dsa-kgen", "rand_core?/getrandom"]
+sign = ["fn-dsa-comm", "fn-dsa-sign"]
+vrfy = ["fn-dsa-comm", "fn-dsa-vrfy"]
 
 [dependencies]
 hex = "0.4"
+rand_chacha = { version = "0.3", optional = true }
+rand_core = { version = "0.6", optional = true }
 serde = { version = "1.0", features = ["derive"] }
 thiserror = "2.0"
+zeroize = { version = "1.8", optional = true }
 
 [dependencies.oqs]
 git = "https://github.com/tectonic-labs/liboqs-rust"
@@ -28,9 +32,32 @@ features = [
     "falcon"
 ]
 
+[dependencies.fn-dsa-comm]
+git = "https://github.com/tectonic-labs/rust-fn-dsa"
+tag = "tectonic/rust-fn-dsa-dev2"
+optional = true
+
+[dependencies.fn-dsa-kgen]
+git = "https://github.com/tectonic-labs/rust-fn-dsa"
+tag = "tectonic/rust-fn-dsa-dev2"
+optional = true
+
+[dependencies.fn-dsa-sign]
+git = "https://github.com/tectonic-labs/rust-fn-dsa"
+tag = "tectonic/rust-fn-dsa-dev2"
+optional = true
+
+[dependencies.fn-dsa-vrfy]
+git = "https://github.com/tectonic-labs/rust-fn-dsa"
+tag = "tectonic/rust-fn-dsa-dev2"
+optional = true
+
+[dev-dependencies.fn-dsa]
+git = "https://github.com/tectonic-labs/rust-fn-dsa"
+tag = "tectonic/rust-fn-dsa-dev2"
+
 [dev-dependencies]
 falcon-rust = "0.1.2"
-fn-dsa = "0.3.0"
 postcard = {  version = "1.0", features = ["use-std"] }
 pqcrypto = { version = "0.18", default-features = false, features = ["pqcrypto-falcon"] }
 rand = "0.8"

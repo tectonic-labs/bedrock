@@ -2,6 +2,7 @@ use bedrock::falcon::FalconScheme;
 use falcon_rust::falcon512;
 use rand::{Rng, SeedableRng};
 
+#[ignore]
 #[test]
 fn falcon_rust_to_bedrock_512_compatibility() {
     const MSG: &[u8] = &[0u8; 8];

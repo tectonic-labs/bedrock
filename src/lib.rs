@@ -5,3 +5,6 @@
 
 pub mod error;
 pub mod falcon;
+
+#[cfg(feature = "eth_falcon")]
+pub mod eth_falcon;

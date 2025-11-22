@@ -32,15 +32,21 @@ version = "0.1.0"
 dependencies = [
  "falcon-rust",
  "fn-dsa",
+ "fn-dsa-comm",
+ "fn-dsa-kgen",
+ "fn-dsa-sign",
+ "fn-dsa-vrfy",
  "hex",
  "oqs",
  "postcard",
  "pqcrypto",
  "rand",
  "rand_chacha",
+ "rand_core",
  "serde",
  "serde_json",
  "thiserror",
+ "zeroize",
 ]
 
 [[package]]
@@ -171,6 +177,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "790eea4361631c5e7d22598ecd5723ff611904e3344ce8720784c93e3d83d40b"
 
 [[package]]
+name = "crunchy"
+version = "0.2.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "460fbee9c2c2f33933d720630a6a0bac33ba7053db5344fac858d4b8952d77d5"
+
+[[package]]
 name = "crypto-common"
 version = "0.1.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -256,8 +268,7 @@ checksum = "3a3076410a55c90011c298b04d0cfa770b00fa04e1e3c97d3f6c9de105a03844"
 [[package]]
 name = "fn-dsa"
 version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "afb39d94be3f4538ccfdf23dc69a89904c9b802331b1975538fcc251973593f9"
+source = "git+https://github.com/tectonic-labs/rust-fn-dsa?tag=tectonic%2Frust-fn-dsa-dev2#b8261196aa80ad4b21bcfc29af352db27bf1a009"
 dependencies = [
  "fn-dsa-comm",
  "fn-dsa-kgen",
@@ -268,18 +279,17 @@ dependencies = [
 [[package]]
 name = "fn-dsa-comm"
 version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "28104bba227c79bff8ffe34dff7c5a5631fd790dfd4d4f0a84b01952ef7c6f46"
+source = "git+https://github.com/tectonic-labs/rust-fn-dsa?tag=tectonic%2Frust-fn-dsa-dev2#b8261196aa80ad4b21bcfc29af352db27bf1a009"
 dependencies = [
  "cpufeatures",
  "rand_core",
+ "tiny-keccak",
 ]
 
 [[package]]
 name = "fn-dsa-kgen"
 version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b8a04fe82799cc1550d32778b415648d1962a7b4b4860ff5f2e6ca32494fc9aa"
+source = "git+https://github.com/tectonic-labs/rust-fn-dsa?tag=tectonic%2Frust-fn-dsa-dev2#b8261196aa80ad4b21bcfc29af352db27bf1a009"
 dependencies = [
  "fn-dsa-comm",
  "zeroize",
@@ -288,18 +298,18 @@ dependencies = [
 [[package]]
 name = "fn-dsa-sign"
 version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4ffb7d9c94e56de7e64019849b3b6110b1495690da2e9e1decef8f1744b3bab4"
+source = "git+https://github.com/tectonic-labs/rust-fn-dsa?tag=tectonic%2Frust-fn-dsa-dev2#b8261196aa80ad4b21bcfc29af352db27bf1a009"
 dependencies = [
  "fn-dsa-comm",
+ "rand_chacha",
+ "rand_core",
  "zeroize",
 ]
 
 [[package]]
 name = "fn-dsa-vrfy"
 version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bc96b904b213160c8804cc2642ccd15cb968318a64648fc5ca3edab9153cda2b"
+source = "git+https://github.com/tectonic-labs/rust-fn-dsa?tag=tectonic%2Frust-fn-dsa-dev2#b8261196aa80ad4b21bcfc29af352db27bf1a009"
 dependencies = [
  "fn-dsa-comm",
 ]
@@ -869,6 +879,15 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
+]
+
+[[package]]
+name = "tiny-keccak"
+version = "2.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2c9d3793400a45f954c52e73d068316d76b6f4e36977e3fcebb13a2721e80237"
+dependencies = [
+ "crunchy",
 ]
 
 [[package]]
