@@ -104,6 +104,7 @@ impl From<&FalconScheme> for u8 {
 
 impl TryFrom<u8> for FalconScheme {
     type Error = Error;
+
     fn try_from(value: u8) -> Result<Self> {
         match value {
             1 => Ok(FalconScheme::Dsa512),
@@ -130,6 +131,7 @@ impl Display for FalconScheme {
 
 impl FromStr for FalconScheme {
     type Err = Error;
+
     fn from_str(s: &str) -> Result<Self> {
         match s {
             "FN-DSA-512" => Ok(FalconScheme::Dsa512),
@@ -416,7 +418,7 @@ impl TryFrom<&FalconVerificationKey> for crate::eth_falcon::EthFalconVerifyingKe
     /// * `pubkey` - Standard Falcon public key (897 bytes)
     ///
     /// # Returns
-    /// * 1024-byte abi.encodePacked(uint256[32]) format
+    /// * 1024-byte abi.encodePacked(uint256\[32\]) format
     fn try_from(public_key: &FalconVerificationKey) -> Result<Self> {
         if public_key.scheme == FalconScheme::Ethereum {
             fn_dsa_comm::eth_falcon::decode_pubkey_to_ntt_packed(public_key.value.as_ref())
@@ -451,7 +453,7 @@ impl TryFrom<FalconSignature> for crate::eth_falcon::EthFalconSignature {
     /// * `signature` - Standard Falcon signature bytes
     ///
     /// # Returns
-    /// * 1024-byte abi.encodePacked(uint256[32]) format
+    /// * 1024-byte abi.encodePacked(uint256\[32\]) format
     fn try_from(signature: FalconSignature) -> Result<Self> {
         Self::try_from(&signature)
     }
@@ -460,6 +462,7 @@ impl TryFrom<FalconSignature> for crate::eth_falcon::EthFalconSignature {
 #[cfg(feature = "eth_falcon")]
 impl TryFrom<&FalconSignature> for crate::eth_falcon::EthFalconSignature {
     type Error = Error;
+
     fn try_from(signature: &FalconSignature) -> Result<Self> {
         if signature.scheme == FalconScheme::Ethereum {
             fn_dsa_comm::eth_falcon::decode_signature_to_packed(signature.value.as_ref())
