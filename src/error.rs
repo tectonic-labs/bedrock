@@ -1,5 +1,6 @@
 //! Error types for the library
 
+#[cfg(feature = "oqs")]
 use oqs::Error as OqsError;
 use thiserror::Error as ThisError;
 
@@ -26,6 +27,7 @@ pub enum Error {
     FnDsaError(String),
 }
 
+#[cfg(feature = "oqs")]
 impl From<OqsError> for Error {
     fn from(error: OqsError) -> Self {
         Error::OqsError(error.to_string())
