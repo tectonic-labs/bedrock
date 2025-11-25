@@ -30,7 +30,7 @@ macro_rules! impl_ml_dsa_struct {
         }
 
         impl $name {
-            /// The [`FalconScheme`] represented by this struct
+            /// The [`MlDsaScheme`] represented by this struct
             pub fn scheme(&self) -> MlDsaScheme {
                 self.0.scheme
             }
