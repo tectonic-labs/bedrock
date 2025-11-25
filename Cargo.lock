@@ -593,7 +593,7 @@ dependencies = [
 [[package]]
 name = "oqs"
 version = "0.11.0"
-source = "git+https://github.com/tectonic-labs/liboqs-rust?tag=tectonic%2F0.11.0-falcon-padded-dev5#610dc78181cb55d16d69e49c8fa44a30088d1a47"
+source = "git+https://github.com/tectonic-labs/liboqs-rust?tag=tectonic%2F0.11.0-rc0#65a8c92ce9961bc91456a3dc734d955014fe183b"
 dependencies = [
  "cstr_core",
  "libc",
@@ -606,7 +606,7 @@ dependencies = [
 [[package]]
 name = "oqs-sys"
 version = "0.11.0+liboqs-0.13.0"
-source = "git+https://github.com/tectonic-labs/liboqs-rust?tag=tectonic%2F0.11.0-falcon-padded-dev5#610dc78181cb55d16d69e49c8fa44a30088d1a47"
+source = "git+https://github.com/tectonic-labs/liboqs-rust?tag=tectonic%2F0.11.0-rc0#65a8c92ce9961bc91456a3dc734d955014fe183b"
 dependencies = [
  "bindgen",
  "build-deps",
