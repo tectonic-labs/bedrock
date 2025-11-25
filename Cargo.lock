@@ -32,9 +32,9 @@ version = "0.1.0"
 dependencies = [
  "falcon-rust",
  "fn-dsa",
- "fn-dsa-comm",
+ "fn-dsa-comm 0.3.0 (git+https://github.com/tectonic-labs/rust-fn-dsa?tag=tectonic%2Frust-fn-dsa-dev6)",
  "fn-dsa-kgen",
- "fn-dsa-sign",
+ "fn-dsa-sign 0.3.0 (git+https://github.com/tectonic-labs/rust-fn-dsa?tag=tectonic%2Frust-fn-dsa-dev5)",
  "fn-dsa-vrfy",
  "hex",
  "oqs",
@@ -268,11 +268,11 @@ checksum = "3a3076410a55c90011c298b04d0cfa770b00fa04e1e3c97d3f6c9de105a03844"
 [[package]]
 name = "fn-dsa"
 version = "0.3.0"
-source = "git+https://github.com/tectonic-labs/rust-fn-dsa?tag=tectonic%2Frust-fn-dsa-dev5#19bd797bbd44c8935ddbe4a2079b30f4c4d1d7f0"
+source = "git+https://github.com/tectonic-labs/rust-fn-dsa?tag=tectonic%2Frust-fn-dsa-dev6#eddf50e9a2246a5cb2acc9db851852364eb69985"
 dependencies = [
- "fn-dsa-comm",
+ "fn-dsa-comm 0.3.0 (git+https://github.com/tectonic-labs/rust-fn-dsa?tag=tectonic%2Frust-fn-dsa-dev6)",
  "fn-dsa-kgen",
- "fn-dsa-sign",
+ "fn-dsa-sign 0.3.0 (git+https://github.com/tectonic-labs/rust-fn-dsa?tag=tectonic%2Frust-fn-dsa-dev6)",
  "fn-dsa-vrfy",
 ]
 
@@ -287,11 +287,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "fn-dsa-comm"
+version = "0.3.0"
+source = "git+https://github.com/tectonic-labs/rust-fn-dsa?tag=tectonic%2Frust-fn-dsa-dev6#eddf50e9a2246a5cb2acc9db851852364eb69985"
+dependencies = [
+ "cpufeatures",
+ "rand_core",
+ "tiny-keccak",
+]
+
+[[package]]
 name = "fn-dsa-kgen"
 version = "0.3.0"
-source = "git+https://github.com/tectonic-labs/rust-fn-dsa?tag=tectonic%2Frust-fn-dsa-dev5#19bd797bbd44c8935ddbe4a2079b30f4c4d1d7f0"
+source = "git+https://github.com/tectonic-labs/rust-fn-dsa?tag=tectonic%2Frust-fn-dsa-dev6#eddf50e9a2246a5cb2acc9db851852364eb69985"
 dependencies = [
- "fn-dsa-comm",
+ "fn-dsa-comm 0.3.0 (git+https://github.com/tectonic-labs/rust-fn-dsa?tag=tectonic%2Frust-fn-dsa-dev6)",
  "zeroize",
 ]
 
@@ -300,18 +310,27 @@ name = "fn-dsa-sign"
 version = "0.3.0"
 source = "git+https://github.com/tectonic-labs/rust-fn-dsa?tag=tectonic%2Frust-fn-dsa-dev5#19bd797bbd44c8935ddbe4a2079b30f4c4d1d7f0"
 dependencies = [
- "fn-dsa-comm",
+ "fn-dsa-comm 0.3.0 (git+https://github.com/tectonic-labs/rust-fn-dsa?tag=tectonic%2Frust-fn-dsa-dev5)",
  "rand_chacha",
  "rand_core",
  "zeroize",
 ]
 
 [[package]]
+name = "fn-dsa-sign"
+version = "0.3.0"
+source = "git+https://github.com/tectonic-labs/rust-fn-dsa?tag=tectonic%2Frust-fn-dsa-dev6#eddf50e9a2246a5cb2acc9db851852364eb69985"
+dependencies = [
+ "fn-dsa-comm 0.3.0 (git+https://github.com/tectonic-labs/rust-fn-dsa?tag=tectonic%2Frust-fn-dsa-dev6)",
+ "zeroize",
+]
+
+[[package]]
 name = "fn-dsa-vrfy"
 version = "0.3.0"
-source = "git+https://github.com/tectonic-labs/rust-fn-dsa?tag=tectonic%2Frust-fn-dsa-dev5#19bd797bbd44c8935ddbe4a2079b30f4c4d1d7f0"
+source = "git+https://github.com/tectonic-labs/rust-fn-dsa?tag=tectonic%2Frust-fn-dsa-dev6#eddf50e9a2246a5cb2acc9db851852364eb69985"
 dependencies = [
- "fn-dsa-comm",
+ "fn-dsa-comm 0.3.0 (git+https://github.com/tectonic-labs/rust-fn-dsa?tag=tectonic%2Frust-fn-dsa-dev6)",
 ]
 
 [[package]]

@@ -34,12 +34,12 @@ features = [
 
 [dependencies.fn-dsa-comm]
 git = "https://github.com/tectonic-labs/rust-fn-dsa"
-tag = "tectonic/rust-fn-dsa-dev5"
+tag = "tectonic/rust-fn-dsa-dev6"
 optional = true
 
 [dependencies.fn-dsa-kgen]
 git = "https://github.com/tectonic-labs/rust-fn-dsa"
-tag = "tectonic/rust-fn-dsa-dev5"
+tag = "tectonic/rust-fn-dsa-dev6"
 optional = true
 
 [dependencies.fn-dsa-sign]
@@ -49,12 +49,12 @@ optional = true
 
 [dependencies.fn-dsa-vrfy]
 git = "https://github.com/tectonic-labs/rust-fn-dsa"
-tag = "tectonic/rust-fn-dsa-dev5"
+tag = "tectonic/rust-fn-dsa-dev6"
 optional = true
 
 [dev-dependencies.fn-dsa]
 git = "https://github.com/tectonic-labs/rust-fn-dsa"
-tag = "tectonic/rust-fn-dsa-dev5"
+tag = "tectonic/rust-fn-dsa-dev6"
 
 [dev-dependencies]
 falcon-rust = "0.1.2"
