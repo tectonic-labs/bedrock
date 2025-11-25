@@ -2,6 +2,4 @@
 
 mod fn_dsa;
 
-mod pqcrypto;
-
 mod falcon_rust;
