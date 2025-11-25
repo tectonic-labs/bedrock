@@ -16,7 +16,7 @@ macro_rules! impl_falcon_struct {
 
         #[derive(Clone, Debug, Serialize, Deserialize)]
         #[cfg_attr(test, derive(PartialEq, Eq))]
-        #[doc = concat!("A [`", stringify!($convert), "`] for fn-dsa")]
+        #[doc = concat!("A [`", stringify!($name), "`] for fn-dsa")]
         #[repr(transparent)]
         pub struct $name(pub(crate) InnerFalcon);
 
