@@ -1,54 +1,58 @@
 //! Falcon key and signature methods
 
 use crate::error::{Error, Result};
-use oqs::sig::{Algorithm, PublicKey, SecretKey, Sig, Signature};
-use serde::{
-    Deserialize, Deserializer, Serialize, Serializer,
-    de::{Error as DError, MapAccess, Visitor},
-    ser::SerializeStruct,
-};
+use oqs::sig::{Algorithm, Sig};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::{
     fmt::{self, Display, Formatter},
     str::FromStr,
 };
 
-macro_rules! derive_cfg_test {
-    ($name:ident) => {
-        #[cfg(test)]
-        impl Eq for $name {}
+#[cfg(feature = "eth_falcon")]
+mod eth_falcon;
 
-        #[cfg(test)]
-        impl PartialEq for $name {
-            fn eq(&self, other: &Self) -> bool {
-                self.scheme == other.scheme && self.value.as_ref() == other.value.as_ref()
-            }
-        }
-    };
-}
+macro_rules! impl_falcon_struct {
+    ($name:ident, $convert:ident, $expect:expr) => {
 
-macro_rules! impl_raw {
-    ($name:ident) => {
+        #[derive(Clone, Debug, Serialize, Deserialize)]
+        #[cfg_attr(test, derive(PartialEq, Eq))]
+        #[doc = concat!("A [`", stringify!($convert), "`] for fn-dsa")]
+        #[repr(transparent)]
+        pub struct $name(pub(crate) InnerFalcon);
+
         impl AsRef<[u8]> for $name {
             fn as_ref(&self) -> &[u8] {
-                self.value.as_ref()
+                self.0.value.as_ref()
+            }
+        }
+
+        impl From<InnerFalcon> for $name {
+            fn from(inner: InnerFalcon) -> Self {
+                Self(inner)
             }
         }
 
         impl $name {
+            /// The [`FalconScheme`] represented by this struct
+            pub fn scheme(&self) -> FalconScheme {
+                self.0.scheme
+            }
+
             #[doc = concat!("Convert [`", stringify!($name), "`] to its raw byte representation")]
             pub fn to_raw_bytes(&self) -> Vec<u8> {
-                self.value.as_ref().to_vec()
+                self.0.value.clone()
             }
 
             #[doc = concat!("Convert [`", stringify!($name), "`] from its raw byte representation and scheme")]
-            pub fn from_raw_bytes(bytes: &[u8]) -> Result<Self> {
-                let inner = FalconSerde {
-                    scheme: FalconScheme::from_any_length(bytes.len())?,
+            pub fn from_raw_bytes(scheme: FalconScheme, bytes: &[u8]) -> Result<Self> {
+                let alg = scheme.into();
+                let sig = Sig::new(alg).expect("a valid algorithm");
+                let _value = sig.$convert(bytes).ok_or(Error::OqsError($expect.to_string()))?.to_owned();
+                Ok(InnerFalcon {
+                    scheme,
                     value: bytes.to_vec(),
-                };
-                Self::try_from(inner)
+                }.into())
             }
-
         }
     };
 }
@@ -71,6 +75,8 @@ impl From<FalconScheme> for Algorithm {
         match scheme {
             FalconScheme::Dsa512 => Algorithm::Falcon512,
             FalconScheme::Dsa1024 => Algorithm::Falcon1024,
+            #[cfg(feature = "eth_falcon")]
+            // Used solely for testing encodings since OQS doesn't know about ETHFALCON
             FalconScheme::Ethereum => Algorithm::Falcon512,
         }
     }
@@ -81,6 +87,8 @@ impl From<&FalconScheme> for Algorithm {
         match *scheme {
             FalconScheme::Dsa512 => Algorithm::Falcon512,
             FalconScheme::Dsa1024 => Algorithm::Falcon1024,
+            #[cfg(feature = "eth_falcon")]
+            // Used solely for testing encodings since OQS doesn't know about ETHFALCON
             FalconScheme::Ethereum => Algorithm::Falcon512,
         }
     }
@@ -91,6 +99,7 @@ impl From<FalconScheme> for u8 {
         match scheme {
             FalconScheme::Dsa512 => 1,
             FalconScheme::Dsa1024 => 2,
+            #[cfg(feature = "eth_falcon")]
             FalconScheme::Ethereum => 3,
         }
     }
@@ -109,6 +118,7 @@ impl TryFrom<u8> for FalconScheme {
         match value {
             1 => Ok(FalconScheme::Dsa512),
             2 => Ok(FalconScheme::Dsa1024),
+            #[cfg(feature = "eth_falcon")]
             3 => Ok(FalconScheme::Ethereum),
             _ => Err(Error::InvalidScheme(value)),
         }
@@ -123,6 +133,7 @@ impl Display for FalconScheme {
             match self {
                 Self::Dsa512 => "FN-DSA-512",
                 Self::Dsa1024 => "FN-DSA-1024",
+                #[cfg(feature = "eth_falcon")]
                 Self::Ethereum => "ETHFALCON",
             }
         )
@@ -136,6 +147,7 @@ impl FromStr for FalconScheme {
         match s {
             "FN-DSA-512" => Ok(FalconScheme::Dsa512),
             "FN-DSA-1024" => Ok(FalconScheme::Dsa1024),
+            #[cfg(feature = "eth_falcon")]
             "ETHFALCON" => Ok(FalconScheme::Ethereum),
             _ => Err(Error::InvalidSchemeStr(s.to_string())),
         }
@@ -178,14 +190,16 @@ impl FalconScheme {
         let scheme = Sig::new(alg)?;
         let (pk, sk) = scheme.keypair()?;
         Ok((
-            FalconVerificationKey {
+            InnerFalcon {
                 scheme: *self,
-                value: pk,
-            },
-            FalconSigningKey {
+                value: pk.into_vec(),
+            }
+            .into(),
+            InnerFalcon {
                 scheme: *self,
-                value: sk,
-            },
+                value: sk.into_vec(),
+            }
+            .into(),
         ))
     }
 
@@ -202,14 +216,16 @@ impl FalconScheme {
         let scheme = Sig::new(alg)?;
         let (pk, sk) = scheme.keypair_from_seed(seed)?;
         Ok((
-            FalconVerificationKey {
+            InnerFalcon {
                 scheme: *self,
-                value: pk,
-            },
-            FalconSigningKey {
+                value: pk.into_vec(),
+            }
+            .into(),
+            InnerFalcon {
                 scheme: *self,
-                value: sk,
-            },
+                value: sk.into_vec(),
+            }
+            .into(),
         ))
     }
 
@@ -221,47 +237,20 @@ impl FalconScheme {
     ) -> Result<FalconSignature> {
         let alg = self.into();
         let scheme = Sig::new(alg)?;
-        let signature = scheme.sign(message, &signing_key.value)?;
-        Ok(FalconSignature {
+        let sk = scheme
+            .secret_key_from_bytes(signing_key.0.value.as_slice())
+            .ok_or_else(|| Error::OqsError("an invalid signing key".to_string()))?;
+        let signature = scheme.sign(message, sk)?;
+        Ok(InnerFalcon {
             scheme: *self,
-            value: signature,
-        })
+            value: signature.into_vec(),
+        }
+        .into())
     }
 
     #[cfg(all(feature = "sign", not(feature = "eth_falcon")))]
     pub fn sign(&self, message: &[u8], signing_key: &FalconSigningKey) -> Result<FalconSignature> {
         self.sign_inner(message, signing_key)
-    }
-
-    #[cfg(all(feature = "sign", feature = "eth_falcon"))]
-    /// Sign a message
-    pub fn sign(&self, message: &[u8], signing_key: &FalconSigningKey) -> Result<FalconSignature> {
-        match self {
-            Self::Ethereum => {
-                use fn_dsa_sign::{
-                    FN_DSA_LOGN_512, SigningKey, SigningKeyStandard,
-                    eth_falcon::{EthFalconSigningKey, generate_salt},
-                    signature_size,
-                };
-
-                let mut sk = SigningKeyStandard::decode(signing_key.value.as_ref())
-                    .ok_or_else(|| Error::FnDsaError("Invalid signing key".to_string()))?;
-                let salt = generate_salt();
-                let mut sig = [0u8; signature_size(FN_DSA_LOGN_512)];
-                sk.sign_eth(message, &salt, &mut sig);
-                let alg = self.into();
-                let scheme = Sig::new(alg)?;
-                let value = scheme
-                    .signature_from_bytes(&sig)
-                    .map(|s| s.to_owned())
-                    .ok_or(Error::FnDsaError("Invalid signature".to_string()))?;
-                Ok(FalconSignature {
-                    scheme: *self,
-                    value,
-                })
-            }
-            _ => self.sign_inner(message, signing_key),
-        }
     }
 
     #[cfg(feature = "vrfy")]
@@ -273,7 +262,13 @@ impl FalconScheme {
     ) -> Result<()> {
         let alg = self.into();
         let scheme = Sig::new(alg)?;
-        scheme.verify(message, &signature.value, &verification_key.value)?;
+        let sig = scheme
+            .signature_from_bytes(signature.0.value.as_slice())
+            .ok_or_else(|| Error::OqsError("an invalid signature".to_string()))?;
+        let vk = scheme
+            .public_key_from_bytes(verification_key.0.value.as_slice())
+            .ok_or_else(|| Error::OqsError("an invalid public key".to_string()))?;
+        scheme.verify(message, sig, vk)?;
         Ok(())
     }
 
@@ -287,360 +282,25 @@ impl FalconScheme {
     ) -> Result<()> {
         self.verify_inner(message, signature, verification_key)
     }
-
-    #[cfg(all(feature = "vrfy", feature = "eth_falcon"))]
-    /// Verify a signature
-    pub fn verify(
-        &self,
-        message: &[u8],
-        signature: &FalconSignature,
-        verification_key: &FalconVerificationKey,
-    ) -> Result<()> {
-        match self {
-            Self::Ethereum => {
-                use fn_dsa_comm::eth_falcon::{SALT_LEN, decode_signature_to_packed};
-                use fn_dsa_vrfy::eth_falcon::EthFalconVerifyingKey as Efvk;
-
-                let pk = crate::eth_falcon::EthFalconVerifyingKey::try_from(verification_key)?;
-                let pk = Efvk::decode(&pk);
-
-                let mut salt = [0u8; SALT_LEN];
-                salt.copy_from_slice(&signature.value.as_ref()[1..41]);
-
-                let sig = decode_signature_to_packed(signature.value.as_ref())
-                    .map_err(|e| Error::FnDsaError(e.to_string()))?;
-
-                if pk.verify(message, &salt, &sig) {
-                    Ok(())
-                } else {
-                    Err(Error::FnDsaError("Invalid signature".to_string()))
-                }
-            }
-            _ => self.verify_inner(message, signature, verification_key),
-        }
-    }
-
-    const fn from_any_length(length: usize) -> Result<Self> {
-        match length {
-            1281                                 // sign-key
-            | 897                                // vrfy-key
-            | 666 => Ok(FalconScheme::Dsa512),   // signature
-            2305                                 // sign-key
-            | 1793                               // vrfy-key
-            | 1280 => Ok(FalconScheme::Dsa1024), // signature
-            _ => Err(Error::InvalidLength(length))
-        }
-    }
 }
 
-/// Falcon signing key
+impl_falcon_struct!(
+    FalconSigningKey,
+    secret_key_from_bytes,
+    "a valid signing key"
+);
+impl_falcon_struct!(
+    FalconVerificationKey,
+    public_key_from_bytes,
+    "a valid public key"
+);
+impl_falcon_struct!(FalconSignature, signature_from_bytes, "a valid signature");
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(into = "FalconSerde", try_from = "FalconSerde")]
-pub struct FalconSigningKey {
+#[cfg_attr(test, derive(PartialEq, Eq))]
+pub(crate) struct InnerFalcon {
     pub(crate) scheme: FalconScheme,
-    pub(crate) value: SecretKey,
-}
-
-derive_cfg_test!(FalconSigningKey);
-
-impl_raw!(FalconSigningKey);
-
-impl FalconSigningKey {
-    #[cfg(feature = "eth_falcon")]
-    /// Change the scheme if allowed
-    ///
-    /// NOTE: feels kludgy
-    pub fn set_scheme(&mut self, scheme: FalconScheme) -> Result<()> {
-        let my_scheme = self.scheme;
-        match (my_scheme, scheme) {
-            (FalconScheme::Dsa512, FalconScheme::Ethereum)
-            | (FalconScheme::Ethereum, FalconScheme::Dsa512) => {
-                self.scheme = scheme;
-                Ok(())
-            }
-            _ => Err(Error::InvalidSchemeStr(format!(
-                "Unsupported scheme change from {} to {}",
-                my_scheme, scheme
-            ))),
-        }
-    }
-}
-
-/// Falcon verification key
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(into = "FalconSerde", try_from = "FalconSerde")]
-pub struct FalconVerificationKey {
-    pub(crate) scheme: FalconScheme,
-    pub(crate) value: PublicKey,
-}
-
-derive_cfg_test!(FalconVerificationKey);
-
-impl_raw!(FalconVerificationKey);
-
-impl FalconVerificationKey {
-    #[cfg(feature = "eth_falcon")]
-    /// Change the scheme if allowed
-    ///
-    /// NOTE: feels kludgy
-    pub fn set_scheme(&mut self, scheme: FalconScheme) -> Result<()> {
-        let my_scheme = self.scheme;
-        match (my_scheme, scheme) {
-            (FalconScheme::Dsa512, FalconScheme::Ethereum)
-            | (FalconScheme::Ethereum, FalconScheme::Dsa512) => {
-                self.scheme = scheme;
-                Ok(())
-            }
-            _ => Err(Error::InvalidSchemeStr(format!(
-                "Unsupported scheme change from {} to {}",
-                my_scheme, scheme
-            ))),
-        }
-    }
-}
-
-#[cfg(feature = "eth_falcon")]
-impl TryFrom<FalconVerificationKey> for crate::eth_falcon::EthFalconVerifyingKey {
-    type Error = Error;
-
-    fn try_from(public_key: FalconVerificationKey) -> std::result::Result<Self, Self::Error> {
-        Self::try_from(&public_key)
-    }
-}
-
-#[cfg(feature = "eth_falcon")]
-impl TryFrom<&FalconVerificationKey> for crate::eth_falcon::EthFalconVerifyingKey {
-    type Error = Error;
-
-    /// Convert Falcon public key to ETHFALCON Solidity format (abi.encodePacked, NTT form)
-    ///
-    /// # Arguments
-    /// * `pubkey` - Standard Falcon public key (897 bytes)
-    ///
-    /// # Returns
-    /// * 1024-byte abi.encodePacked(uint256\[32\]) format
-    fn try_from(public_key: &FalconVerificationKey) -> Result<Self> {
-        if public_key.scheme == FalconScheme::Ethereum {
-            fn_dsa_comm::eth_falcon::decode_pubkey_to_ntt_packed(public_key.value.as_ref())
-                .map_err(|e| Error::FnDsaError(e.to_string()))
-        } else {
-            Err(Error::InvalidSchemeStr(
-                "Only ETHFALCON public key is supported".to_string(),
-            ))
-        }
-    }
-}
-
-/// Falcon signature
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(into = "FalconSerde", try_from = "FalconSerde")]
-pub struct FalconSignature {
-    pub(crate) scheme: FalconScheme,
-    pub(crate) value: Signature,
-}
-
-derive_cfg_test!(FalconSignature);
-
-impl_raw!(FalconSignature);
-
-#[cfg(feature = "eth_falcon")]
-impl TryFrom<FalconSignature> for crate::eth_falcon::EthFalconSignature {
-    type Error = Error;
-
-    /// Convert Falcon signature to ETHFALCON Solidity format (abi.encodePacked)
-    ///
-    /// # Arguments
-    /// * `signature` - Standard Falcon signature bytes
-    ///
-    /// # Returns
-    /// * 1024-byte abi.encodePacked(uint256\[32\]) format
-    fn try_from(signature: FalconSignature) -> Result<Self> {
-        Self::try_from(&signature)
-    }
-}
-
-#[cfg(feature = "eth_falcon")]
-impl TryFrom<&FalconSignature> for crate::eth_falcon::EthFalconSignature {
-    type Error = Error;
-
-    fn try_from(signature: &FalconSignature) -> Result<Self> {
-        if signature.scheme == FalconScheme::Ethereum {
-            fn_dsa_comm::eth_falcon::decode_signature_to_packed(signature.value.as_ref())
-                .map_err(|e| Error::FnDsaError(e.to_string()))
-        } else {
-            Err(Error::InvalidSchemeStr(
-                "Only ETHFALCON signature is supported".to_string(),
-            ))
-        }
-    }
-}
-
-/// Exists solely for serialization and deserialization purposes
-struct FalconSerde {
-    scheme: FalconScheme,
-    value: Vec<u8>,
-}
-
-impl From<FalconSigningKey> for FalconSerde {
-    fn from(key: FalconSigningKey) -> Self {
-        Self::from(&key)
-    }
-}
-
-impl From<&FalconSigningKey> for FalconSerde {
-    fn from(key: &FalconSigningKey) -> Self {
-        FalconSerde {
-            scheme: key.scheme,
-            value: key.value.as_ref().to_vec(),
-        }
-    }
-}
-
-impl TryFrom<FalconSerde> for FalconSigningKey {
-    type Error = Error;
-
-    fn try_from(value: FalconSerde) -> Result<Self> {
-        let alg = value.scheme.into();
-        let scheme = Sig::new(alg)?;
-        let key = scheme
-            .secret_key_from_bytes(&value.value)
-            .ok_or(Error::OqsError("Invalid signing key".to_string()))?;
-        Ok(FalconSigningKey {
-            scheme: value.scheme,
-            value: key.to_owned(),
-        })
-    }
-}
-
-impl From<FalconVerificationKey> for FalconSerde {
-    fn from(value: FalconVerificationKey) -> Self {
-        Self::from(&value)
-    }
-}
-
-impl From<&FalconVerificationKey> for FalconSerde {
-    fn from(key: &FalconVerificationKey) -> Self {
-        FalconSerde {
-            scheme: key.scheme,
-            value: key.value.as_ref().to_vec(),
-        }
-    }
-}
-
-impl TryFrom<FalconSerde> for FalconVerificationKey {
-    type Error = Error;
-
-    fn try_from(value: FalconSerde) -> Result<Self> {
-        let alg = value.scheme.into();
-        let scheme = Sig::new(alg)?;
-        let key = scheme
-            .public_key_from_bytes(&value.value)
-            .ok_or(Error::OqsError("Invalid verification key".to_string()))?;
-        Ok(Self {
-            scheme: value.scheme,
-            value: key.to_owned(),
-        })
-    }
-}
-
-impl From<FalconSignature> for FalconSerde {
-    fn from(value: FalconSignature) -> Self {
-        Self::from(&value)
-    }
-}
-
-impl From<&FalconSignature> for FalconSerde {
-    fn from(value: &FalconSignature) -> Self {
-        Self {
-            scheme: value.scheme,
-            value: value.value.as_ref().to_vec(),
-        }
-    }
-}
-
-impl TryFrom<FalconSerde> for FalconSignature {
-    type Error = Error;
-
-    fn try_from(value: FalconSerde) -> Result<Self> {
-        let alg = value.scheme.into();
-        let scheme = Sig::new(alg)?;
-        let signature = scheme
-            .signature_from_bytes(&value.value)
-            .ok_or(Error::OqsError("Invalid signature".to_string()))?;
-        Ok(Self {
-            scheme: value.scheme,
-            value: signature.to_owned(),
-        })
-    }
-}
-
-impl Serialize for FalconSerde {
-    fn serialize<S>(&self, s: S) -> std::result::Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        if s.is_human_readable() {
-            let mut state = s.serialize_struct("FalconSigningKey", 2)?;
-            state.serialize_field("scheme", &self.scheme)?;
-            state.serialize_field("key", &hex::encode(&self.value))?;
-            state.end()
-        } else {
-            self.value.serialize(s)
-        }
-    }
-}
-
-impl<'de> Deserialize<'de> for FalconSerde {
-    fn deserialize<D>(d: D) -> std::result::Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        if d.is_human_readable() {
-            struct SerdeVisitor;
-
-            impl<'de> Visitor<'de> for SerdeVisitor {
-                type Value = FalconSerde;
-
-                fn expecting(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
-                    formatter.write_str("a falcon signing key in human readable format")
-                }
-
-                fn visit_map<V>(self, mut map: V) -> std::result::Result<Self::Value, V::Error>
-                where
-                    V: MapAccess<'de>,
-                {
-                    let mut scheme: Option<FalconScheme> = None;
-                    let mut key: Option<String> = None;
-
-                    while let Some(name) = map.next_key::<String>()? {
-                        match name.as_str() {
-                            "scheme" => {
-                                scheme = Some(map.next_value::<FalconScheme>()?);
-                            }
-                            "key" => {
-                                key = Some(map.next_value::<String>()?);
-                            }
-                            _ => {}
-                        }
-                    }
-
-                    let scheme = scheme.ok_or(DError::custom("scheme is required"))?;
-                    let key = key.ok_or(DError::custom("key is required"))?;
-                    let key = hex::decode(key).map_err(DError::custom)?;
-                    Ok(FalconSerde { scheme, value: key })
-                }
-            }
-
-            const FIELDS: &[&str] = &["scheme", "key"];
-            d.deserialize_struct("FalconSerde", FIELDS, SerdeVisitor)
-        } else {
-            let data = Vec::<u8>::deserialize(d)?;
-            let scheme = FalconScheme::from_any_length(data.len())
-                .map_err(|_| DError::custom("Invalid deserialization data".to_string()))?;
-            let key = data;
-            Ok(FalconSerde { scheme, value: key })
-        }
-    }
+    pub(crate) value: Vec<u8>,
 }
 
 #[cfg(test)]
@@ -669,7 +329,7 @@ mod tests {
         assert_eq!(pk, pk2);
 
         let msg = [0u8; 8];
-        let sig = sk.scheme.sign(&msg, &sk).unwrap();
+        let sig = sk.0.scheme.sign(&msg, &sk).unwrap();
 
         let bytes = postcard::to_stdvec(&sig).unwrap();
         let sig2 = postcard::from_bytes::<FalconSignature>(&bytes).unwrap();
@@ -686,11 +346,11 @@ mod tests {
         const MSG: &[u8] = &[0u8; 8];
         let (pk, sk) = FalconScheme::Dsa512.keypair().unwrap();
 
-        let signature = sk.scheme.sign(&MSG, &sk).unwrap();
-        let res = pk.scheme.verify(MSG, &signature, &pk);
+        let signature = sk.0.scheme.sign(&MSG, &sk).unwrap();
+        let res = pk.0.scheme.verify(MSG, &signature, &pk);
         assert!(res.is_ok());
 
-        let res = pk.scheme.verify(&[1u8; 8], &signature, &pk);
+        let res = pk.0.scheme.verify(&[1u8; 8], &signature, &pk);
         assert!(res.is_err());
     }
 

@@ -27,14 +27,20 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c08606f8c3cbf4ce6ec8e28fb0014a2c086708fe954eaa885384a6165172e7e8"
 
 [[package]]
+name = "base16ct"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d8b59d472eab27ade8d770dcb11da7201c11234bef9f82ce7aa517be028d462b"
+
+[[package]]
 name = "bedrock"
 version = "0.1.0"
 dependencies = [
  "falcon-rust",
  "fn-dsa",
- "fn-dsa-comm 0.3.0 (git+https://github.com/tectonic-labs/rust-fn-dsa?tag=tectonic%2Frust-fn-dsa-dev6)",
+ "fn-dsa-comm",
  "fn-dsa-kgen",
- "fn-dsa-sign 0.3.0 (git+https://github.com/tectonic-labs/rust-fn-dsa?tag=tectonic%2Frust-fn-dsa-dev5)",
+ "fn-dsa-sign",
  "fn-dsa-vrfy",
  "hex",
  "oqs",
@@ -268,28 +274,18 @@ checksum = "3a3076410a55c90011c298b04d0cfa770b00fa04e1e3c97d3f6c9de105a03844"
 [[package]]
 name = "fn-dsa"
 version = "0.3.0"
-source = "git+https://github.com/tectonic-labs/rust-fn-dsa?tag=tectonic%2Frust-fn-dsa-dev6#eddf50e9a2246a5cb2acc9db851852364eb69985"
+source = "git+https://github.com/tectonic-labs/rust-fn-dsa?tag=tectonic%2F0.3.0#a5d330574792d0f894e0e46ec83746cd44902062"
 dependencies = [
- "fn-dsa-comm 0.3.0 (git+https://github.com/tectonic-labs/rust-fn-dsa?tag=tectonic%2Frust-fn-dsa-dev6)",
+ "fn-dsa-comm",
  "fn-dsa-kgen",
- "fn-dsa-sign 0.3.0 (git+https://github.com/tectonic-labs/rust-fn-dsa?tag=tectonic%2Frust-fn-dsa-dev6)",
+ "fn-dsa-sign",
  "fn-dsa-vrfy",
 ]
 
 [[package]]
 name = "fn-dsa-comm"
 version = "0.3.0"
-source = "git+https://github.com/tectonic-labs/rust-fn-dsa?tag=tectonic%2Frust-fn-dsa-dev5#19bd797bbd44c8935ddbe4a2079b30f4c4d1d7f0"
-dependencies = [
- "cpufeatures",
- "rand_core",
- "tiny-keccak",
-]
-
-[[package]]
-name = "fn-dsa-comm"
-version = "0.3.0"
-source = "git+https://github.com/tectonic-labs/rust-fn-dsa?tag=tectonic%2Frust-fn-dsa-dev6#eddf50e9a2246a5cb2acc9db851852364eb69985"
+source = "git+https://github.com/tectonic-labs/rust-fn-dsa?tag=tectonic%2F0.3.0#a5d330574792d0f894e0e46ec83746cd44902062"
 dependencies = [
  "cpufeatures",
  "rand_core",
@@ -299,38 +295,29 @@ dependencies = [
 [[package]]
 name = "fn-dsa-kgen"
 version = "0.3.0"
-source = "git+https://github.com/tectonic-labs/rust-fn-dsa?tag=tectonic%2Frust-fn-dsa-dev6#eddf50e9a2246a5cb2acc9db851852364eb69985"
+source = "git+https://github.com/tectonic-labs/rust-fn-dsa?tag=tectonic%2F0.3.0#a5d330574792d0f894e0e46ec83746cd44902062"
 dependencies = [
- "fn-dsa-comm 0.3.0 (git+https://github.com/tectonic-labs/rust-fn-dsa?tag=tectonic%2Frust-fn-dsa-dev6)",
+ "fn-dsa-comm",
  "zeroize",
 ]
 
 [[package]]
 name = "fn-dsa-sign"
 version = "0.3.0"
-source = "git+https://github.com/tectonic-labs/rust-fn-dsa?tag=tectonic%2Frust-fn-dsa-dev5#19bd797bbd44c8935ddbe4a2079b30f4c4d1d7f0"
+source = "git+https://github.com/tectonic-labs/rust-fn-dsa?tag=tectonic%2F0.3.0#a5d330574792d0f894e0e46ec83746cd44902062"
 dependencies = [
- "fn-dsa-comm 0.3.0 (git+https://github.com/tectonic-labs/rust-fn-dsa?tag=tectonic%2Frust-fn-dsa-dev5)",
+ "fn-dsa-comm",
  "rand_chacha",
  "rand_core",
  "zeroize",
 ]
 
 [[package]]
-name = "fn-dsa-sign"
-version = "0.3.0"
-source = "git+https://github.com/tectonic-labs/rust-fn-dsa?tag=tectonic%2Frust-fn-dsa-dev6#eddf50e9a2246a5cb2acc9db851852364eb69985"
-dependencies = [
- "fn-dsa-comm 0.3.0 (git+https://github.com/tectonic-labs/rust-fn-dsa?tag=tectonic%2Frust-fn-dsa-dev6)",
- "zeroize",
-]
-
-[[package]]
 name = "fn-dsa-vrfy"
 version = "0.3.0"
-source = "git+https://github.com/tectonic-labs/rust-fn-dsa?tag=tectonic%2Frust-fn-dsa-dev6#eddf50e9a2246a5cb2acc9db851852364eb69985"
+source = "git+https://github.com/tectonic-labs/rust-fn-dsa?tag=tectonic%2F0.3.0#a5d330574792d0f894e0e46ec83746cd44902062"
 dependencies = [
- "fn-dsa-comm 0.3.0 (git+https://github.com/tectonic-labs/rust-fn-dsa?tag=tectonic%2Frust-fn-dsa-dev6)",
+ "fn-dsa-comm",
 ]
 
 [[package]]
@@ -571,17 +558,20 @@ dependencies = [
 [[package]]
 name = "oqs"
 version = "0.11.0"
-source = "git+https://github.com/tectonic-labs/liboqs-rust?tag=tectonic%2F0.11.0-falcon-padded-dev3#9c98bf33fcff71bad293f36a78de7e43108c4aa5"
+source = "git+https://github.com/tectonic-labs/liboqs-rust?tag=tectonic%2F0.11.0-falcon-padded-dev5#610dc78181cb55d16d69e49c8fa44a30088d1a47"
 dependencies = [
  "cstr_core",
  "libc",
  "oqs-sys",
+ "serde",
+ "serdect",
+ "zeroize",
 ]
 
 [[package]]
 name = "oqs-sys"
 version = "0.11.0+liboqs-0.13.0"
-source = "git+https://github.com/tectonic-labs/liboqs-rust?tag=tectonic%2F0.11.0-falcon-padded-dev3#9c98bf33fcff71bad293f36a78de7e43108c4aa5"
+source = "git+https://github.com/tectonic-labs/liboqs-rust?tag=tectonic%2F0.11.0-falcon-padded-dev5#610dc78181cb55d16d69e49c8fa44a30088d1a47"
 dependencies = [
  "bindgen",
  "build-deps",
@@ -839,6 +829,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "serdect"
+version = "0.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d3ef0e35b322ddfaecbc60f34ab448e157e48531288ee49fafbb053696b8ffe2"
+dependencies = [
+ "base16ct",
+ "serde",
+]
+
+[[package]]
 name = "sha3"
 version = "0.10.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -871,9 +871,9 @@ checksum = "6ce2be8dc25455e1f91df71bfa12ad37d7af1092ae736f3a6cd0e37bc7810596"
 
 [[package]]
 name = "syn"
-version = "2.0.110"
+version = "2.0.111"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a99801b5bd34ede4cf3fc688c5919368fea4e4814a4664359503e6015b280aea"
+checksum = "390cc9a294ab71bdb1aa2e99d13be9c753cd2d7bd6560c77118597410c4d2e87"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -956,18 +956,18 @@ checksum = "f17a85883d4e6d00e8a97c586de764dabcc06133f7f1d55dce5cdc070ad7fe59"
 
 [[package]]
 name = "zerocopy"
-version = "0.8.28"
+version = "0.8.30"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "43fa6694ed34d6e57407afbccdeecfa268c470a7d2a5b0cf49ce9fcc345afb90"
+checksum = "4ea879c944afe8a2b25fef16bb4ba234f47c694565e97383b36f3a878219065c"
 dependencies = [
  "zerocopy-derive",
 ]
 
 [[package]]
 name = "zerocopy-derive"
-version = "0.8.28"
+version = "0.8.30"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c640b22cd9817fae95be82f0d2f90b11f7605f6c319d16705c459b27ac2cbc26"
+checksum = "cf955aa904d6040f70dc8e9384444cb1030aed272ba3cb09bbc4ab9e7c1f34f5"
 dependencies = [
  "proc-macro2",
  "quote",

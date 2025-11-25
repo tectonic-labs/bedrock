@@ -26,35 +26,37 @@ zeroize = { version = "1.8", optional = true }
 
 [dependencies.oqs]
 git = "https://github.com/tectonic-labs/liboqs-rust"
-tag = "tectonic/0.11.0-falcon-padded-dev3"
+tag = "tectonic/0.11.0-falcon-padded-dev5"
 default-features = false
 features = [
-    "falcon"
+    "falcon",
+    "serde",
+    "zeroize",
 ]
 
 [dependencies.fn-dsa-comm]
 git = "https://github.com/tectonic-labs/rust-fn-dsa"
-tag = "tectonic/rust-fn-dsa-dev6"
+tag = "tectonic/0.3.0"
 optional = true
 
 [dependencies.fn-dsa-kgen]
 git = "https://github.com/tectonic-labs/rust-fn-dsa"
-tag = "tectonic/rust-fn-dsa-dev6"
+tag = "tectonic/0.3.0"
 optional = true
 
 [dependencies.fn-dsa-sign]
 git = "https://github.com/tectonic-labs/rust-fn-dsa"
-tag = "tectonic/rust-fn-dsa-dev5"
+tag = "tectonic/0.3.0"
 optional = true
 
 [dependencies.fn-dsa-vrfy]
 git = "https://github.com/tectonic-labs/rust-fn-dsa"
-tag = "tectonic/rust-fn-dsa-dev6"
+tag = "tectonic/0.3.0"
 optional = true
 
 [dev-dependencies.fn-dsa]
 git = "https://github.com/tectonic-labs/rust-fn-dsa"
-tag = "tectonic/rust-fn-dsa-dev6"
+tag = "tectonic/0.3.0"
 
 [dev-dependencies]
 falcon-rust = "0.1.2"

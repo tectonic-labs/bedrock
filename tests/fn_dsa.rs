@@ -20,11 +20,8 @@ fn fn_dsa_to_eth_falcon_compatibility() {
     let mut pk = [0u8; fn_dsa::vrfy_key_size(FN_DSA_LOGN_512)];
     kg.keygen_from_seed(FN_DSA_LOGN_512, &SEED, &mut sk, &mut pk);
 
-    let mut eth_sk = FalconSigningKey::from_raw_bytes(&sk).unwrap();
-    let mut eth_pk = FalconVerificationKey::from_raw_bytes(&pk).unwrap();
-
-    eth_pk.set_scheme(FALCON_SCHEME).unwrap();
-    eth_sk.set_scheme(FALCON_SCHEME).unwrap();
+    let eth_sk = FalconSigningKey::from_raw_bytes(FALCON_SCHEME, &sk).unwrap();
+    let eth_pk = FalconVerificationKey::from_raw_bytes(FALCON_SCHEME, &pk).unwrap();
 
     let signature = FALCON_SCHEME.sign(MSG, &eth_sk).unwrap();
 
@@ -43,10 +40,10 @@ fn fn_dsa_to_bedrock_compatibility_512() {
     let mut pk = [0u8; fn_dsa::vrfy_key_size(FN_DSA_LOGN_512)];
     kg.keygen(FN_DSA_LOGN_512, &mut rng, &mut sk, &mut pk);
 
-    let res = FalconSigningKey::from_raw_bytes(&sk[..]);
+    let res = FalconSigningKey::from_raw_bytes(FALCON_SCHEME, &sk[..]);
     assert!(res.is_ok());
     let bedrock_sk = res.unwrap();
-    let res = FalconVerificationKey::from_raw_bytes(&pk[..]);
+    let res = FalconVerificationKey::from_raw_bytes(FALCON_SCHEME, &pk[..]);
     assert!(res.is_ok());
     let bedrock_pk = res.unwrap();
     let res = FALCON_SCHEME.sign(MSG, &bedrock_sk);
