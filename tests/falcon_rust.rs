@@ -1,3 +1,5 @@
+#![allow(missing_docs)]
+
 use bedrock::falcon::FalconScheme;
 use falcon_rust::falcon512;
 use rand::{Rng, SeedableRng};

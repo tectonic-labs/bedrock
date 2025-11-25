@@ -1,3 +1,5 @@
+#![allow(missing_docs)]
+
 use bedrock::falcon::FalconScheme;
 use pqcrypto::sign::falconpadded512;
 use pqcrypto::traits::sign::{DetachedSignature, PublicKey, SecretKey};

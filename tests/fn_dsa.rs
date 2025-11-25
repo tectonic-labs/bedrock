@@ -1,4 +1,4 @@
-//! Tests for compatibility of crate `fn_dsa`
+#![allow(missing_docs)]
 
 use bedrock::falcon::{FalconScheme, FalconSigningKey, FalconVerificationKey};
 use fn_dsa::{

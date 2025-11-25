@@ -1,5 +1,7 @@
-pub mod fn_dsa;
+#![allow(missing_docs)]
 
-pub mod pqcrypto;
+mod fn_dsa;
 
-pub mod falcon_rust;
+mod pqcrypto;
+
+mod falcon_rust;
