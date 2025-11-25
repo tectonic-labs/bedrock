@@ -1,3 +1,5 @@
+#![allow(missing_docs)]
+
 use bedrock::falcon::FalconScheme;
 use pqcrypto::sign::falconpadded512;
 use pqcrypto::traits::sign::{DetachedSignature, PublicKey, SecretKey};
@@ -10,12 +12,12 @@ fn pqcrypto_to_bedrock_compatibility_512() {
     let (pk, sk) = falconpadded512::keypair();
     let sig = falconpadded512::detached_sign(&MSG, &sk);
 
-    let res = bedrock::falcon::FalconSigningKey::from_raw_bytes(sk.as_bytes());
+    let res = bedrock::falcon::FalconSigningKey::from_raw_bytes(FALCON_SCHEME, sk.as_bytes());
     assert!(res.is_ok());
-    let res = bedrock::falcon::FalconVerificationKey::from_raw_bytes(pk.as_bytes());
+    let res = bedrock::falcon::FalconVerificationKey::from_raw_bytes(FALCON_SCHEME, pk.as_bytes());
     assert!(res.is_ok());
     let bedrock_pk = res.unwrap();
-    let res = bedrock::falcon::FalconSignature::from_raw_bytes(sig.as_bytes());
+    let res = bedrock::falcon::FalconSignature::from_raw_bytes(FALCON_SCHEME, sig.as_bytes());
     assert!(res.is_ok());
 
     let bedrock_sig = res.unwrap();

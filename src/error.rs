@@ -21,6 +21,9 @@ pub enum Error {
     /// Invalid length
     #[error("Invalid length: {0}")]
     InvalidLength(usize),
+    /// Errors related to ETH-FALCON DSA
+    #[error("An error occurred with eth-falcon: {0}")]
+    FnDsaError(String),
 }
 
 impl From<OqsError> for Error {
