@@ -2,7 +2,7 @@
 
 use crate::error::{Error, Result};
 use oqs::sig::{Algorithm, Sig};
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde::{Deserialize, Serialize};
 use std::{
     fmt::{self, Display, Formatter},
     str::FromStr,
@@ -144,7 +144,7 @@ impl FromStr for FalconScheme {
     type Err = Error;
 
     fn from_str(s: &str) -> Result<Self> {
-        match s {
+        match s.to_uppercase().as_str() {
             "FN-DSA-512" => Ok(FalconScheme::Dsa512),
             "FN-DSA-1024" => Ok(FalconScheme::Dsa1024),
             #[cfg(feature = "eth_falcon")]
@@ -154,33 +154,7 @@ impl FromStr for FalconScheme {
     }
 }
 
-impl Serialize for FalconScheme {
-    fn serialize<S>(&self, s: S) -> std::result::Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        if s.is_human_readable() {
-            s.serialize_str(&self.to_string())
-        } else {
-            s.serialize_u8(self.into())
-        }
-    }
-}
-
-impl<'de> Deserialize<'de> for FalconScheme {
-    fn deserialize<D>(d: D) -> std::result::Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        if d.is_human_readable() {
-            let s = String::deserialize(d)?;
-            Ok(s.parse().map_err(serde::de::Error::custom)?)
-        } else {
-            let u8 = u8::deserialize(d)?;
-            Ok(u8.try_into().map_err(serde::de::Error::custom)?)
-        }
-    }
-}
+serde_impl!(FalconScheme);
 
 impl FalconScheme {
     #[cfg(feature = "kgen")]
@@ -249,6 +223,7 @@ impl FalconScheme {
     }
 
     #[cfg(all(feature = "sign", not(feature = "eth_falcon")))]
+    /// Sign a message with the specified signing key
     pub fn sign(&self, message: &[u8], signing_key: &FalconSigningKey) -> Result<FalconSignature> {
         self.sign_inner(message, signing_key)
     }

@@ -10,8 +10,10 @@ repository = "https://github.com/tectonic-labs/bedrock"
 version = "0.1.0"
 
 [features]
-default = ["eth_falcon", "kgen", "sign", "vrfy"]
-eth_falcon = ["rand_chacha", "rand_core", "fn-dsa-comm/eth_falcon", "fn-dsa-sign?/eth_falcon", "fn-dsa-vrfy?/eth_falcon", "zeroize"]
+default = ["eth_falcon", "falcon", "ml-dsa", "kgen", "sign", "vrfy"]
+eth_falcon = ["falcon", "rand_chacha", "rand_core", "fn-dsa-comm/eth_falcon", "fn-dsa-sign?/eth_falcon", "fn-dsa-vrfy?/eth_falcon", "zeroize"]
+falcon = ["oqs/falcon"]
+ml-dsa = ["oqs/ml_dsa"]
 kgen = ["fn-dsa-comm", "fn-dsa-kgen", "rand_core?/getrandom"]
 sign = ["fn-dsa-comm", "fn-dsa-sign"]
 vrfy = ["fn-dsa-comm", "fn-dsa-vrfy"]
@@ -29,10 +31,10 @@ git = "https://github.com/tectonic-labs/liboqs-rust"
 tag = "tectonic/0.11.0-falcon-padded-dev5"
 default-features = false
 features = [
-    "falcon",
     "serde",
     "zeroize",
 ]
+optional = true
 
 [dependencies.fn-dsa-comm]
 git = "https://github.com/tectonic-labs/rust-fn-dsa"
@@ -63,6 +65,7 @@ falcon-rust = "0.1.2"
 postcard = {  version = "1.0", features = ["use-std"] }
 rand = "0.8"
 rand_chacha = "0.3"
+rstest = "0.26"
 serde_json = "1.0"
 
 [lints.rust]
