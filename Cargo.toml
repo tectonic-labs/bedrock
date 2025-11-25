@@ -61,7 +61,6 @@ tag = "tectonic/0.3.0"
 [dev-dependencies]
 falcon-rust = "0.1.2"
 postcard = {  version = "1.0", features = ["use-std"] }
-pqcrypto = { version = "0.18", default-features = false, features = ["pqcrypto-falcon"] }
 rand = "0.8"
 rand_chacha = "0.3"
 serde_json = "1.0"
