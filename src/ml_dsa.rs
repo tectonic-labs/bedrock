@@ -1,6 +1,6 @@
 //! ML-DSA key and signature methods
 
-use crate::error::*;
+use crate::{deserialize_hex_or_bin, error::*, serialize_hex_or_bin};
 use oqs::sig::{Algorithm, Sig};
 use serde::{Deserialize, Serialize};
 use std::{
@@ -220,6 +220,10 @@ impl MlDsaScheme {
 #[cfg_attr(test, derive(PartialEq, Eq))]
 pub(crate) struct InnerMlDsa {
     scheme: MlDsaScheme,
+    #[serde(
+        serialize_with = "serialize_hex_or_bin",
+        deserialize_with = "deserialize_hex_or_bin"
+    )]
     value: Vec<u8>,
 }
 

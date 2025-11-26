@@ -51,6 +51,7 @@ dependencies = [
  "rstest",
  "serde",
  "serde_json",
+ "serdect",
  "thiserror",
  "zeroize",
 ]

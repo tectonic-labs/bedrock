@@ -1,6 +1,10 @@
 //! Falcon key and signature methods
 
-use crate::error::{Error, Result};
+use crate::{
+    deserialize_hex_or_bin,
+    error::{Error, Result},
+    serialize_hex_or_bin,
+};
 use oqs::sig::{Algorithm, Sig};
 use serde::{Deserialize, Serialize};
 use std::{
@@ -275,23 +279,32 @@ impl_falcon_struct!(FalconSignature, signature_from_bytes, "a valid signature");
 #[cfg_attr(test, derive(PartialEq, Eq))]
 pub(crate) struct InnerFalcon {
     pub(crate) scheme: FalconScheme,
+    #[serde(
+        serialize_with = "serialize_hex_or_bin",
+        deserialize_with = "deserialize_hex_or_bin"
+    )]
     pub(crate) value: Vec<u8>,
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use rstest::*;
 
-    #[cfg(all(feature = "kgen", feature = "sign"))]
-    #[test]
-    fn serdes() {
-        let (pk, sk) = FalconScheme::Dsa512.keypair().unwrap();
+    #[cfg(all(feature = "kgen", feature = "sign", feature = "eth_falcon"))]
+    #[rstest]
+    #[case::fn512(FalconScheme::Dsa512)]
+    #[case::fn1024(FalconScheme::Dsa1024)]
+    #[case::ethereum(FalconScheme::Ethereum)]
+    fn serdes(#[case] scheme: FalconScheme) {
+        let (pk, sk) = scheme.keypair().unwrap();
 
         let bytes = postcard::to_stdvec(&sk).unwrap();
         let sk2 = postcard::from_bytes::<FalconSigningKey>(&bytes).unwrap();
         assert_eq!(sk, sk2);
 
         let string = serde_json::to_string(&sk).unwrap();
+        println!("{}", string);
         let sk2 = serde_json::from_str::<FalconSigningKey>(&string).unwrap();
         assert_eq!(sk, sk2);
 
@@ -315,11 +328,19 @@ mod tests {
         assert_eq!(sig, sig2);
     }
 
-    #[cfg(all(feature = "kgen", feature = "sign", feature = "vrfy"))]
-    #[test]
-    fn flow() {
+    #[cfg(all(
+        feature = "kgen",
+        feature = "sign",
+        feature = "vrfy",
+        feature = "eth_falcon"
+    ))]
+    #[rstest]
+    #[case::fn512(FalconScheme::Dsa512)]
+    #[case::fn1024(FalconScheme::Dsa1024)]
+    #[case::ethereum(FalconScheme::Ethereum)]
+    fn flow(#[case] scheme: FalconScheme) {
         const MSG: &[u8] = &[0u8; 8];
-        let (pk, sk) = FalconScheme::Dsa512.keypair().unwrap();
+        let (pk, sk) = scheme.keypair().unwrap();
 
         let signature = sk.0.scheme.sign(&MSG, &sk).unwrap();
         let res = pk.0.scheme.verify(MSG, &signature, &pk);
