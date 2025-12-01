@@ -3,10 +3,6 @@
 use crate::{deserialize_hex_or_bin, error::*, serialize_hex_or_bin};
 use oqs::sig::{Algorithm, Sig};
 use serde::{Deserialize, Serialize};
-use std::{
-    fmt::{self, Display, Formatter},
-    str::FromStr,
-};
 
 macro_rules! impl_ml_dsa_struct {
     ($name:ident, $convert:ident, $expect:expr) => {
@@ -54,93 +50,18 @@ macro_rules! impl_ml_dsa_struct {
     };
 }
 
-/// ML-DSA schemes
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Ord, PartialOrd, Hash)]
-pub enum MlDsaScheme {
-    /// ML-DSA-44 (NIST Level 2)
+scheme_impl!(
+    /// ML-DSA schemes
+    MlDsaScheme,
+    Algorithm,
     #[default]
-    Dsa44,
-    /// ML-DSA-65 (NIST Level 3)
-    Dsa65,
-    /// ML-DSA-87 (NIST Level 5)
-    Dsa87,
-}
-
-impl From<MlDsaScheme> for Algorithm {
-    fn from(scheme: MlDsaScheme) -> Self {
-        match scheme {
-            MlDsaScheme::Dsa44 => Algorithm::MlDsa44,
-            MlDsaScheme::Dsa65 => Algorithm::MlDsa65,
-            MlDsaScheme::Dsa87 => Algorithm::MlDsa87,
-        }
-    }
-}
-
-impl From<&MlDsaScheme> for Algorithm {
-    fn from(scheme: &MlDsaScheme) -> Self {
-        match *scheme {
-            MlDsaScheme::Dsa44 => Algorithm::MlDsa44,
-            MlDsaScheme::Dsa65 => Algorithm::MlDsa65,
-            MlDsaScheme::Dsa87 => Algorithm::MlDsa87,
-        }
-    }
-}
-
-impl From<MlDsaScheme> for u8 {
-    fn from(scheme: MlDsaScheme) -> Self {
-        match scheme {
-            MlDsaScheme::Dsa44 => 1,
-            MlDsaScheme::Dsa65 => 2,
-            MlDsaScheme::Dsa87 => 3,
-        }
-    }
-}
-
-impl From<&MlDsaScheme> for u8 {
-    fn from(scheme: &MlDsaScheme) -> Self {
-        (*scheme).into()
-    }
-}
-
-impl TryFrom<u8> for MlDsaScheme {
-    type Error = Error;
-
-    fn try_from(value: u8) -> Result<Self> {
-        match value {
-            1 => Ok(MlDsaScheme::Dsa44),
-            2 => Ok(MlDsaScheme::Dsa65),
-            3 => Ok(MlDsaScheme::Dsa87),
-            _ => Err(Error::InvalidScheme(value)),
-        }
-    }
-}
-
-impl Display for MlDsaScheme {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(
-            f,
-            "{}",
-            match self {
-                Self::Dsa44 => "ML-DSA-44",
-                Self::Dsa65 => "ML-DSA-65",
-                Self::Dsa87 => "ML-DSA-87",
-            }
-        )
-    }
-}
-
-impl FromStr for MlDsaScheme {
-    type Err = Error;
-
-    fn from_str(s: &str) -> Result<Self> {
-        match s.to_uppercase().as_str() {
-            "ML-DSA-44" => Ok(MlDsaScheme::Dsa44),
-            "ML-DSA-65" => Ok(MlDsaScheme::Dsa65),
-            "ML-DSA-87" => Ok(MlDsaScheme::Dsa87),
-            _ => Err(Error::InvalidSchemeStr(s.to_owned())),
-        }
-    }
-}
+    /// ML-DSA 44 (NIST Level 2)
+    Dsa44 => Algorithm::MlDsa44 ; "ML-DSA-44" ; 1,
+    /// ML-DSA 65 (NIST Level 3)
+    Dsa65 => Algorithm::MlDsa65 ; "ML-DSA-65" ; 2,
+    /// ML-DSA 87 (NIST Level 5)
+    Dsa87 => Algorithm::MlDsa87 ; "ML-DSA-87" ; 3,
+);
 
 serde_impl!(MlDsaScheme);
 
@@ -158,63 +79,15 @@ impl_ml_dsa_struct!(
 
 impl_ml_dsa_struct!(MlDsaSignature, signature_from_bytes, "a valid signature");
 
-impl MlDsaScheme {
-    #[cfg(feature = "kgen")]
-    /// Generate a new ML-DSA signing and verification key pair
-    pub fn keypair(&self) -> Result<(MlDsaVerificationKey, MlDsaSigningKey)> {
-        let alg = self.into();
-        let scheme = Sig::new(alg)?;
-        let (pk, sk) = scheme.keypair()?;
-        Ok((
-            InnerMlDsa {
-                scheme: *self,
-                value: pk.into_vec(),
-            }
-            .into(),
-            InnerMlDsa {
-                scheme: *self,
-                value: sk.into_vec(),
-            }
-            .into(),
-        ))
-    }
-
-    #[cfg(feature = "sign")]
-    /// Sign a message with the specified signing key
-    pub fn sign(&self, message: &[u8], signing_key: &MlDsaSigningKey) -> Result<MlDsaSignature> {
-        let alg = self.into();
-        let scheme = Sig::new(alg)?;
-        let sk = scheme
-            .secret_key_from_bytes(signing_key.0.value.as_slice())
-            .ok_or_else(|| Error::OqsError("an invalid signing key".to_string()))?;
-        let signature = scheme.sign(message, sk)?;
-        Ok(InnerMlDsa {
-            scheme: *self,
-            value: signature.into_vec(),
-        }
-        .into())
-    }
-
-    #[cfg(feature = "vrfy")]
-    /// Verify a signature
-    pub fn verify(
-        &self,
-        message: &[u8],
-        signature: &MlDsaSignature,
-        verification_key: &MlDsaVerificationKey,
-    ) -> Result<()> {
-        let alg = self.into();
-        let scheme = Sig::new(alg)?;
-        let sig = scheme
-            .signature_from_bytes(signature.0.value.as_slice())
-            .ok_or_else(|| Error::OqsError("an invalid signature".to_string()))?;
-        let vk = scheme
-            .public_key_from_bytes(verification_key.0.value.as_slice())
-            .ok_or_else(|| Error::OqsError("an invalid public key".to_string()))?;
-        scheme.verify(message, sig, vk)?;
-        Ok(())
-    }
-}
+base_sign_impl!(
+    MlDsaScheme,
+    "ML-DSA",
+    MlDsaSigningKey,
+    MlDsaVerificationKey,
+    MlDsaSignature,
+    InnerMlDsa,
+    Sig,
+);
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(test, derive(PartialEq, Eq))]

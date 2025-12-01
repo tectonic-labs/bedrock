@@ -10,11 +10,15 @@ repository = "https://github.com/tectonic-labs/bedrock"
 version = "0.1.0"
 
 [features]
-default = ["eth_falcon", "falcon", "ml-dsa", "kgen", "sign", "vrfy"]
+default = ["eth_falcon", "falcon", "mceliece", "ml-dsa", "ml-kem", "decp", "encp", "kgen", "sign", "vrfy"]
 eth_falcon = ["falcon", "rand_chacha", "rand_core", "fn-dsa-comm/eth_falcon", "fn-dsa-sign?/eth_falcon", "fn-dsa-vrfy?/eth_falcon", "zeroize"]
 falcon = ["oqs/falcon"]
+mceliece = ["oqs/classic_mceliece"]
 ml-dsa = ["oqs/ml_dsa"]
+ml-kem = ["oqs/ml_kem"]
 kgen = ["fn-dsa-comm", "fn-dsa-kgen", "rand_core?/getrandom"]
+encp = []
+decp = []
 sign = ["fn-dsa-comm", "fn-dsa-sign"]
 vrfy = ["fn-dsa-comm", "fn-dsa-vrfy"]
 

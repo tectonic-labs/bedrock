@@ -3,13 +3,20 @@
 
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 
-#[cfg(any(feature = "falcon", feature = "ml-dsa"))]
+#[cfg(any(
+    feature = "falcon",
+    feature = "ml-dsa",
+    feature = "mceliece",
+    feature = "ml-kem"
+))]
 #[macro_use]
 mod macros;
 
 pub mod error;
 #[cfg(feature = "falcon")]
 pub mod falcon;
+#[cfg(any(feature = "mceliece", feature = "ml-kem"))]
+pub mod kem;
 #[cfg(feature = "ml-dsa")]
 pub mod ml_dsa;
 
