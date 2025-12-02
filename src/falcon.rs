@@ -7,10 +7,6 @@ use crate::{
 };
 use oqs::sig::{Algorithm, Sig};
 use serde::{Deserialize, Serialize};
-use std::{
-    fmt::{self, Display, Formatter},
-    str::FromStr,
-};
 
 #[cfg(feature = "eth_falcon")]
 mod eth_falcon;
@@ -61,102 +57,19 @@ macro_rules! impl_falcon_struct {
     };
 }
 
-/// Falcon schemes
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Ord, PartialOrd, Hash)]
-pub enum FalconScheme {
-    /// DSA-512
+scheme_impl!(
+    /// Falcon schemes
+    FalconScheme,
+    Algorithm,
     #[default]
-    Dsa512,
+    /// DSA-512
+    Dsa512 => Algorithm::Falcon512 ; "FN-DSA-512" ; 1,
     /// DSA-1024
-    Dsa1024,
-    #[cfg(feature = "eth_falcon")]
+    Dsa1024 => Algorithm::Falcon1024 ; "FN-DSA-1024" ; 2,
+    @cfg(feature = "eth_falcon")
     /// ETHFALCON
-    Ethereum,
-}
-
-impl From<FalconScheme> for Algorithm {
-    fn from(scheme: FalconScheme) -> Self {
-        match scheme {
-            FalconScheme::Dsa512 => Algorithm::Falcon512,
-            FalconScheme::Dsa1024 => Algorithm::Falcon1024,
-            #[cfg(feature = "eth_falcon")]
-            // Used solely for testing encodings since OQS doesn't know about ETHFALCON
-            FalconScheme::Ethereum => Algorithm::Falcon512,
-        }
-    }
-}
-
-impl From<&FalconScheme> for Algorithm {
-    fn from(scheme: &FalconScheme) -> Self {
-        match *scheme {
-            FalconScheme::Dsa512 => Algorithm::Falcon512,
-            FalconScheme::Dsa1024 => Algorithm::Falcon1024,
-            #[cfg(feature = "eth_falcon")]
-            // Used solely for testing encodings since OQS doesn't know about ETHFALCON
-            FalconScheme::Ethereum => Algorithm::Falcon512,
-        }
-    }
-}
-
-impl From<FalconScheme> for u8 {
-    fn from(scheme: FalconScheme) -> Self {
-        match scheme {
-            FalconScheme::Dsa512 => 1,
-            FalconScheme::Dsa1024 => 2,
-            #[cfg(feature = "eth_falcon")]
-            FalconScheme::Ethereum => 3,
-        }
-    }
-}
-
-impl From<&FalconScheme> for u8 {
-    fn from(scheme: &FalconScheme) -> Self {
-        (*scheme).into()
-    }
-}
-
-impl TryFrom<u8> for FalconScheme {
-    type Error = Error;
-
-    fn try_from(value: u8) -> Result<Self> {
-        match value {
-            1 => Ok(FalconScheme::Dsa512),
-            2 => Ok(FalconScheme::Dsa1024),
-            #[cfg(feature = "eth_falcon")]
-            3 => Ok(FalconScheme::Ethereum),
-            _ => Err(Error::InvalidScheme(value)),
-        }
-    }
-}
-
-impl Display for FalconScheme {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "{}",
-            match self {
-                Self::Dsa512 => "FN-DSA-512",
-                Self::Dsa1024 => "FN-DSA-1024",
-                #[cfg(feature = "eth_falcon")]
-                Self::Ethereum => "ETHFALCON",
-            }
-        )
-    }
-}
-
-impl FromStr for FalconScheme {
-    type Err = Error;
-
-    fn from_str(s: &str) -> Result<Self> {
-        match s.to_uppercase().as_str() {
-            "FN-DSA-512" => Ok(FalconScheme::Dsa512),
-            "FN-DSA-1024" => Ok(FalconScheme::Dsa1024),
-            #[cfg(feature = "eth_falcon")]
-            "ETHFALCON" => Ok(FalconScheme::Ethereum),
-            _ => Err(Error::InvalidSchemeStr(s.to_string())),
-        }
-    }
-}
+    Ethereum => Algorithm::Falcon512 ; "ETHFALCON" ; 3
+);
 
 serde_impl!(FalconScheme);
 
