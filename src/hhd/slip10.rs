@@ -75,6 +75,7 @@ impl<K: PrivateKey> Slip10XPrvKey<K> {
 ///
 /// ## Supported derivation paths:
 /// - Hardened derivation paths
+#[derive(Debug, Copy, Clone)]
 pub struct Slip10;
 
 impl Slip10 {

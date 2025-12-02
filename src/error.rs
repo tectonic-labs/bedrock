@@ -25,6 +25,30 @@ pub enum Error {
     /// Errors related to ETH-FALCON DSA
     #[error("An error occurred with eth-falcon: {0}")]
     FnDsaError(String),
+    /// SLIP-10 derivation errors
+    #[cfg(feature = "hhd")]
+    #[error("SLIP-10 error: {0}")]
+    Slip10Error(#[from] crate::hhd::Slip10Error),
+    /// Signature scheme errors
+    #[cfg(feature = "hhd")]
+    #[error("Signature scheme error: {0}")]
+    SignatureSchemeError(#[from] crate::hhd::SignatureSchemeError),
+    /// Key errors
+    #[cfg(feature = "hhd")]
+    #[error("Key error: {0}")]
+    KeyError(#[from] crate::hhd::KeyError),
+    /// Mnemonic errors
+    #[cfg(feature = "hhd")]
+    #[error("Mnemonic error: {0}")]
+    MnemonicError(#[from] crate::hhd::MnemonicError),
+    /// BIP-85 errors
+    #[cfg(feature = "hhd")]
+    #[error("BIP-82 error: {0}")]
+    Bip85Error(#[from] crate::hhd::Bip85Error),
+    /// HD wallet errors
+    #[cfg(feature = "hhd")]
+    #[error("HD wallet error: {0}")]
+    WalletError(#[from] crate::hhd::WalletError),
 }
 
 #[cfg(feature = "oqs")]

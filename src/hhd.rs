@@ -31,45 +31,28 @@
 //! ).unwrap();
 //!
 //! // Derive a keypair for ECDSA at address index 0
-//! let ecdsa_keypair = wallet.derive_keypair_for_scheme(
-//!     SignatureScheme::EcdsaSecp256k1,
+//! let (ecdsa_sk, ecdsa_vk) = wallet.derive_ecdsa_secp256k1_keypair(
 //!     0,
 //! ).unwrap();
 //!
 //! // Sign and verify with ECDSA
+//! use bedrock::hhd::ecdsa::{Signature, signature::{Verifier, Signer}};
+//!
 //! let message = b"Hello, world!";
-//! let ecdsa_signature = wallet.sign_with_scheme(
-//!     SignatureScheme::EcdsaSecp256k1,
-//!     0,
-//!     message,
-//! ).unwrap();
-//! let verified = wallet.verify_with_scheme(
-//!     SignatureScheme::EcdsaSecp256k1,
-//!     0,
-//!     message,
-//!     &ecdsa_signature,
-//! ).unwrap();
-//! assert!(verified);
+//! let ecdsa_signature: Signature = ecdsa_sk.sign(message);
+//! let verified = ecdsa_vk.verify(message, &ecdsa_signature);
+//! assert!(verified.is_ok());
 //!
 //! // Derive a keypair for Falcon at address index 0
-//! let falcon_keypair = wallet.derive_keypair_for_scheme(
-//!     SignatureScheme::Falcon512,
+//! let (falcon_sk, falcon_vk) = wallet.derive_fn_dsa512_keypair(
 //!     0,
 //! ).unwrap();
 //!
 //! // Sign and verify with Falcon
-//! let falcon_signature = wallet.sign_with_scheme(
-//!     SignatureScheme::Falcon512,
-//!     0,
-//!     message,
-//! ).unwrap();
-//! let falcon_verified = wallet.verify_with_scheme(
-//!     SignatureScheme::Falcon512,
-//!     0,
-//!     message,
-//!     &falcon_signature,
-//! ).unwrap();
-//! assert!(falcon_verified);
+//! use bedrock::falcon::FalconScheme;
+//! let falcon_signature = FalconScheme::Dsa512.sign(message, &falcon_sk).unwrap();
+//! let falcon_verified = FalconScheme::Dsa512.verify(message, &falcon_signature, &falcon_vk);
+//! assert!(falcon_verified.is_ok());
 //! ```
 //!
 //! ### Importing a Wallet from an Existing Mnemonic Phrase
@@ -90,27 +73,7 @@
 //!     password,
 //! ).unwrap();
 //!
-//! // Now, use wallet.derive_keypair_for_scheme, sign_with_scheme, etc. as above.
-//! ```
-//!
-//! ### Signing and Verifying with All Schemes
-//! ```no_run
-//! use bedrock::hhd::{HHDWallet, SignatureScheme};
-//!
-//! // Create a wallet with both ECDSA and Falcon support
-//! let wallet = HHDWallet::new(
-//!     vec![SignatureScheme::EcdsaSecp256k1, SignatureScheme::Falcon512],
-//!     None,
-//! ).unwrap();
-//!
-//! let message = b"Hello, world!";
-//!
-//! // Sign with all schemes at the same address index
-//! let signatures = wallet.sign_with_all_schemes(0, message).unwrap();
-//!
-//! // Verify all signatures
-//! let verified = wallet.verify_with_all_schemes(0, message, &signatures).unwrap();
-//! assert!(verified);
+//! // Now, use wallet.derive_ecdsa_secp256k1_keypair, wallet.derive_fn_dsa512_keypair, etc. as above.
 //! ```
 //!
 //! ## Architecture
@@ -193,12 +156,15 @@ mod mnemonic;
 mod signatures;
 mod slip10;
 
+pub use bip32::secp256k1::ecdsa;
 pub use bip85::{Bip85, Bip85Error};
-pub use keys::{EcdsaKeyPair, FalconKeyPair, GenericKeyPair, KeyError};
+pub use keys::{EcdsaSecp256k1, FnDsa512, KeyError};
 pub use mnemonic::{Mnemonic, MnemonicError};
 pub use signatures::{SignatureScheme, SignatureSchemeError, SignatureSeed};
-pub use slip10::Slip10;
+pub use slip10::{Slip10, Slip10Error};
 
+use crate::falcon::{FalconSigningKey, FalconVerificationKey};
+use bip32::secp256k1::ecdsa::{SigningKey, VerifyingKey};
 use std::collections::HashMap;
 
 /// A Hybrid Hierarchical Deterministic (HD) Wallet derived from a single BIP-39 mnemonic.
@@ -238,7 +204,8 @@ use std::collections::HashMap;
 /// let mnemonic_phrase = wallet.mnemonic().to_phrase();
 ///
 /// // Derive keypairs for both schemes at the same address index
-/// let all_keypairs = wallet.derive_all_keypairs(0).unwrap();
+/// let (ecdsa_sk, ecdsa_vk) = wallet.derive_ecdsa_secp256k1_keypair(0).unwrap();
+/// let (falcon_sk, falcon_vk) = wallet.derive_fn_dsa512_keypair(0).unwrap();
 /// ```
 pub struct HHDWallet {
     /// Root mnemonic phrase (BIP-39 compatible) used to derive all scheme-specific seeds.
@@ -399,28 +366,71 @@ impl HHDWallet {
         &self.master_seeds
     }
 
-    /// Derives a keypair for a specific signature scheme at the given address index.
+    /// Derives a Falcon-512 keypair at the given address index.
     ///
-    /// This method derives a keypair using the scheme-specific seed and the provided
-    /// address index. The derivation path depends on the signature scheme:
-    ///
-    /// - **ECDSA secp256k1**: Uses BIP-44 path `m/44'/60'/0'/0/{address_index}`
-    /// - **Falcon-512**: Uses hardened path `m/44'/60'/0'/0'/{address_index}'`
+    /// This method derives a Falcon-512 keypair using the scheme-specific seed and the provided
+    /// address index. The derivation path is `m/44'/60'/0'/0'/{address_index}'` (hardened path).
     ///
     /// # Arguments
     ///
-    /// * `scheme` - The signature scheme to derive a keypair for
     /// * `address_index` - The address index (non-negative integer)
     ///
     /// # Returns
     ///
-    /// * `Ok(GenericKeyPair)` - The derived keypair for the specified scheme and index
+    /// * `Ok(FalconSigningKey, FalconVerificationKey)` - The derived Falcon-512 keypair
     /// * `Err(WalletError)` - If derivation fails
     ///
     /// # Errors
     ///
     /// Returns `WalletError` in the following cases:
-    /// - `InvalidScheme`: If the scheme is not supported in this wallet
+    /// - `InvalidScheme`: If Falcon-512 is not supported in this wallet
+    /// - `KeyError`: If key derivation fails
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use bedrock::hhd::{HHDWallet, SignatureScheme};
+    ///
+    /// let wallet = HHDWallet::new(vec![SignatureScheme::Falcon512], None).unwrap();
+    ///
+    /// // Derive ECDSA keypair at address index 0
+    /// let (falcon_sk, falcon_vk) = wallet.derive_fn_dsa512_keypair(0).unwrap();
+    ///
+    /// // Derive another keypair at address index 1
+    /// let (falcon_sk2, falcon_vk2) = wallet.derive_fn_dsa512_keypair(1).unwrap();
+    /// ```
+    pub fn derive_fn_dsa512_keypair(
+        &self,
+        address_index: u32,
+    ) -> Result<(FalconSigningKey, FalconVerificationKey), WalletError> {
+        // 1. Extract child seed for the Falcon-512 scheme
+        let signature_seed = self
+            .master_seeds
+            .get(&SignatureScheme::Falcon512)
+            .ok_or(WalletError::InvalidScheme)?;
+        let seed_bytes = signature_seed.as_seed().as_bytes();
+
+        FnDsa512::derive_from_seed(seed_bytes, address_index).map_err(WalletError::KeyError)
+    }
+
+    /// Derives a ECDSA secp256k1 keypair at the given address index.
+    ///
+    /// This method derives a ECDSA secp256k1 keypair using the scheme-specific seed and the provided
+    /// address index. The derivation path is `m/44'/60'/0'/0/{address_index}` (BIP-44 path).
+    ///
+    /// # Arguments
+    ///
+    /// * `address_index` - The address index (non-negative integer)
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(SigningKey, VerifyingKey)` - The derived ECDSA secp256k1 keypair
+    /// * `Err(WalletError)` - If derivation fails
+    ///
+    /// # Errors
+    ///
+    /// Returns `WalletError` in the following cases:
+    /// - `InvalidScheme`: If ECDSA secp256k1 is not supported in this wallet
     /// - `KeyError`: If key derivation fails
     ///
     /// # Example
@@ -431,328 +441,23 @@ impl HHDWallet {
     /// let wallet = HHDWallet::new(vec![SignatureScheme::EcdsaSecp256k1], None).unwrap();
     ///
     /// // Derive ECDSA keypair at address index 0
-    /// let keypair = wallet.derive_keypair_for_scheme(
-    ///     SignatureScheme::EcdsaSecp256k1,
-    ///     0,
-    /// ).unwrap();
+    /// let (ecdsa_sk, ecdsa_vk) = wallet.derive_ecdsa_secp256k1_keypair(0).unwrap();
     ///
     /// // Derive another keypair at address index 1
-    /// let keypair2 = wallet.derive_keypair_for_scheme(
-    ///     SignatureScheme::EcdsaSecp256k1,
-    ///     1,
-    /// ).unwrap();
+    /// let (ecdsa_sk2, ecdsa_vk2) = wallet.derive_ecdsa_secp256k1_keypair(1).unwrap();
     /// ```
-    pub fn derive_keypair_for_scheme(
+    pub fn derive_ecdsa_secp256k1_keypair(
         &self,
-        scheme: SignatureScheme,
         address_index: u32,
-    ) -> Result<GenericKeyPair, WalletError> {
+    ) -> Result<(SigningKey, VerifyingKey), WalletError> {
         // 1. Extract child seed for the corresponding scheme
         let signature_seed = self
             .master_seeds
-            .get(&scheme)
+            .get(&SignatureScheme::EcdsaSecp256k1)
             .ok_or(WalletError::InvalidScheme)?;
         let seed_bytes = signature_seed.as_seed().as_bytes();
 
-        match scheme {
-            SignatureScheme::EcdsaSecp256k1 => {
-                EcdsaKeyPair::derive_from_seed(seed_bytes, address_index)
-                    .and_then(|kp| kp.to_generic_key_pair())
-                    .map_err(WalletError::KeyError)
-            }
-            SignatureScheme::Falcon512 => {
-                FalconKeyPair::derive_from_seed(seed_bytes, address_index)
-                    .and_then(|kp| kp.to_generic_key_pair())
-                    .map_err(WalletError::KeyError)
-            }
-        }
-    }
-
-    /// Derives keypairs for all supported signature schemes at the same address index.
-    ///
-    /// This method derives a keypair for each signature scheme configured in the wallet
-    /// at the specified address index. This is useful when you want to use the same
-    /// logical "address" across multiple signature schemes.
-    ///
-    /// # Arguments
-    ///
-    /// * `address_index` - The address index to derive keypairs for
-    ///
-    /// # Returns
-    ///
-    /// * `Ok(HashMap<SignatureScheme, GenericKeyPair>)` - A map of schemes to their keypairs
-    /// * `Err(WalletError)` - If derivation fails for any scheme
-    ///
-    /// # Errors
-    ///
-    /// Returns `WalletError` if keypair derivation fails for any scheme.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// use bedrock::hhd::{HHDWallet, SignatureScheme};
-    ///
-    /// let wallet = HHDWallet::new(
-    ///     vec![SignatureScheme::EcdsaSecp256k1, SignatureScheme::Falcon512],
-    ///     None,
-    /// ).unwrap();
-    ///
-    /// // Derive keypairs for all schemes at address index 0
-    /// let all_keypairs = wallet.derive_all_keypairs(0).unwrap();
-    ///
-    /// assert!(all_keypairs.contains_key(&SignatureScheme::EcdsaSecp256k1));
-    /// assert!(all_keypairs.contains_key(&SignatureScheme::Falcon512));
-    /// ```
-    pub fn derive_all_keypairs(
-        &self,
-        address_index: u32,
-    ) -> Result<HashMap<SignatureScheme, GenericKeyPair>, WalletError> {
-        let mut keypairs = HashMap::new();
-        for scheme in self.master_seeds.keys() {
-            let keypair = self.derive_keypair_for_scheme(*scheme, address_index)?;
-            keypairs.insert(*scheme, keypair);
-        }
-        Ok(keypairs)
-    }
-
-    #[cfg(feature = "sign")]
-    /// Signs a message using a specific signature scheme at the given address index.
-    ///
-    /// This method derives the keypair for the specified scheme and address index,
-    /// then signs the message using the appropriate signing algorithm.
-    ///
-    /// # Arguments
-    ///
-    /// * `scheme` - The signature scheme to use for signing
-    /// * `address_index` - The address index to derive the signing key from
-    /// * `message` - The message bytes to sign
-    ///
-    /// # Returns
-    ///
-    /// * `Ok(Vec<u8>)` - The signature bytes (format depends on signature scheme)
-    ///   - ECDSA secp256k1: 64 bytes (r and s values)
-    ///   - Falcon-512: ~666 bytes (variable length)
-    /// * `Err(WalletError)` - If signing fails
-    ///
-    /// # Errors
-    ///
-    /// Returns `WalletError` in the following cases:
-    /// - `InvalidScheme`: If the scheme is not supported
-    /// - `KeyError`: If key derivation or signing fails
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// use bedrock::hhd::{HHDWallet, SignatureScheme};
-    ///
-    /// let wallet = HHDWallet::new(vec![SignatureScheme::EcdsaSecp256k1], None).unwrap();
-    /// let message = b"Hello, world!";
-    ///
-    /// let signature = wallet.sign_with_scheme(
-    ///     SignatureScheme::EcdsaSecp256k1,
-    ///     0,
-    ///     message,
-    /// ).unwrap();
-    ///
-    /// assert_eq!(signature.len(), 64); // ECDSA signature is 64 bytes
-    /// ```
-    pub fn sign_with_scheme(
-        &self,
-        scheme: SignatureScheme,
-        address_index: u32,
-        message: &[u8],
-    ) -> Result<Vec<u8>, WalletError> {
-        let keypair = self.derive_keypair_for_scheme(scheme, address_index)?;
-        keypair.sign(message).map_err(WalletError::KeyError)
-    }
-
-    #[cfg(feature = "vrfy")]
-    /// Verifies a signature against a message using a specific signature scheme.
-    ///
-    /// This method derives the keypair for the specified scheme and address index,
-    /// then verifies the signature against the message.
-    ///
-    /// # Arguments
-    ///
-    /// * `scheme` - The signature scheme to use for verification
-    /// * `address_index` - The address index to derive the verifying key from
-    /// * `message` - The message that was signed
-    /// * `signature` - The signature bytes to verify
-    ///
-    /// # Returns
-    ///
-    /// * `Ok(true)` - If the signature is valid
-    /// * `Ok(false)` - If the signature is invalid
-    /// * `Err(WalletError)` - If verification fails
-    ///
-    /// # Errors
-    ///
-    /// Returns `WalletError` in the following cases:
-    /// - `InvalidScheme`: If the scheme is not supported
-    /// - `KeyError`: If key derivation or verification fails
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// use bedrock::hhd::{HHDWallet, SignatureScheme};
-    ///
-    /// let wallet = HHDWallet::new(vec![SignatureScheme::EcdsaSecp256k1], None).unwrap();
-    /// let message = b"Hello, world!";
-    ///
-    /// // Sign the message
-    /// let signature = wallet.sign_with_scheme(
-    ///     SignatureScheme::EcdsaSecp256k1,
-    ///     0,
-    ///     message,
-    /// ).unwrap();
-    ///
-    /// // Verify the signature
-    /// let verified = wallet.verify_with_scheme(
-    ///     SignatureScheme::EcdsaSecp256k1,
-    ///     0,
-    ///     message,
-    ///     &signature,
-    /// ).unwrap();
-    /// assert!(verified);
-    ///
-    /// // Wrong message should fail
-    /// let wrong_message = b"Wrong message";
-    /// let verified_wrong = wallet.verify_with_scheme(
-    ///     SignatureScheme::EcdsaSecp256k1,
-    ///     0,
-    ///     wrong_message,
-    ///     &signature,
-    /// ).unwrap();
-    /// assert!(!verified_wrong);
-    /// ```
-    pub fn verify_with_scheme(
-        &self,
-        scheme: SignatureScheme,
-        address_index: u32,
-        message: &[u8],
-        signature: &[u8],
-    ) -> Result<bool, WalletError> {
-        let keypair = self.derive_keypair_for_scheme(scheme, address_index)?;
-        keypair
-            .verify(message, signature)
-            .map_err(WalletError::KeyError)
-    }
-
-    #[cfg(feature = "sign")]
-    /// Signs a message using all supported signature schemes at the same address index.
-    ///
-    /// This method produces signatures for the message using each signature scheme
-    /// configured in the wallet, all at the same address index. This is useful for
-    /// hybrid signature schemes where you want multiple signatures on the same message.
-    ///
-    /// # Arguments
-    ///
-    /// * `address_index` - The address index to derive signing keys from
-    /// * `message` - The message bytes to sign
-    ///
-    /// # Returns
-    ///
-    /// * `Ok(HashMap<SignatureScheme, Vec<u8>>)` - A map of schemes to their signatures
-    /// * `Err(WalletError)` - If signing fails for any scheme
-    ///
-    /// # Errors
-    ///
-    /// Returns `WalletError` if signing fails for any scheme.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// use bedrock::hhd::{HHDWallet, SignatureScheme};
-    ///
-    /// let wallet = HHDWallet::new(
-    ///     vec![SignatureScheme::EcdsaSecp256k1, SignatureScheme::Falcon512],
-    ///     None,
-    /// ).unwrap();
-    ///
-    /// let message = b"Hello, world!";
-    ///
-    /// // Sign with all schemes
-    /// let signatures = wallet.sign_with_all_schemes(0, message).unwrap();
-    ///
-    /// // Verify we got signatures from both schemes
-    /// assert!(signatures.contains_key(&SignatureScheme::EcdsaSecp256k1));
-    /// assert!(signatures.contains_key(&SignatureScheme::Falcon512));
-    ///
-    /// // ECDSA signature is 64 bytes, Falcon is ~666 bytes
-    /// assert_eq!(signatures[&SignatureScheme::EcdsaSecp256k1].len(), 64);
-    /// ```
-    pub fn sign_with_all_schemes(
-        &self,
-        address_index: u32,
-        message: &[u8],
-    ) -> Result<HashMap<SignatureScheme, Vec<u8>>, WalletError> {
-        let mut signatures = HashMap::new();
-        for scheme in self.master_seeds.keys() {
-            let signature = self.sign_with_scheme(*scheme, address_index, message)?;
-            signatures.insert(*scheme, signature);
-        }
-        Ok(signatures)
-    }
-
-    #[cfg(feature = "vrfy")]
-    /// Verifies signatures for all supported schemes against the same message.
-    ///
-    /// This method verifies a signature for each signature scheme in the provided
-    /// signatures map. All signatures must be valid for this method to return `Ok(true)`.
-    /// This is useful for hybrid signature verification where you have multiple
-    /// signatures on the same message.
-    ///
-    /// # Arguments
-    ///
-    /// * `address_index` - The address index to derive verifying keys from
-    /// * `message` - The message that was signed
-    /// * `signatures` - A map of signature schemes to their signature bytes
-    ///
-    /// # Returns
-    ///
-    /// * `Ok(true)` - If all signatures are valid
-    /// * `Ok(false)` - If any signature is invalid (should not happen, returns error instead)
-    /// * `Err(WalletError)` - If verification fails for any scheme
-    ///
-    /// # Errors
-    ///
-    /// Returns `WalletError::KeyError(VerificationFailed)` if any signature fails verification.
-    /// Other errors may occur if key derivation fails.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// use bedrock::hhd::{HHDWallet, SignatureScheme};
-    ///
-    /// let wallet = HHDWallet::new(
-    ///     vec![SignatureScheme::EcdsaSecp256k1, SignatureScheme::Falcon512],
-    ///     None,
-    /// ).unwrap();
-    ///
-    /// let message = b"Hello, world!";
-    ///
-    /// // Sign with all schemes
-    /// let signatures = wallet.sign_with_all_schemes(0, message).unwrap();
-    ///
-    /// // Verify all signatures
-    /// let all_verified = wallet.verify_with_all_schemes(0, message, &signatures).unwrap();
-    /// assert!(all_verified);
-    /// ```
-    pub fn verify_with_all_schemes(
-        &self,
-        address_index: u32,
-        message: &[u8],
-        signatures: &HashMap<SignatureScheme, Vec<u8>>,
-    ) -> Result<bool, WalletError> {
-        for (scheme, signature) in signatures {
-            let verified = self.verify_with_scheme(*scheme, address_index, message, signature)?;
-            if !verified {
-                return Err(WalletError::KeyError(KeyError::VerificationFailed(
-                    String::from(format!("Verification failed for scheme: {:?}", scheme)),
-                )));
-            }
-        }
-        Ok(true)
+        EcdsaSecp256k1::derive_from_seed(seed_bytes, address_index).map_err(WalletError::KeyError)
     }
 }
 
@@ -802,26 +507,20 @@ pub enum WalletError {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::falcon::FalconScheme;
 
-    /// Tests that signing and verification work correctly for both ECDSA and Falcon schemes.
-    ///
-    /// This test verifies:
-    /// - Wallet can be created with multiple signature schemes
-    /// - Messages can be signed with all schemes
-    /// - Signatures can be verified correctly
-    /// - All signatures validate successfully for the same message
     #[test]
-    fn test_hhd_wallet_sign_verify() {
+    fn test_hhd_wallet_sign_verify_with_schemes() {
         let wallet = HHDWallet::new(
             vec![SignatureScheme::EcdsaSecp256k1, SignatureScheme::Falcon512],
             None,
         )
         .unwrap();
         let message = b"Hello, world!";
-        let signatures = wallet.sign_with_all_schemes(0, message).unwrap();
-        let verified = wallet
-            .verify_with_all_schemes(0, message, &signatures)
-            .unwrap();
-        assert!(verified);
+
+        let (sk, vk) = wallet.derive_fn_dsa512_keypair(0).unwrap();
+        let signature = FalconScheme::Dsa512.sign(message, &sk).unwrap();
+        let res = FalconScheme::Dsa512.verify(message, &signature, &vk);
+        assert!(res.is_ok());
     }
 }
