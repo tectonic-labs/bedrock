@@ -10,8 +10,9 @@ repository = "https://github.com/tectonic-labs/bedrock"
 version = "0.1.0"
 
 [features]
-default = ["eth_falcon", "falcon", "ml-dsa", "kgen", "sign", "vrfy"]
+default = ["eth_falcon", "falcon", "ml-dsa", "kgen", "sign", "vrfy", "hhd"]
 eth_falcon = ["falcon", "rand_chacha", "rand_core", "fn-dsa-comm/eth_falcon", "fn-dsa-sign?/eth_falcon", "fn-dsa-vrfy?/eth_falcon", "zeroize"]
+hhd = ["zeroize", "bip32", "hmac", "sha2", "tiny-bip39", "kgen"]
 falcon = ["oqs/falcon"]
 ml-dsa = ["oqs/ml_dsa"]
 kgen = ["fn-dsa-comm", "fn-dsa-kgen", "rand_core?/getrandom"]
@@ -26,6 +27,11 @@ serde = { version = "1.0", features = ["derive"] }
 serdect = "0.4"
 thiserror = "2.0"
 zeroize = { version = "1.8", optional = true }
+
+bip32 = { version = "0.5.3", optional = true }
+hmac = { version = "0.12.1", optional = true }
+sha2 = { version = "0.10.9", optional = true }
+tiny-bip39 = { version = "2.0.0", optional = true }
 
 [dependencies.oqs]
 git = "https://github.com/tectonic-labs/liboqs-rust"

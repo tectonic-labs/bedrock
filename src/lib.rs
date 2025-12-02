@@ -10,6 +10,8 @@ mod macros;
 pub mod error;
 #[cfg(feature = "falcon")]
 pub mod falcon;
+#[cfg(feature = "hhd")]
+pub mod hhd;
 #[cfg(feature = "ml-dsa")]
 pub mod ml_dsa;
 
