@@ -15,6 +15,8 @@ mod macros;
 pub mod error;
 #[cfg(feature = "falcon")]
 pub mod falcon;
+#[cfg(feature = "hhd")]
+pub mod hhd;
 #[cfg(any(feature = "mceliece", feature = "ml-kem"))]
 pub mod kem;
 #[cfg(feature = "ml-dsa")]
