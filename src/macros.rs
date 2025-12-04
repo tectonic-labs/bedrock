@@ -162,6 +162,32 @@ macro_rules! base_sign_impl {
                 ))
             }
 
+            #[cfg(feature = "kgen")]
+            #[doc = concat!("Generate a new ", stringify!($string_name), " signing and verifying key pair")]
+            pub fn keypair_from_seed(
+                &self,
+                seed: &[u8],
+            ) -> Result<($verifying_key, $signing_key)> {
+                if seed.len() < 32 || seed.len() > 64 {
+                    return Err(Error::InvalidSeedLength(seed.len()));
+                }
+                let alg = self.into();
+                let scheme = Sig::new(alg)?;
+                let (pk, sk) = scheme.keypair_from_seed(seed)?;
+                Ok((
+                    $inner {
+                        scheme: *self,
+                        value: pk.into_vec(),
+                    }
+                    .into(),
+                    $inner {
+                        scheme: *self,
+                        value: sk.into_vec(),
+                    }
+                    .into(),
+                ))
+            }
+
             #[cfg(feature = "sign")]
             /// Sign a message with the specified signing key
             pub fn sign(&self, message: &[u8], signing_key: &$signing_key) -> Result<$signature> {

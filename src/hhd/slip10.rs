@@ -13,7 +13,7 @@
 use crate::hhd::signatures::SignatureScheme;
 use bip32::DerivationPath;
 use bip32::{ChildNumber, ExtendedKeyAttrs, KeyFingerprint, PrivateKey, PublicKey};
-use hmac::{Hmac, Mac, digest::crypto_common::InvalidLength};
+use hmac::{digest::crypto_common::InvalidLength, Hmac, Mac};
 use sha2::Sha512;
 use zeroize::Zeroize;
 type HmacSha512 = Hmac<Sha512>;
@@ -72,6 +72,9 @@ impl<K: PrivateKey> Slip10XPrvKey<K> {
 ///
 /// ## Supported curves:
 /// - Falcon-512
+/// - ML-DSA 44
+/// - ML-DSA 65
+/// - ML-DSA 87
 ///
 /// ## Supported derivation paths:
 /// - Hardened derivation paths
@@ -174,7 +177,7 @@ pub enum Slip10Error {
 mod tests {
     use super::*;
     use crate::hhd::signatures::SignatureScheme;
-    use bip32::{DerivationPath, Prefix, Seed as Bip32Seed, XPrv, secp256k1::ecdsa::SigningKey};
+    use bip32::{secp256k1::ecdsa::SigningKey, DerivationPath, Prefix, Seed as Bip32Seed, XPrv};
 
     const TEST_SEED_64: [u8; 64] = [
         0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e,
