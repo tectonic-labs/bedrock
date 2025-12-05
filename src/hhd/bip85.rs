@@ -77,6 +77,7 @@ const BIP85_KEY_INFO: &str = "bip-entropy-from-k";
 ///
 /// This ensures that different schemes produce different seeds from the same
 /// mnemonic, providing cryptographic seed separation between schemes.
+#[derive(Debug, Copy, Clone)]
 pub struct Bip85;
 
 impl Bip85 {
@@ -430,9 +431,7 @@ mod tests {
         // Derive from the root key (not from seed)
         let derived_xprv = derivation_path
             .iter()
-            .fold(Ok(root_key), |maybe_key, child_num| {
-                maybe_key.and_then(|key| key.derive_child(child_num))
-            })
+            .try_fold(root_key, |key, child_num| key.derive_child(child_num))
             .expect("should derive valid key");
 
         // 3. Extract the private key bytes (DERIVED KEY)

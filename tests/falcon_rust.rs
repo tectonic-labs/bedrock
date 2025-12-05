@@ -6,6 +6,7 @@ use rand::{Rng, SeedableRng};
 
 #[ignore]
 #[test]
+#[allow(clippy::unwrap_used)]
 fn falcon_rust_to_bedrock_512_compatibility() {
     const MSG: &[u8] = &[0u8; 8];
     const FALCON_SCHEME: FalconScheme = FalconScheme::Dsa512;

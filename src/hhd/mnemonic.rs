@@ -84,6 +84,15 @@ pub struct Mnemonic {
     inner: Bip39Mnemonic,
 }
 
+impl std::fmt::Debug for Mnemonic {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // Don't expose mnemonic phrase in debug output for security
+        f.debug_struct("Mnemonic")
+            .field("inner", &"<redacted>")
+            .finish()
+    }
+}
+
 impl Mnemonic {
     /// Generates a new random mnemonic phrase of 24 words using the English wordlist.
     ///
@@ -259,6 +268,7 @@ pub enum MnemonicError {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used)]
 mod test {
     use super::*;
 

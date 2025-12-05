@@ -118,6 +118,7 @@ pub(crate) struct InnerKem {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
     use rstest::*;

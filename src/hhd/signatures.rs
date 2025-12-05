@@ -88,6 +88,19 @@ pub enum SignatureSeed {
     Falcon512(Seed),
 }
 
+impl std::fmt::Debug for SignatureSeed {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // Don't expose seed bytes in debug output for security
+        match self {
+            SignatureSeed::ECDSAsecp256k1(_) => f
+                .debug_tuple("ECDSAsecp256k1")
+                .field(&"<redacted>")
+                .finish(),
+            SignatureSeed::Falcon512(_) => f.debug_tuple("Falcon512").field(&"<redacted>").finish(),
+        }
+    }
+}
+
 impl SignatureSeed {
     /// Gets a reference to the underlying seed for this signature scheme.
     ///
@@ -303,6 +316,7 @@ impl SignatureScheme {
 
 /// Errors that can occur during signature scheme operations.
 #[derive(Debug, thiserror::Error)]
+#[allow(missing_copy_implementations)] // bip32::Error doesn't implement Copy
 pub enum SignatureSchemeError {
     /// Invalid derivation path encountered during path parsing or validation.
     #[error("Invalid derivation path: {0}")]

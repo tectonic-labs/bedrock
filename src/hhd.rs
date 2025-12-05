@@ -207,6 +207,7 @@ use std::collections::HashMap;
 /// let (ecdsa_sk, ecdsa_vk) = wallet.derive_ecdsa_secp256k1_keypair(0).unwrap();
 /// let (falcon_sk, falcon_vk) = wallet.derive_fn_dsa512_keypair(0).unwrap();
 /// ```
+#[derive(Debug)]
 pub struct HHDWallet {
     /// Root mnemonic phrase (BIP-39 compatible) used to derive all scheme-specific seeds.
     pub mnemonic: Mnemonic,
@@ -505,6 +506,7 @@ pub enum WalletError {
 
 #[cfg(all(feature = "sign", feature = "vrfy"))]
 #[cfg(test)]
+#[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
     use crate::falcon::FalconScheme;
