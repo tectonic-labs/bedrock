@@ -158,15 +158,16 @@ mod slip10;
 
 pub use bip32::secp256k1::ecdsa;
 pub use bip85::{Bip85, Bip85Error};
-pub use keys::{EcdsaSecp256k1, FnDsa512, KeyError, MlDsa44, MlDsa65, MlDsa87};
+pub use keys::KeyError;
 pub use mnemonic::{Mnemonic, MnemonicError};
 pub use signatures::{SignatureScheme, SignatureSchemeError, SignatureSeed};
-pub use slip10::{Slip10, Slip10Error};
+pub use slip10::Slip10Error;
 
 use crate::falcon::{FalconSigningKey, FalconVerificationKey};
 use crate::ml_dsa::{MlDsaSigningKey, MlDsaVerificationKey};
+use keys::{EcdsaSecp256k1, FnDsa512, MlDsa44, MlDsa65, MlDsa87};
 use bip32::secp256k1::ecdsa::{SigningKey, VerifyingKey};
-use std::collections::HashMap;
+use std::{collections::HashMap, fmt};
 
 /// A Hybrid Hierarchical Deterministic (HD) Wallet derived from a single BIP-39 mnemonic.
 ///
@@ -214,6 +215,15 @@ pub struct HHDWallet {
     /// Master seeds indexed by signature scheme, derived from the mnemonic using BIP-85.
     /// All seeds are zeroized on drop according to bip32 crate implementation.
     pub master_seeds: HashMap<SignatureScheme, SignatureSeed>,
+}
+
+impl fmt::Debug for HHDWallet {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("HHDWallet")
+            .field("mnemonic", &self.mnemonic.to_phrase())
+            .field("master_seeds", &self.master_seeds)
+            .finish()
+    }
 }
 
 impl HHDWallet {
@@ -690,5 +700,16 @@ mod tests {
         let signature = FalconScheme::Dsa512.sign(message, &sk).unwrap();
         let res = FalconScheme::Dsa512.verify(message, &signature, &vk);
         assert!(res.is_ok());
+    }
+
+    #[test]
+    fn test_hhd_wallet_debug_display() {
+        let wallet = HHDWallet::new(vec![SignatureScheme::EcdsaSecp256k1, SignatureScheme::Falcon512], None).unwrap();
+        let debug_display = format!("{:?}", wallet);
+        println!("{}", debug_display);
+        assert!(debug_display.contains("mnemonic"));
+        assert!(debug_display.contains("master_seeds"));
+        assert!(debug_display.contains("ECDSAsecp256k1"));
+        assert!(debug_display.contains("Falcon512"));
     }
 }

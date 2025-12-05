@@ -77,6 +77,7 @@ const BIP85_KEY_INFO: &str = "bip-entropy-from-k";
 ///
 /// This ensures that different schemes produce different seeds from the same
 /// mnemonic, providing cryptographic seed separation between schemes.
+#[derive(Clone, Copy, Debug)]
 pub struct Bip85;
 
 impl Bip85 {

@@ -79,7 +79,7 @@ use bip39::{
 /// let seed2 = restored.to_seed(None).unwrap();
 /// assert_eq!(seed1.as_bytes(), seed2.as_bytes());
 /// ```
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Mnemonic {
     inner: Bip39Mnemonic,
 }

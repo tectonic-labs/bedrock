@@ -25,6 +25,7 @@
 //! [SLIP-0010]: https://github.com/satoshilabs/slips/blob/master/slip-0010.md
 
 use bip32::Seed;
+use std::fmt;
 
 /// Size in bytes of the seed required for ECDSA secp256k1 key generation (32 bytes = 256 bits).
 pub const ECDSA_SECP256K1_KEY_GENERATION_SEED_SIZE: usize = 32;
@@ -65,8 +66,7 @@ pub const ML_DSA_87_ROOT_SEED_SIZE: usize = 64;
 pub const ML_DSA_44_DOMAIN_SEPARATOR: &[u8] = b"ML-DSA-44-v1 seed";
 pub const ML_DSA_65_DOMAIN_SEPARATOR: &[u8] = b"ML-DSA-65-v1 seed";
 pub const ML_DSA_87_DOMAIN_SEPARATOR: &[u8] = b"ML-DSA-87-v1 seed";
-/// Numbers taken from the original ml-dsa standard:
-/// - https://nvlpubs.nist.gov/nistpubs/fips/nist.fips.204.pdf
+/// Numbers taken from the original ml-dsa standard: https://nvlpubs.nist.gov/nistpubs/fips/nist.fips.204.pdf
 /// Size in bytes of a ML-DSA 44/65/87 signing key (private key)
 pub const ML_DSA_44_SIGNING_KEY_SIZE: usize = 2560;
 pub const ML_DSA_65_SIGNING_KEY_SIZE: usize = 4032;
@@ -120,6 +120,27 @@ pub enum SignatureSeed {
     MlDsa65(Seed),
     /// ML-DSA 87 signature scheme seed.
     MlDsa87(Seed),
+}
+
+impl fmt::Debug for SignatureSeed {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        
+        let variant = match self {
+            SignatureSeed::ECDSAsecp256k1(_) => "ECDSAsecp256k1",
+            SignatureSeed::Falcon512(_) => "Falcon512",
+            SignatureSeed::MlDsa44(_) => "MlDsa44",
+            SignatureSeed::MlDsa65(_) => "MlDsa65",
+            SignatureSeed::MlDsa87(_) => "MlDsa87",
+        };
+        
+        let seed_bytes = self.as_seed().as_bytes().to_vec();
+        let masked_seed = format!("<{} bytes hidden>", seed_bytes.len());
+
+        f.debug_struct("SignatureSeed")
+            .field("scheme", &variant)
+            .field("seed", &masked_seed)
+            .finish()
+    }
 }
 
 impl SignatureSeed {
@@ -365,7 +386,7 @@ impl SignatureScheme {
 }
 
 /// Errors that can occur during signature scheme operations.
-#[derive(Debug, thiserror::Error)]
+#[derive(Clone, Copy, Debug, thiserror::Error)]
 pub enum SignatureSchemeError {
     /// Invalid derivation path encountered during path parsing or validation.
     #[error("Invalid derivation path: {0}")]
@@ -373,4 +394,16 @@ pub enum SignatureSchemeError {
     /// The requested signature scheme operation is not supported or invalid.
     #[error("Invalid scheme")]
     InvalidScheme,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_signature_scheme_debug_display() {
+        let seed = Seed::new([0u8; 64]);
+        let signature_seed = SignatureSeed::ECDSAsecp256k1(seed);
+        assert_eq!(format!("{:?}", signature_seed), "SignatureSeed { scheme: \"ECDSAsecp256k1\", seed: \"<64 bytes hidden>\" }");
+    }
 }

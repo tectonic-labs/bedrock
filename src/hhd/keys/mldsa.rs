@@ -36,7 +36,7 @@ macro_rules! impl_ml_dsa_struct {
         #[cfg_attr(test, derive(PartialEq, Eq))]
         #[doc = concat!("A [`", stringify!($name), "`] for ml-dsa")]
         #[repr(transparent)]
-        pub struct $name {}
+        pub(crate) struct $name;
 
         impl $name {
             /// Generates a ML-DSA keypair directly from a 32-byte seed.
