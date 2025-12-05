@@ -6,7 +6,7 @@ use fn_dsa::{
     VerifyingKeyStandard, DOMAIN_NONE, FN_DSA_LOGN_512, HASH_ID_RAW,
 };
 use fn_dsa_comm::signature_size;
-use rand::SeedableRng;
+use rand_core06::SeedableRng;
 
 #[cfg(feature = "eth_falcon")]
 #[test]
@@ -34,7 +34,7 @@ fn fn_dsa_to_bedrock_compatibility_512() {
     const SEED: [u8; 32] = [3u8; 32];
     const FALCON_SCHEME: FalconScheme = FalconScheme::Dsa512;
 
-    let mut rng = rand_chacha::ChaCha8Rng::from_seed(SEED);
+    let mut rng = rand_chacha06::ChaCha8Rng::from_seed(SEED);
     let mut kg = KeyPairGeneratorStandard::default();
     let mut sk = [0u8; fn_dsa::sign_key_size(FN_DSA_LOGN_512)];
     let mut pk = [0u8; fn_dsa::vrfy_key_size(FN_DSA_LOGN_512)];
@@ -67,7 +67,7 @@ fn bedrock_to_fn_dsa_compatibility_512() {
     let mut fn_sk = res.unwrap();
     let mut signature = [0u8; signature_size(FN_DSA_LOGN_512)];
 
-    let mut rng = rand_chacha::ChaCha8Rng::from_seed([3u8; 32]);
+    let mut rng = rand_chacha06::ChaCha8Rng::from_seed([3u8; 32]);
     fn_sk.sign(&mut rng, &DOMAIN_NONE, &HASH_ID_RAW, MSG, &mut signature);
 
     let res = VerifyingKeyStandard::decode(pk.as_ref());
