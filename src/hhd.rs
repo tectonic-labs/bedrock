@@ -661,6 +661,10 @@ mod tests {
     use super::*;
     use crate::falcon::FalconScheme;
     use crate::ml_dsa::MlDsaScheme;
+    use bip32::secp256k1::ecdsa::{
+        signature::{Signer, Verifier},
+        Signature,
+    };
     use rstest::rstest;
 
     #[rstest]
@@ -699,6 +703,16 @@ mod tests {
         let (sk, vk) = wallet.derive_fn_dsa512_keypair(0).unwrap();
         let signature = FalconScheme::Dsa512.sign(message, &sk).unwrap();
         let res = FalconScheme::Dsa512.verify(message, &signature, &vk);
+        assert!(res.is_ok());
+    }
+
+    #[test]
+    fn test_hhd_wallet_sign_verify_with_ecdsa() {
+        let wallet = HHDWallet::new(vec![SignatureScheme::EcdsaSecp256k1], None).unwrap();
+        let message = b"Hello, world!";
+        let (sk, vk) = wallet.derive_ecdsa_secp256k1_keypair(0).unwrap();
+        let signature: Signature = sk.sign(message);
+        let res = vk.verify(message, &signature);
         assert!(res.is_ok());
     }
 
