@@ -124,7 +124,6 @@ pub enum SignatureSeed {
 
 impl fmt::Debug for SignatureSeed {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        
         let variant = match self {
             SignatureSeed::ECDSAsecp256k1(_) => "ECDSAsecp256k1",
             SignatureSeed::Falcon512(_) => "Falcon512",
@@ -132,7 +131,7 @@ impl fmt::Debug for SignatureSeed {
             SignatureSeed::MlDsa65(_) => "MlDsa65",
             SignatureSeed::MlDsa87(_) => "MlDsa87",
         };
-        
+
         let seed_bytes = self.as_seed().as_bytes().to_vec();
         let masked_seed = format!("<{} bytes hidden>", seed_bytes.len());
 
@@ -404,6 +403,9 @@ mod tests {
     fn test_signature_scheme_debug_display() {
         let seed = Seed::new([0u8; 64]);
         let signature_seed = SignatureSeed::ECDSAsecp256k1(seed);
-        assert_eq!(format!("{:?}", signature_seed), "SignatureSeed { scheme: \"ECDSAsecp256k1\", seed: \"<64 bytes hidden>\" }");
+        assert_eq!(
+            format!("{:?}", signature_seed),
+            "SignatureSeed { scheme: \"ECDSAsecp256k1\", seed: \"<64 bytes hidden>\" }"
+        );
     }
 }

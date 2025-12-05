@@ -27,7 +27,10 @@ pub(crate) struct Slip10XPrvKey<K: PrivateKey> {
 impl<K: PrivateKey> Slip10XPrvKey<K> {
     /// Derive a child key for a particular [`ChildNumber`].
     /// Function based on the BIP-32 implementation.
-    pub(crate) fn derive_child(&self, child_number: ChildNumber) -> Result<Slip10XPrvKey<K>, Slip10Error> {
+    pub(crate) fn derive_child(
+        &self,
+        child_number: ChildNumber,
+    ) -> Result<Slip10XPrvKey<K>, Slip10Error> {
         let depth = self
             .attrs
             .depth

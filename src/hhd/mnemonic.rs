@@ -79,9 +79,17 @@ use bip39::{
 /// let seed2 = restored.to_seed(None).unwrap();
 /// assert_eq!(seed1.as_bytes(), seed2.as_bytes());
 /// ```
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct Mnemonic {
     inner: Bip39Mnemonic,
+}
+
+impl std::fmt::Debug for Mnemonic {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Mnemonic")
+            .field("phrase", &"<redacted>")
+            .finish()
+    }
 }
 
 impl Mnemonic {

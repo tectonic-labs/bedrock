@@ -165,8 +165,8 @@ pub use slip10::Slip10Error;
 
 use crate::falcon::{FalconSigningKey, FalconVerificationKey};
 use crate::ml_dsa::{MlDsaSigningKey, MlDsaVerificationKey};
-use keys::{EcdsaSecp256k1, FnDsa512, MlDsa44, MlDsa65, MlDsa87};
 use bip32::secp256k1::ecdsa::{SigningKey, VerifyingKey};
+use keys::{EcdsaSecp256k1, FnDsa512, MlDsa44, MlDsa65, MlDsa87};
 use std::{collections::HashMap, fmt};
 
 /// A Hybrid Hierarchical Deterministic (HD) Wallet derived from a single BIP-39 mnemonic.
@@ -220,7 +220,7 @@ pub struct HHDWallet {
 impl fmt::Debug for HHDWallet {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("HHDWallet")
-            .field("mnemonic", &self.mnemonic.to_phrase())
+            .field("mnemonic", &"<redacted>")
             .field("master_seeds", &self.master_seeds)
             .finish()
     }
@@ -704,7 +704,11 @@ mod tests {
 
     #[test]
     fn test_hhd_wallet_debug_display() {
-        let wallet = HHDWallet::new(vec![SignatureScheme::EcdsaSecp256k1, SignatureScheme::Falcon512], None).unwrap();
+        let wallet = HHDWallet::new(
+            vec![SignatureScheme::EcdsaSecp256k1, SignatureScheme::Falcon512],
+            None,
+        )
+        .unwrap();
         let debug_display = format!("{:?}", wallet);
         println!("{}", debug_display);
         assert!(debug_display.contains("mnemonic"));
