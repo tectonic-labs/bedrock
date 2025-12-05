@@ -18,7 +18,7 @@
 
 use crate::falcon::{FalconScheme, FalconSigningKey, FalconVerificationKey};
 use crate::hhd::keys::KeyError;
-use crate::hhd::signatures::{FALCON512_KEY_GENERATION_SEED_SIZE, SignatureScheme};
+use crate::hhd::signatures::{SignatureScheme, FALCON512_KEY_GENERATION_SEED_SIZE};
 use crate::hhd::slip10::{Slip10, Slip10XPrvKey};
 use bip32::secp256k1::ecdsa::SigningKey;
 use zeroize::Zeroize;
@@ -173,10 +173,8 @@ mod tests {
             .expect("should generate Falcon keypair from seed");
         let message = b"Hello, Falcon-512!";
         let signature = FalconScheme::Dsa512.sign(message, &keypair.0).unwrap();
-        assert!(
-            FalconScheme::Dsa512
-                .verify(message, &signature, &keypair.1)
-                .is_ok()
-        );
+        assert!(FalconScheme::Dsa512
+            .verify(message, &signature, &keypair.1)
+            .is_ok());
     }
 }

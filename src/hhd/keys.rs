@@ -14,8 +14,12 @@ mod ecdsa;
 mod error;
 #[cfg(feature = "falcon")]
 mod falcon;
+#[cfg(feature = "ml-dsa")]
+mod mldsa;
 
 pub use ecdsa::EcdsaSecp256k1;
 pub use error::KeyError;
 #[cfg(feature = "falcon")]
 pub use falcon::FnDsa512;
+#[cfg(feature = "ml-dsa")]
+pub(crate) use mldsa::{MlDsa44, MlDsa65, MlDsa87};

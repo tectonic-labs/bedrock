@@ -13,12 +13,13 @@
 use crate::hhd::signatures::SignatureScheme;
 use bip32::DerivationPath;
 use bip32::{ChildNumber, ExtendedKeyAttrs, KeyFingerprint, PrivateKey, PublicKey};
-use hmac::{Hmac, Mac, digest::crypto_common::InvalidLength};
+use hmac::{digest::crypto_common::InvalidLength, Hmac, Mac};
 use sha2::Sha512;
 use zeroize::Zeroize;
 type HmacSha512 = Hmac<Sha512>;
 
-pub struct Slip10XPrvKey<K: PrivateKey> {
+/// SLIP10 extended private key
+pub(crate) struct Slip10XPrvKey<K: PrivateKey> {
     private_key: K,
     attrs: ExtendedKeyAttrs,
 }
@@ -26,7 +27,10 @@ pub struct Slip10XPrvKey<K: PrivateKey> {
 impl<K: PrivateKey> Slip10XPrvKey<K> {
     /// Derive a child key for a particular [`ChildNumber`].
     /// Function based on the BIP-32 implementation.
-    pub fn derive_child(&self, child_number: ChildNumber) -> Result<Slip10XPrvKey<K>, Slip10Error> {
+    pub(crate) fn derive_child(
+        &self,
+        child_number: ChildNumber,
+    ) -> Result<Slip10XPrvKey<K>, Slip10Error> {
         let depth = self
             .attrs
             .depth
@@ -58,13 +62,8 @@ impl<K: PrivateKey> Slip10XPrvKey<K> {
     }
 
     /// Get the private key bytes of the Slip10XPrvKey.
-    pub fn private_key_bytes(&self) -> Vec<u8> {
+    pub(crate) fn private_key_bytes(&self) -> Vec<u8> {
         self.private_key.to_bytes().into()
-    }
-
-    /// Get the chain code of the Slip10XPrvKey.
-    pub fn chain_code(&self) -> &[u8] {
-        self.attrs.chain_code.as_ref()
     }
 }
 
@@ -72,15 +71,18 @@ impl<K: PrivateKey> Slip10XPrvKey<K> {
 ///
 /// ## Supported curves:
 /// - Falcon-512
+/// - ML-DSA 44
+/// - ML-DSA 65
+/// - ML-DSA 87
 ///
 /// ## Supported derivation paths:
 /// - Hardened derivation paths
 #[derive(Debug, Copy, Clone)]
-pub struct Slip10;
+pub(crate) struct Slip10;
 
 impl Slip10 {
     /// Derive a child key from the given [`DerivationPath`] for a specific signature scheme.
-    pub fn derive_from_path<S, K>(
+    pub(crate) fn derive_from_path<S, K>(
         seed: S,
         path: &DerivationPath,
         scheme: SignatureScheme,
@@ -99,7 +101,7 @@ impl Slip10 {
     }
 
     /// Create the root extended key for the given seed value.
-    pub fn derive_root_xprv_from_seed<S, K>(
+    pub(crate) fn derive_root_xprv_from_seed<S, K>(
         seed: S,
         scheme: SignatureScheme,
     ) -> Result<Slip10XPrvKey<K>, Slip10Error>
@@ -141,7 +143,7 @@ impl Slip10 {
 /// # Returns
 /// * `Ok(())` if all components are hardened
 /// * `Err(Slip10Error::InvalidDerivationPath)` if any component is not hardened
-pub fn validate_all_hardened(path: &DerivationPath) -> Result<(), Slip10Error> {
+pub(crate) fn validate_all_hardened(path: &DerivationPath) -> Result<(), Slip10Error> {
     for child_num in path.iter() {
         if !child_num.is_hardened() {
             return Err(Slip10Error::InvalidDerivationPath(format!(
@@ -156,16 +158,27 @@ pub fn validate_all_hardened(path: &DerivationPath) -> Result<(), Slip10Error> {
 /// Errors for the SLIP10 implementation.
 #[derive(Debug, thiserror::Error)]
 pub enum Slip10Error {
+    /// Invalid derivation path
     #[error("Invalid derivation path: {0}")]
     InvalidDerivationPath(String),
+    /// Invalid seed length
     #[error("Invalid seed length: expected {expected}, got {actual}")]
-    InvalidSeedLength { expected: usize, actual: usize },
+    InvalidSeedLength {
+        /// Expected seed length in bytes
+        expected: usize,
+        /// Actual seed length in bytes
+        actual: usize,
+    },
+    /// Invalid HMAC key length
     #[error("Invalid HMAC key length")]
     InvalidHmacKeyLength(#[from] InvalidLength),
+    /// Array conversion failed
     #[error("Array conversion failed: {0}")]
     ConversionError(#[from] std::array::TryFromSliceError),
+    /// BIP32 error
     #[error("BIP32 error: {0}")]
     Bip32(#[from] bip32::Error),
+    /// Maximum derivation depth exceeded
     #[error("Maximum derivation depth exceeded")]
     MaximumDerivationDepthExceeded,
 }
@@ -174,7 +187,7 @@ pub enum Slip10Error {
 mod tests {
     use super::*;
     use crate::hhd::signatures::SignatureScheme;
-    use bip32::{DerivationPath, Prefix, Seed as Bip32Seed, XPrv, secp256k1::ecdsa::SigningKey};
+    use bip32::{secp256k1::ecdsa::SigningKey, DerivationPath, Prefix, Seed as Bip32Seed, XPrv};
 
     const TEST_SEED_64: [u8; 64] = [
         0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e,
@@ -282,7 +295,7 @@ mod tests {
         // 4. Compare chain codes
         assert_eq!(
             bip32_root.attrs().chain_code,
-            slip10_root.chain_code(),
+            slip10_root.attrs.chain_code.as_ref(),
             "Root chain codes should match"
         );
 
@@ -354,7 +367,7 @@ mod tests {
         // 4. Compare chain codes
         assert_eq!(
             bip32_key.attrs().chain_code,
-            slip10_key.chain_code(),
+            slip10_key.attrs.chain_code.as_ref(),
             "Chain codes should match for path: {}",
             path_str
         );

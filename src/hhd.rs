@@ -158,14 +158,16 @@ mod slip10;
 
 pub use bip32::secp256k1::ecdsa;
 pub use bip85::{Bip85, Bip85Error};
-pub use keys::{EcdsaSecp256k1, FnDsa512, KeyError};
+pub use keys::KeyError;
 pub use mnemonic::{Mnemonic, MnemonicError};
 pub use signatures::{SignatureScheme, SignatureSchemeError, SignatureSeed};
-pub use slip10::{Slip10, Slip10Error};
+pub use slip10::Slip10Error;
 
 use crate::falcon::{FalconSigningKey, FalconVerificationKey};
+use crate::ml_dsa::{MlDsaSigningKey, MlDsaVerificationKey};
 use bip32::secp256k1::ecdsa::{SigningKey, VerifyingKey};
-use std::collections::HashMap;
+use keys::{EcdsaSecp256k1, FnDsa512, MlDsa44, MlDsa65, MlDsa87};
+use std::{collections::HashMap, fmt};
 
 /// A Hybrid Hierarchical Deterministic (HD) Wallet derived from a single BIP-39 mnemonic.
 ///
@@ -213,6 +215,15 @@ pub struct HHDWallet {
     /// Master seeds indexed by signature scheme, derived from the mnemonic using BIP-85.
     /// All seeds are zeroized on drop according to bip32 crate implementation.
     pub master_seeds: HashMap<SignatureScheme, SignatureSeed>,
+}
+
+impl fmt::Debug for HHDWallet {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("HHDWallet")
+            .field("mnemonic", &"<redacted>")
+            .field("master_seeds", &self.master_seeds)
+            .finish()
+    }
 }
 
 impl HHDWallet {
@@ -366,6 +377,53 @@ impl HHDWallet {
         &self.master_seeds
     }
 
+    /// Derives a ECDSA secp256k1 keypair at the given address index.
+    ///
+    /// This method derives a ECDSA secp256k1 keypair using the scheme-specific seed and the provided
+    /// address index. The derivation path is `m/44'/60'/0'/0/{address_index}` (BIP-44 path).
+    ///
+    /// # Arguments
+    ///
+    /// * `address_index` - The address index (non-negative integer)
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(SigningKey, VerifyingKey)` - The derived ECDSA secp256k1 keypair
+    /// * `Err(WalletError)` - If derivation fails
+    ///
+    /// # Errors
+    ///
+    /// Returns `WalletError` in the following cases:
+    /// - `InvalidScheme`: If ECDSA secp256k1 is not supported in this wallet
+    /// - `KeyError`: If key derivation fails
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use bedrock::hhd::{HHDWallet, SignatureScheme};
+    ///
+    /// let wallet = HHDWallet::new(vec![SignatureScheme::EcdsaSecp256k1], None).unwrap();
+    ///
+    /// // Derive ECDSA keypair at address index 0
+    /// let (ecdsa_sk, ecdsa_vk) = wallet.derive_ecdsa_secp256k1_keypair(0).unwrap();
+    ///
+    /// // Derive another keypair at address index 1
+    /// let (ecdsa_sk2, ecdsa_vk2) = wallet.derive_ecdsa_secp256k1_keypair(1).unwrap();
+    /// ```
+    pub fn derive_ecdsa_secp256k1_keypair(
+        &self,
+        address_index: u32,
+    ) -> Result<(SigningKey, VerifyingKey), WalletError> {
+        // 1. Extract child seed for the corresponding scheme
+        let signature_seed = self
+            .master_seeds
+            .get(&SignatureScheme::EcdsaSecp256k1)
+            .ok_or(WalletError::InvalidScheme)?;
+        let seed_bytes = signature_seed.as_seed().as_bytes();
+
+        EcdsaSecp256k1::derive_from_seed(seed_bytes, address_index).map_err(WalletError::KeyError)
+    }
+
     /// Derives a Falcon-512 keypair at the given address index.
     ///
     /// This method derives a Falcon-512 keypair using the scheme-specific seed and the provided
@@ -413,10 +471,10 @@ impl HHDWallet {
         FnDsa512::derive_from_seed(seed_bytes, address_index).map_err(WalletError::KeyError)
     }
 
-    /// Derives a ECDSA secp256k1 keypair at the given address index.
+    /// Derives a ML-DSA-44 keypair at the given address index.
     ///
-    /// This method derives a ECDSA secp256k1 keypair using the scheme-specific seed and the provided
-    /// address index. The derivation path is `m/44'/60'/0'/0/{address_index}` (BIP-44 path).
+    /// This method derives a ML-DSA-44 keypair using the scheme-specific seed and the provided
+    /// address index. The derivation path is `m/44'/60'/0'/0'/{address_index}'` (hardened path).
     ///
     /// # Arguments
     ///
@@ -424,13 +482,13 @@ impl HHDWallet {
     ///
     /// # Returns
     ///
-    /// * `Ok(SigningKey, VerifyingKey)` - The derived ECDSA secp256k1 keypair
+    /// * `Ok(MlDsaSigningKey, MlDsaVerificationKey)` - The derived ML-DSA-44 keypair
     /// * `Err(WalletError)` - If derivation fails
     ///
     /// # Errors
     ///
     /// Returns `WalletError` in the following cases:
-    /// - `InvalidScheme`: If ECDSA secp256k1 is not supported in this wallet
+    /// - `InvalidScheme`: If ML-DSA-44 is not supported in this wallet
     /// - `KeyError`: If key derivation fails
     ///
     /// # Example
@@ -438,26 +496,120 @@ impl HHDWallet {
     /// ```
     /// use bedrock::hhd::{HHDWallet, SignatureScheme};
     ///
-    /// let wallet = HHDWallet::new(vec![SignatureScheme::EcdsaSecp256k1], None).unwrap();
+    /// let wallet = HHDWallet::new(vec![SignatureScheme::MlDsa44], None).unwrap();
     ///
-    /// // Derive ECDSA keypair at address index 0
-    /// let (ecdsa_sk, ecdsa_vk) = wallet.derive_ecdsa_secp256k1_keypair(0).unwrap();
+    /// // Derive ML-DSA keypair at address index 0
+    /// let (mldsa_sk, mldsa_vk) = wallet.derive_mldsa44_keypair(0).unwrap();
     ///
     /// // Derive another keypair at address index 1
-    /// let (ecdsa_sk2, ecdsa_vk2) = wallet.derive_ecdsa_secp256k1_keypair(1).unwrap();
+    /// let (mldsa_sk2, mldsa_vk2) = wallet.derive_mldsa44_keypair(1).unwrap();
     /// ```
-    pub fn derive_ecdsa_secp256k1_keypair(
+    pub fn derive_mldsa44_keypair(
         &self,
         address_index: u32,
-    ) -> Result<(SigningKey, VerifyingKey), WalletError> {
-        // 1. Extract child seed for the corresponding scheme
+    ) -> Result<(MlDsaSigningKey, MlDsaVerificationKey), WalletError> {
+        // 1. Extract child seed for the ML-DSA 44 scheme
         let signature_seed = self
             .master_seeds
-            .get(&SignatureScheme::EcdsaSecp256k1)
+            .get(&SignatureScheme::MlDsa44)
             .ok_or(WalletError::InvalidScheme)?;
         let seed_bytes = signature_seed.as_seed().as_bytes();
 
-        EcdsaSecp256k1::derive_from_seed(seed_bytes, address_index).map_err(WalletError::KeyError)
+        MlDsa44::derive_from_seed(seed_bytes, address_index).map_err(WalletError::KeyError)
+    }
+
+    /// Derives a ML-DSA-65 keypair at the given address index.
+    ///
+    /// This method derives a ML-DSA-65 keypair using the scheme-specific seed and the provided
+    /// address index. The derivation path is `m/44'/60'/0'/0'/{address_index}'` (hardened path).
+    ///
+    /// # Arguments
+    ///
+    /// * `address_index` - The address index (non-negative integer)
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(MlDsaSigningKey, MlDsaVerificationKey)` - The derived ML-DSA-65 keypair
+    /// * `Err(WalletError)` - If derivation fails
+    ///
+    /// # Errors
+    ///
+    /// Returns `WalletError` in the following cases:
+    /// - `InvalidScheme`: If ML-DSA-65 is not supported in this wallet
+    /// - `KeyError`: If key derivation fails
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use bedrock::hhd::{HHDWallet, SignatureScheme};
+    ///
+    /// let wallet = HHDWallet::new(vec![SignatureScheme::MlDsa65], None).unwrap();
+    ///
+    /// // Derive ML-DSA keypair at address index 0
+    /// let (mldsa_sk, mldsa_vk) = wallet.derive_mldsa65_keypair(0).unwrap();
+    ///
+    /// // Derive another keypair at address index 1
+    /// let (mldsa_sk2, mldsa_vk2) = wallet.derive_mldsa65_keypair(1).unwrap();
+    /// ```
+    pub fn derive_mldsa65_keypair(
+        &self,
+        address_index: u32,
+    ) -> Result<(MlDsaSigningKey, MlDsaVerificationKey), WalletError> {
+        // 1. Extract child seed for the ML-DSA 65 scheme
+        let signature_seed = self
+            .master_seeds
+            .get(&SignatureScheme::MlDsa65)
+            .ok_or(WalletError::InvalidScheme)?;
+        let seed_bytes = signature_seed.as_seed().as_bytes();
+
+        MlDsa65::derive_from_seed(seed_bytes, address_index).map_err(WalletError::KeyError)
+    }
+
+    /// Derives a ML-DSA-87 keypair at the given address index.
+    ///
+    /// This method derives a ML-DSA-87 keypair using the scheme-specific seed and the provided
+    /// address index. The derivation path is `m/44'/60'/0'/0'/{address_index}'` (hardened path).
+    ///
+    /// # Arguments
+    ///
+    /// * `address_index` - The address index (non-negative integer)
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(MlDsaSigningKey, MlDsaVerificationKey)` - The derived ML-DSA-87 keypair
+    /// * `Err(WalletError)` - If derivation fails
+    ///
+    /// # Errors
+    ///
+    /// Returns `WalletError` in the following cases:
+    /// - `InvalidScheme`: If ML-DSA-87 is not supported in this wallet
+    /// - `KeyError`: If key derivation fails
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use bedrock::hhd::{HHDWallet, SignatureScheme};
+    ///
+    /// let wallet = HHDWallet::new(vec![SignatureScheme::MlDsa87], None).unwrap();
+    ///
+    /// // Derive ML-DSA keypair at address index 0
+    /// let (mldsa_sk, mldsa_vk) = wallet.derive_mldsa87_keypair(0).unwrap();
+    ///
+    /// // Derive another keypair at address index 1
+    /// let (mldsa_sk2, mldsa_vk2) = wallet.derive_mldsa87_keypair(1).unwrap();
+    /// ```
+    pub fn derive_mldsa87_keypair(
+        &self,
+        address_index: u32,
+    ) -> Result<(MlDsaSigningKey, MlDsaVerificationKey), WalletError> {
+        // 1. Extract child seed for the ML-DSA 87 scheme
+        let signature_seed = self
+            .master_seeds
+            .get(&SignatureScheme::MlDsa87)
+            .ok_or(WalletError::InvalidScheme)?;
+        let seed_bytes = signature_seed.as_seed().as_bytes();
+
+        MlDsa87::derive_from_seed(seed_bytes, address_index).map_err(WalletError::KeyError)
     }
 }
 
@@ -508,19 +660,74 @@ pub enum WalletError {
 mod tests {
     use super::*;
     use crate::falcon::FalconScheme;
+    use crate::ml_dsa::MlDsaScheme;
+    use bip32::secp256k1::ecdsa::{
+        signature::{Signer, Verifier},
+        Signature,
+    };
+    use rstest::rstest;
+
+    #[rstest]
+    #[case::mldsa44(SignatureScheme::MlDsa44)]
+    #[case::mldsa65(SignatureScheme::MlDsa65)]
+    #[case::mldsa87(SignatureScheme::MlDsa87)]
+    fn test_hhd_wallet_sign_verify_with_schemes(#[case] scheme: SignatureScheme) {
+        let wallet = HHDWallet::new(vec![scheme], None).unwrap();
+        let message = b"Hello, world!";
+
+        let (sk, vk) = match scheme {
+            SignatureScheme::MlDsa44 => wallet.derive_mldsa44_keypair(0).unwrap(),
+            SignatureScheme::MlDsa65 => wallet.derive_mldsa65_keypair(0).unwrap(),
+            SignatureScheme::MlDsa87 => wallet.derive_mldsa87_keypair(0).unwrap(),
+            _ => panic!("Invalid scheme"),
+        };
+        let signature = match scheme {
+            SignatureScheme::MlDsa44 => MlDsaScheme::Dsa44.sign(message, &sk).unwrap(),
+            SignatureScheme::MlDsa65 => MlDsaScheme::Dsa65.sign(message, &sk).unwrap(),
+            SignatureScheme::MlDsa87 => MlDsaScheme::Dsa87.sign(message, &sk).unwrap(),
+            _ => panic!("Invalid scheme"),
+        };
+        let res = match scheme {
+            SignatureScheme::MlDsa44 => MlDsaScheme::Dsa44.verify(message, &signature, &vk),
+            SignatureScheme::MlDsa65 => MlDsaScheme::Dsa65.verify(message, &signature, &vk),
+            SignatureScheme::MlDsa87 => MlDsaScheme::Dsa87.verify(message, &signature, &vk),
+            _ => panic!("Invalid scheme"),
+        };
+        assert!(res.is_ok());
+    }
 
     #[test]
-    fn test_hhd_wallet_sign_verify_with_schemes() {
+    fn test_hhd_wallet_sign_verify_with_falcon() {
+        let wallet = HHDWallet::new(vec![SignatureScheme::Falcon512], None).unwrap();
+        let message = b"Hello, world!";
+        let (sk, vk) = wallet.derive_fn_dsa512_keypair(0).unwrap();
+        let signature = FalconScheme::Dsa512.sign(message, &sk).unwrap();
+        let res = FalconScheme::Dsa512.verify(message, &signature, &vk);
+        assert!(res.is_ok());
+    }
+
+    #[test]
+    fn test_hhd_wallet_sign_verify_with_ecdsa() {
+        let wallet = HHDWallet::new(vec![SignatureScheme::EcdsaSecp256k1], None).unwrap();
+        let message = b"Hello, world!";
+        let (sk, vk) = wallet.derive_ecdsa_secp256k1_keypair(0).unwrap();
+        let signature: Signature = sk.sign(message);
+        let res = vk.verify(message, &signature);
+        assert!(res.is_ok());
+    }
+
+    #[test]
+    fn test_hhd_wallet_debug_display() {
         let wallet = HHDWallet::new(
             vec![SignatureScheme::EcdsaSecp256k1, SignatureScheme::Falcon512],
             None,
         )
         .unwrap();
-        let message = b"Hello, world!";
-
-        let (sk, vk) = wallet.derive_fn_dsa512_keypair(0).unwrap();
-        let signature = FalconScheme::Dsa512.sign(message, &sk).unwrap();
-        let res = FalconScheme::Dsa512.verify(message, &signature, &vk);
-        assert!(res.is_ok());
+        let debug_display = format!("{:?}", wallet);
+        println!("{}", debug_display);
+        assert!(debug_display.contains("mnemonic"));
+        assert!(debug_display.contains("master_seeds"));
+        assert!(debug_display.contains("ECDSAsecp256k1"));
+        assert!(debug_display.contains("Falcon512"));
     }
 }

@@ -2,8 +2,8 @@
 
 use bedrock::falcon::{FalconScheme, FalconSigningKey, FalconVerificationKey};
 use fn_dsa::{
-    DOMAIN_NONE, FN_DSA_LOGN_512, HASH_ID_RAW, KeyPairGenerator, KeyPairGeneratorStandard,
-    SigningKey, SigningKeyStandard, VerifyingKey, VerifyingKeyStandard,
+    KeyPairGenerator, KeyPairGeneratorStandard, SigningKey, SigningKeyStandard, VerifyingKey,
+    VerifyingKeyStandard, DOMAIN_NONE, FN_DSA_LOGN_512, HASH_ID_RAW,
 };
 use fn_dsa_comm::signature_size;
 use rand::SeedableRng;
@@ -50,11 +50,9 @@ fn fn_dsa_to_bedrock_compatibility_512() {
     assert!(res.is_ok());
     let bedrock_sig = res.unwrap();
 
-    assert!(
-        FALCON_SCHEME
-            .verify(&MSG, &bedrock_sig, &bedrock_pk)
-            .is_ok()
-    );
+    assert!(FALCON_SCHEME
+        .verify(&MSG, &bedrock_sig, &bedrock_pk)
+        .is_ok());
 }
 
 #[test]

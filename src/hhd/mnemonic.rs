@@ -84,6 +84,14 @@ pub struct Mnemonic {
     inner: Bip39Mnemonic,
 }
 
+impl std::fmt::Debug for Mnemonic {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Mnemonic")
+            .field("phrase", &"<redacted>")
+            .finish()
+    }
+}
+
 impl Mnemonic {
     /// Generates a new random mnemonic phrase of 24 words using the English wordlist.
     ///
