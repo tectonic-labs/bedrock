@@ -200,6 +200,7 @@ pub(crate) struct InnerFalcon {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
     use rstest::*;
@@ -255,7 +256,7 @@ mod tests {
         const MSG: &[u8] = &[0u8; 8];
         let (pk, sk) = scheme.keypair().unwrap();
 
-        let signature = sk.0.scheme.sign(&MSG, &sk).unwrap();
+        let signature = sk.0.scheme.sign(MSG, &sk).unwrap();
         let res = pk.0.scheme.verify(MSG, &signature, &pk);
         assert!(res.is_ok());
 

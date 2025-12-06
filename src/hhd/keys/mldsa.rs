@@ -125,6 +125,7 @@ impl_ml_dsa_struct!(MlDsa65, Dsa65, ML_DSA_65_KEY_GENERATION_SEED_SIZE,);
 impl_ml_dsa_struct!(MlDsa87, Dsa87, ML_DSA_87_KEY_GENERATION_SEED_SIZE,);
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
     use crate::hhd::signatures::SignatureScheme;

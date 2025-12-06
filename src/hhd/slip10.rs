@@ -24,6 +24,16 @@ pub(crate) struct Slip10XPrvKey<K: PrivateKey> {
     attrs: ExtendedKeyAttrs,
 }
 
+impl<K: PrivateKey> std::fmt::Debug for Slip10XPrvKey<K> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // Don't expose private key in debug output for security
+        f.debug_struct("Slip10XPrvKey")
+            .field("private_key", &"<redacted>")
+            .field("attrs", &self.attrs)
+            .finish()
+    }
+}
+
 impl<K: PrivateKey> Slip10XPrvKey<K> {
     /// Derive a child key for a particular [`ChildNumber`].
     /// Function based on the BIP-32 implementation.
@@ -184,6 +194,7 @@ pub enum Slip10Error {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
     use crate::hhd::signatures::SignatureScheme;
@@ -334,9 +345,7 @@ mod tests {
 
         let bip32_key = path
             .iter()
-            .fold(Ok(bip32_root), |maybe_key, child_num| {
-                maybe_key.and_then(|key| key.derive_child(child_num))
-            })
+            .try_fold(bip32_root, |key, child_num| key.derive_child(child_num))
             .expect("should derive BIP32 key");
 
         // Verify BIP-32 result matches expected

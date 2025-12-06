@@ -78,6 +78,7 @@ impl EcdsaSecp256k1 {
 
 #[cfg(all(feature = "sign", feature = "vrfy"))]
 #[cfg(test)]
+#[allow(clippy::unwrap_used)]
 mod tests {
     use super::EcdsaSecp256k1;
     use bip32::secp256k1::ecdsa::{

@@ -10,6 +10,7 @@ use rand::SeedableRng;
 
 #[cfg(feature = "eth_falcon")]
 #[test]
+#[allow(clippy::unwrap_used)]
 fn fn_dsa_to_eth_falcon_compatibility() {
     const MSG: &[u8] = &[0u8; 8];
     const SEED: [u8; 32] = [3u8; 32];
@@ -29,6 +30,7 @@ fn fn_dsa_to_eth_falcon_compatibility() {
 }
 
 #[test]
+#[allow(clippy::unwrap_used)]
 fn fn_dsa_to_bedrock_compatibility_512() {
     const MSG: &[u8] = &[0u8; 8];
     const SEED: [u8; 32] = [3u8; 32];
@@ -50,12 +52,11 @@ fn fn_dsa_to_bedrock_compatibility_512() {
     assert!(res.is_ok());
     let bedrock_sig = res.unwrap();
 
-    assert!(FALCON_SCHEME
-        .verify(&MSG, &bedrock_sig, &bedrock_pk)
-        .is_ok());
+    assert!(FALCON_SCHEME.verify(MSG, &bedrock_sig, &bedrock_pk).is_ok());
 }
 
 #[test]
+#[allow(clippy::unwrap_used)]
 fn bedrock_to_fn_dsa_compatibility_512() {
     const MSG: &[u8] = &[0u8; 8];
     const FALCON_SCHEME: FalconScheme = FalconScheme::Dsa512;
