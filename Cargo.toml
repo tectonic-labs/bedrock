@@ -2,7 +2,7 @@
 categories = ["cryptography"]
 description = "Tectonic's common cryptography library"
 documentation = "https://docs.rs/bedrock"
-edition = "2024"
+edition = "2021"
 keywords = ["post-quantum"]
 name = "bedrock"
 readme = "README.md"
@@ -10,9 +10,9 @@ repository = "https://github.com/tectonic-labs/bedrock"
 version = "0.1.0"
 
 [features]
-default = ["eth_falcon", "falcon", "mceliece", "ml-dsa", "ml-kem", "decp", "encp", "kgen", "sign", "vrfy"]
+default = ["eth_falcon", "falcon", "mceliece", "ml-dsa", "ml-kem", "decp", "encp", "kgen", "sign", "vrfy", "hhd"]
 eth_falcon = ["falcon", "rand_chacha", "rand_core", "fn-dsa-comm/eth_falcon", "fn-dsa-sign?/eth_falcon", "fn-dsa-vrfy?/eth_falcon", "zeroize"]
-hhd = ["zeroize", "bip32", "hmac", "sha2", "tiny-bip39", "kgen", "falcon", "rand_core"]
+hhd = ["zeroize", "bip32", "hmac", "sha2", "tiny-bip39", "kgen", "falcon", "rand_core", "ml-dsa"]
 falcon = ["oqs/falcon"]
 mceliece = ["oqs/classic_mceliece"]
 ml-dsa = ["oqs/ml_dsa"]
@@ -39,7 +39,7 @@ tiny-bip39 = { version = "2.0.0", optional = true }
 
 [dependencies.oqs]
 git = "https://github.com/tectonic-labs/liboqs-rust"
-tag = "tectonic/0.11.0-rc0"
+tag = "tectonic/0.11.0-rc1"
 default-features = false
 features = [
     "serde",

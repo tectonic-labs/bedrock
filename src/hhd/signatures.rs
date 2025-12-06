@@ -25,6 +25,7 @@
 //! [SLIP-0010]: https://github.com/satoshilabs/slips/blob/master/slip-0010.md
 
 use bip32::Seed;
+use std::fmt;
 
 /// Size in bytes of the seed required for ECDSA secp256k1 key generation (32 bytes = 256 bits).
 pub const ECDSA_SECP256K1_KEY_GENERATION_SEED_SIZE: usize = 32;
@@ -51,6 +52,33 @@ pub const FALCON512_SIGNING_KEY_SIZE: usize = 1281;
 pub const FALCON512_VERIFYING_KEY_SIZE: usize = 897;
 /// Size in bytes of a Falcon-512 signature: approximately 666 bytes (variable length).
 pub const FALCON512_SIGNATURE_SIZE: usize = 666;
+
+/// Size in bytes of the seed required for ML-DSA key generation (32 bytes = 256 bits).
+/// Original standard (pag. 33): 𝜉 ∈ 𝔹^32 for KeyGen_internal(𝜉).
+pub const ML_DSA_44_KEY_GENERATION_SEED_SIZE: usize = 32;
+pub const ML_DSA_65_KEY_GENERATION_SEED_SIZE: usize = 32;
+pub const ML_DSA_87_KEY_GENERATION_SEED_SIZE: usize = 32;
+/// Size in bytes of the root seed for ML-DSA HD key derivation (64 bytes = 512 bits).
+pub const ML_DSA_44_ROOT_SEED_SIZE: usize = 64;
+pub const ML_DSA_65_ROOT_SEED_SIZE: usize = 64;
+pub const ML_DSA_87_ROOT_SEED_SIZE: usize = 64;
+/// Domain separator string used for ML-DSA 44 in BIP-32 key derivation.
+pub const ML_DSA_44_DOMAIN_SEPARATOR: &[u8] = b"ML-DSA-44-v1 seed";
+pub const ML_DSA_65_DOMAIN_SEPARATOR: &[u8] = b"ML-DSA-65-v1 seed";
+pub const ML_DSA_87_DOMAIN_SEPARATOR: &[u8] = b"ML-DSA-87-v1 seed";
+/// Numbers taken from the original ml-dsa standard: https://nvlpubs.nist.gov/nistpubs/fips/nist.fips.204.pdf
+/// Size in bytes of a ML-DSA 44/65/87 signing key (private key)
+pub const ML_DSA_44_SIGNING_KEY_SIZE: usize = 2560;
+pub const ML_DSA_65_SIGNING_KEY_SIZE: usize = 4032;
+pub const ML_DSA_87_SIGNING_KEY_SIZE: usize = 4896;
+/// Size in bytes of a ML-DSA 44/65/87 verifying key (public key)
+pub const ML_DSA_44_VERIFYING_KEY_SIZE: usize = 1312;
+pub const ML_DSA_65_VERIFYING_KEY_SIZE: usize = 1952;
+pub const ML_DSA_87_VERIFYING_KEY_SIZE: usize = 2592;
+/// Size in bytes of a ML-DSA 44 signature.
+pub const ML_DSA_44_SIGNATURE_SIZE: usize = 2420;
+pub const ML_DSA_65_SIGNATURE_SIZE: usize = 3309;
+pub const ML_DSA_87_SIGNATURE_SIZE: usize = 4627;
 
 /// BIP-44 non-hardened base derivation path
 pub const BIP44_NON_HARDENED_BASE_PATH: &str = "m/44'/60'/0'/0";
@@ -86,18 +114,31 @@ pub enum SignatureSeed {
     ECDSAsecp256k1(Seed),
     /// Falcon-512 signature scheme seed.
     Falcon512(Seed),
+    /// ML-DSA 44 signature scheme seed.
+    MlDsa44(Seed),
+    /// ML-DSA 65 signature scheme seed.
+    MlDsa65(Seed),
+    /// ML-DSA 87 signature scheme seed.
+    MlDsa87(Seed),
 }
 
-impl std::fmt::Debug for SignatureSeed {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        // Don't expose seed bytes in debug output for security
-        match self {
-            SignatureSeed::ECDSAsecp256k1(_) => f
-                .debug_tuple("ECDSAsecp256k1")
-                .field(&"<redacted>")
-                .finish(),
-            SignatureSeed::Falcon512(_) => f.debug_tuple("Falcon512").field(&"<redacted>").finish(),
-        }
+impl fmt::Debug for SignatureSeed {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let variant = match self {
+            SignatureSeed::ECDSAsecp256k1(_) => "ECDSAsecp256k1",
+            SignatureSeed::Falcon512(_) => "Falcon512",
+            SignatureSeed::MlDsa44(_) => "MlDsa44",
+            SignatureSeed::MlDsa65(_) => "MlDsa65",
+            SignatureSeed::MlDsa87(_) => "MlDsa87",
+        };
+
+        let seed_bytes = self.as_seed().as_bytes().to_vec();
+        let masked_seed = format!("<{} bytes hidden>", seed_bytes.len());
+
+        f.debug_struct("SignatureSeed")
+            .field("scheme", &variant)
+            .field("seed", &masked_seed)
+            .finish()
     }
 }
 
@@ -128,6 +169,9 @@ impl SignatureSeed {
         match self {
             SignatureSeed::ECDSAsecp256k1(seed) => seed,
             SignatureSeed::Falcon512(seed) => seed,
+            SignatureSeed::MlDsa44(seed) => seed,
+            SignatureSeed::MlDsa65(seed) => seed,
+            SignatureSeed::MlDsa87(seed) => seed,
         }
     }
 }
@@ -159,6 +203,12 @@ pub enum SignatureScheme {
     EcdsaSecp256k1,
     /// Falcon-512 post-quantum signature scheme.
     Falcon512,
+    /// ML-DSA 44 post-quantum signature scheme.
+    MlDsa44,
+    /// ML-DSA 65 post-quantum signature scheme.
+    MlDsa65,
+    /// ML-DSA 87 post-quantum signature scheme.
+    MlDsa87,
 }
 
 impl SignatureScheme {
@@ -221,9 +271,11 @@ impl SignatureScheme {
     /// ```
     pub fn bip44_hardened_base_path(&self) -> Result<&'static str, SignatureSchemeError> {
         match self {
-            SignatureScheme::EcdsaSecp256k1 | SignatureScheme::Falcon512 => {
-                Ok(BIP44_HARDENED_BASE_PATH)
-            }
+            SignatureScheme::EcdsaSecp256k1
+            | SignatureScheme::Falcon512
+            | SignatureScheme::MlDsa44
+            | SignatureScheme::MlDsa65
+            | SignatureScheme::MlDsa87 => Ok(BIP44_HARDENED_BASE_PATH),
         }
     }
 
@@ -236,6 +288,9 @@ impl SignatureScheme {
         match self {
             SignatureScheme::EcdsaSecp256k1 => ECDSA_SECP256K1_KEY_GENERATION_SEED_SIZE,
             SignatureScheme::Falcon512 => FALCON512_KEY_GENERATION_SEED_SIZE,
+            SignatureScheme::MlDsa44 => ML_DSA_44_KEY_GENERATION_SEED_SIZE,
+            SignatureScheme::MlDsa65 => ML_DSA_65_KEY_GENERATION_SEED_SIZE,
+            SignatureScheme::MlDsa87 => ML_DSA_87_KEY_GENERATION_SEED_SIZE,
         }
     }
 
@@ -247,6 +302,9 @@ impl SignatureScheme {
         match self {
             SignatureScheme::EcdsaSecp256k1 => ECDSA_SECP256K1_ROOT_SEED_SIZE,
             SignatureScheme::Falcon512 => FALCON512_ROOT_SEED_SIZE,
+            SignatureScheme::MlDsa44 => ML_DSA_44_ROOT_SEED_SIZE,
+            SignatureScheme::MlDsa65 => ML_DSA_65_ROOT_SEED_SIZE,
+            SignatureScheme::MlDsa87 => ML_DSA_87_ROOT_SEED_SIZE,
         }
     }
 
@@ -277,6 +335,9 @@ impl SignatureScheme {
         match self {
             SignatureScheme::EcdsaSecp256k1 => ECDSA_SECP256K1_DOMAIN_SEPARATOR,
             SignatureScheme::Falcon512 => FALCON512_DOMAIN_SEPARATOR,
+            SignatureScheme::MlDsa44 => ML_DSA_44_DOMAIN_SEPARATOR,
+            SignatureScheme::MlDsa65 => ML_DSA_65_DOMAIN_SEPARATOR,
+            SignatureScheme::MlDsa87 => ML_DSA_87_DOMAIN_SEPARATOR,
         }
     }
 
@@ -288,6 +349,9 @@ impl SignatureScheme {
         match self {
             SignatureScheme::EcdsaSecp256k1 => ECDSA_SECP256K1_SIGNING_KEY_SIZE,
             SignatureScheme::Falcon512 => FALCON512_SIGNING_KEY_SIZE,
+            SignatureScheme::MlDsa44 => ML_DSA_44_SIGNING_KEY_SIZE,
+            SignatureScheme::MlDsa65 => ML_DSA_65_SIGNING_KEY_SIZE,
+            SignatureScheme::MlDsa87 => ML_DSA_87_SIGNING_KEY_SIZE,
         }
     }
 
@@ -299,6 +363,9 @@ impl SignatureScheme {
         match self {
             SignatureScheme::EcdsaSecp256k1 => ECDSA_SECP256K1_VERIFYING_KEY_SIZE,
             SignatureScheme::Falcon512 => FALCON512_VERIFYING_KEY_SIZE,
+            SignatureScheme::MlDsa44 => ML_DSA_44_VERIFYING_KEY_SIZE,
+            SignatureScheme::MlDsa65 => ML_DSA_65_VERIFYING_KEY_SIZE,
+            SignatureScheme::MlDsa87 => ML_DSA_87_VERIFYING_KEY_SIZE,
         }
     }
 
@@ -310,13 +377,15 @@ impl SignatureScheme {
         match self {
             SignatureScheme::EcdsaSecp256k1 => ECDSA_SECP256K1_SIGNATURE_SIZE,
             SignatureScheme::Falcon512 => FALCON512_SIGNATURE_SIZE,
+            SignatureScheme::MlDsa44 => ML_DSA_44_SIGNATURE_SIZE,
+            SignatureScheme::MlDsa65 => ML_DSA_65_SIGNATURE_SIZE,
+            SignatureScheme::MlDsa87 => ML_DSA_87_SIGNATURE_SIZE,
         }
     }
 }
 
 /// Errors that can occur during signature scheme operations.
-#[derive(Debug, thiserror::Error)]
-#[allow(missing_copy_implementations)] // bip32::Error doesn't implement Copy
+#[derive(Clone, Copy, Debug, thiserror::Error)]
 pub enum SignatureSchemeError {
     /// Invalid derivation path encountered during path parsing or validation.
     #[error("Invalid derivation path: {0}")]
@@ -324,4 +393,19 @@ pub enum SignatureSchemeError {
     /// The requested signature scheme operation is not supported or invalid.
     #[error("Invalid scheme")]
     InvalidScheme,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_signature_scheme_debug_display() {
+        let seed = Seed::new([0u8; 64]);
+        let signature_seed = SignatureSeed::ECDSAsecp256k1(seed);
+        assert_eq!(
+            format!("{:?}", signature_seed),
+            "SignatureSeed { scheme: \"ECDSAsecp256k1\", seed: \"<64 bytes hidden>\" }"
+        );
+    }
 }

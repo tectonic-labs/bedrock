@@ -14,26 +14,12 @@
 //! - `0`: Change (external addresses)
 //! - `{address_index}`: Address index (non-hardened)
 //!
-//! # Example
-//!
-//! ```no_run
-//! use bedrock::hhd::EcdsaSecp256k1;
-//! use bedrock::hhd::ecdsa::{Signature, signature::{Verifier, Signer}};
-//!
-//! let seed = [0u8; 64]; // 64-byte seed
-//! let (sk, vk) = EcdsaSecp256k1::derive_from_seed(&seed, 0).unwrap();
-//!
-//! let message = b"Hello, world!";
-//! let signature: Signature = sk.sign(message);
-//! assert!(vk.verify(message, &signature).is_ok());
-//! ```
-//!
 //! [Bip32]: https://docs.rs/bip32/latest/bip32/
 
 use crate::hhd::keys::KeyError;
 use crate::hhd::signatures::SignatureScheme;
-use bip32::XPrv;
 use bip32::secp256k1::ecdsa::{SigningKey, VerifyingKey};
+use bip32::XPrv;
 use zeroize::Zeroize;
 
 /// ECDSA secp256k1 keypair
@@ -62,15 +48,6 @@ impl EcdsaSecp256k1 {
     /// - Invalid derivation path parsing
     /// - BIP-32 derivation failure
     /// - Invalid signing key creation
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// use bedrock::hhd::EcdsaSecp256k1;
-    ///
-    /// let seed = [0u8; 64];
-    /// let keypair = EcdsaSecp256k1::derive_from_seed(&seed, 0).unwrap();
-    /// ```
     pub fn derive_from_seed(
         seed: &[u8],
         address_index: u32,
@@ -105,8 +82,8 @@ impl EcdsaSecp256k1 {
 mod tests {
     use super::EcdsaSecp256k1;
     use bip32::secp256k1::ecdsa::{
-        Signature,
         signature::{Signer, Verifier},
+        Signature,
     };
 
     /// Test seed for ECDSA keypair derivation tests.

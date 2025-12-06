@@ -77,7 +77,7 @@ const BIP85_KEY_INFO: &str = "bip-entropy-from-k";
 ///
 /// This ensures that different schemes produce different seeds from the same
 /// mnemonic, providing cryptographic seed separation between schemes.
-#[derive(Debug, Copy, Clone)]
+#[derive(Clone, Copy, Debug)]
 pub struct Bip85;
 
 impl Bip85 {
@@ -86,6 +86,11 @@ impl Bip85 {
     /// Each signature scheme is assigned a unique index for BIP-85 derivation:
     /// - ECDSA secp256k1: `1`
     /// - Falcon-512: `2`
+    /// - ML-DSA 44: `4`
+    /// - ML-DSA 65: `5`
+    /// - ML-DSA 87: `6`
+    ///
+    /// Note: reserving index 3 for Falcon1024 support.
     ///
     /// # Arguments
     ///
@@ -103,17 +108,23 @@ impl Bip85 {
     ///
     /// assert_eq!(Bip85::child_index_from_scheme(SignatureScheme::EcdsaSecp256k1), 1);
     /// assert_eq!(Bip85::child_index_from_scheme(SignatureScheme::Falcon512), 2);
+    /// assert_eq!(Bip85::child_index_from_scheme(SignatureScheme::MlDsa44), 4);
+    /// assert_eq!(Bip85::child_index_from_scheme(SignatureScheme::MlDsa65), 5);
+    /// assert_eq!(Bip85::child_index_from_scheme(SignatureScheme::MlDsa87), 6);
     /// ```
     pub fn child_index_from_scheme(scheme: SignatureScheme) -> u32 {
         match scheme {
             SignatureScheme::EcdsaSecp256k1 => 1,
             SignatureScheme::Falcon512 => 2,
+            SignatureScheme::MlDsa44 => 4,
+            SignatureScheme::MlDsa65 => 5,
+            SignatureScheme::MlDsa87 => 6,
         }
     }
 
     /// Gets the BIP-85 child path suffix for the given signature scheme.
     ///
-    /// Returns a hardened path suffix (e.g., `"0'"` or `"1'"`) that is appended
+    /// Returns a hardened path suffix (e.g., `"1'"``) that is appended
     /// to the base BIP-85 path to create the scheme-specific derivation path.
     ///
     /// # Arguments
@@ -122,7 +133,7 @@ impl Bip85 {
     ///
     /// # Returns
     ///
-    /// A hardened path suffix as a `String` (e.g., `"0'"` for ECDSA, `"1'"` for Falcon).
+    /// A hardened path suffix as a `String` (e.g., `"1'"` for ECDSA, `"2'"` for Falcon512).
     ///
     /// # Example
     ///
@@ -132,6 +143,9 @@ impl Bip85 {
     ///
     /// assert_eq!(Bip85::child_path_from_scheme(SignatureScheme::EcdsaSecp256k1), "1'");
     /// assert_eq!(Bip85::child_path_from_scheme(SignatureScheme::Falcon512), "2'");
+    /// assert_eq!(Bip85::child_path_from_scheme(SignatureScheme::MlDsa44), "4'");
+    /// assert_eq!(Bip85::child_path_from_scheme(SignatureScheme::MlDsa65), "5'");
+    /// assert_eq!(Bip85::child_path_from_scheme(SignatureScheme::MlDsa87), "6'");
     /// ```
     pub fn child_path_from_scheme(scheme: SignatureScheme) -> String {
         format!("{}'", Bip85::child_index_from_scheme(scheme))
@@ -163,6 +177,18 @@ impl Bip85 {
     /// assert_eq!(
     ///     Bip85::derivation_path_from_scheme(SignatureScheme::Falcon512),
     ///     "m/83696968'/83286642'/2'"
+    /// );
+    /// assert_eq!(
+    ///     Bip85::derivation_path_from_scheme(SignatureScheme::MlDsa44),
+    ///     "m/83696968'/83286642'/4'"
+    /// );
+    /// assert_eq!(
+    ///     Bip85::derivation_path_from_scheme(SignatureScheme::MlDsa65),
+    ///     "m/83696968'/83286642'/5'"
+    /// );
+    /// assert_eq!(
+    ///     Bip85::derivation_path_from_scheme(SignatureScheme::MlDsa87),
+    ///     "m/83696968'/83286642'/6'"
     /// );
     /// ```
     pub fn derivation_path_from_scheme(scheme: SignatureScheme) -> String {
@@ -340,6 +366,9 @@ impl Bip85 {
         let signature_seed = match scheme {
             SignatureScheme::EcdsaSecp256k1 => SignatureSeed::ECDSAsecp256k1(Seed::new(child_seed)),
             SignatureScheme::Falcon512 => SignatureSeed::Falcon512(Seed::new(child_seed)),
+            SignatureScheme::MlDsa44 => SignatureSeed::MlDsa44(Seed::new(child_seed)),
+            SignatureScheme::MlDsa65 => SignatureSeed::MlDsa65(Seed::new(child_seed)),
+            SignatureScheme::MlDsa87 => SignatureSeed::MlDsa87(Seed::new(child_seed)),
         };
 
         // Zeroize the child entropy
@@ -376,43 +405,28 @@ pub enum Bip85Error {
 mod tests {
     use super::*;
     use bip32::XPrv;
+    use rstest::rstest;
 
-    /// Tests that the ECDSA BIP-85 derivation path is correct.
-    #[test]
-    fn test_ecdsa_bip85_derivation_path() {
-        let scheme = SignatureScheme::EcdsaSecp256k1;
-        assert_eq!(
-            Bip85::derivation_path_from_scheme(scheme),
-            "m/83696968'/83286642'/1'"
-        );
+    #[rstest]
+    #[case(SignatureScheme::EcdsaSecp256k1, "m/83696968'/83286642'/1'")]
+    #[case(SignatureScheme::Falcon512, "m/83696968'/83286642'/2'")]
+    #[case(SignatureScheme::MlDsa44, "m/83696968'/83286642'/4'")]
+    #[case(SignatureScheme::MlDsa65, "m/83696968'/83286642'/5'")]
+    #[case(SignatureScheme::MlDsa87, "m/83696968'/83286642'/6'")]
+    fn test_bip85_paths(#[case] scheme: SignatureScheme, #[case] expected: &str) {
+        assert_eq!(Bip85::derivation_path_from_scheme(scheme), expected);
     }
 
-    /// Tests that the ECDSA BIP-85 derivation path can be parsed correctly.
-    #[test]
-    fn test_ecdsa_bip85_derivation_path_parsed() {
-        let scheme = SignatureScheme::EcdsaSecp256k1;
+    #[rstest]
+    #[case(SignatureScheme::EcdsaSecp256k1, "m/83696968'/83286642'/1'")]
+    #[case(SignatureScheme::Falcon512, "m/83696968'/83286642'/2'")]
+    #[case(SignatureScheme::MlDsa44, "m/83696968'/83286642'/4'")]
+    #[case(SignatureScheme::MlDsa65, "m/83696968'/83286642'/5'")]
+    #[case(SignatureScheme::MlDsa87, "m/83696968'/83286642'/6'")]
+    fn test_bip85_paths_parsed(#[case] scheme: SignatureScheme, #[case] expected: &str) {
         let path =
             Bip85::derivation_path_from_scheme_parsed(scheme).expect("should parse valid path");
-        assert_eq!(path.to_string(), "m/83696968'/83286642'/1'");
-    }
-
-    /// Tests that the Falcon-512 BIP-85 derivation path is correct.
-    #[test]
-    fn test_falcon_bip85_derivation_path() {
-        let scheme = SignatureScheme::Falcon512;
-        assert_eq!(
-            Bip85::derivation_path_from_scheme(scheme),
-            "m/83696968'/83286642'/2'"
-        );
-    }
-
-    /// Tests that the Falcon-512 BIP-85 derivation path can be parsed correctly.
-    #[test]
-    fn test_falcon_bip85_derivation_path_parsed() {
-        let scheme = SignatureScheme::Falcon512;
-        let path =
-            Bip85::derivation_path_from_scheme_parsed(scheme).expect("should parse valid path");
-        assert_eq!(path.to_string(), "m/83696968'/83286642'/2'");
+        assert_eq!(path.to_string(), expected);
     }
 
     fn test_bip_85(
@@ -520,14 +534,30 @@ mod tests {
         )
         .expect("should derive Falcon seed");
 
+        // Derive seed for MlDsa44 scheme using the same mnemonic
+        let mldsa44_seed =
+            Bip85::derive_seed_from_mnemonic(mnemonic.clone(), SignatureScheme::MlDsa44, password)
+                .expect("should derive MlDsa44 seed");
+
         // Extract seed bytes for comparison
         let ecdsa_seed_bytes = ecdsa_seed.as_seed().as_bytes();
         let falcon_seed_bytes = falcon_seed.as_seed().as_bytes();
+        let mldsa44_seed_bytes = mldsa44_seed.as_seed().as_bytes();
 
         // Verify that the seeds are different
         assert_ne!(
             ecdsa_seed_bytes, falcon_seed_bytes,
             "ECDSA and Falcon seeds should be different from the same mnemonic"
+        );
+
+        assert_ne!(
+            ecdsa_seed_bytes, mldsa44_seed_bytes,
+            "ECDSA and MlDsa44 seeds should be different from the same mnemonic"
+        );
+
+        assert_ne!(
+            falcon_seed_bytes, mldsa44_seed_bytes,
+            "Falcon and MlDsa44 seeds should be different from the same mnemonic"
         );
 
         // Verify that the derivation paths are different (1' vs 2')
