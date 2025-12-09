@@ -16,7 +16,6 @@ use std::{
     str::FromStr,
 };
 use x25519_dalek::*;
-use zeroize::Zeroize;
 
 /// Shared secret key
 pub type SharedSecret = [u8; 32];
@@ -266,6 +265,7 @@ impl DecapsulationKey {
             .expect("Failed to generate key pair from seed");
         #[cfg(feature = "zeroize")]
         {
+            use zeroize::Zeroize;
             seed.zeroize();
         }
         let mut x25519_seed = [0u8; 32];

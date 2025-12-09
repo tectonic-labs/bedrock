@@ -22,7 +22,7 @@ encp = []
 decp = []
 sign = ["fn-dsa-comm", "fn-dsa-sign"]
 vrfy = ["fn-dsa-comm", "fn-dsa-vrfy"]
-xwing = ["sha3", "x25519-dalek"]
+xwing = ["rand_core", "sha3", "x25519-dalek"]
 
 [dependencies]
 hex = "0.4"
