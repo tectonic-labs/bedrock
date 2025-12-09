@@ -95,6 +95,26 @@ impl_kem_struct!(
     "a valid shared secret"
 );
 
+#[cfg(feature = "zeroize")]
+impl zeroize::Zeroize for KemDecapsulationKey {
+    fn zeroize(&mut self) {
+        self.0.zeroize();
+    }
+}
+
+#[cfg(feature = "zeroize")]
+impl zeroize::ZeroizeOnDrop for KemDecapsulationKey {}
+
+#[cfg(feature = "zeroize")]
+impl zeroize::Zeroize for KemSharedSecret {
+    fn zeroize(&mut self) {
+        self.0.zeroize();
+    }
+}
+
+#[cfg(feature = "zeroize")]
+impl zeroize::ZeroizeOnDrop for KemSharedSecret {}
+
 base_kem_impl!(
     KemScheme,
     "Key-Encapsulation",
@@ -115,6 +135,13 @@ pub(crate) struct InnerKem {
         deserialize_with = "deserialize_hex_or_bin"
     )]
     value: Vec<u8>,
+}
+
+#[cfg(feature = "zeroize")]
+impl zeroize::Zeroize for InnerKem {
+    fn zeroize(&mut self) {
+        self.value.zeroize();
+    }
 }
 
 #[cfg(test)]

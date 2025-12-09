@@ -10,7 +10,7 @@ repository = "https://github.com/tectonic-labs/bedrock"
 version = "0.1.0"
 
 [features]
-default = ["eth_falcon", "falcon", "mceliece", "ml-dsa", "ml-kem", "decp", "encp", "kgen", "sign", "vrfy", "hhd"]
+default = ["eth_falcon", "falcon", "mceliece", "ml-dsa", "ml-kem", "decp", "encp", "kgen", "sign", "vrfy", "hhd", "xwing"]
 eth_falcon = ["falcon", "rand_chacha", "rand_core", "fn-dsa-comm/eth_falcon", "fn-dsa-sign?/eth_falcon", "fn-dsa-vrfy?/eth_falcon", "zeroize"]
 hhd = ["zeroize", "bip32", "hmac", "sha2", "tiny-bip39", "kgen", "falcon", "rand_core", "ml-dsa"]
 falcon = ["oqs/falcon"]
@@ -22,14 +22,17 @@ encp = []
 decp = []
 sign = ["fn-dsa-comm", "fn-dsa-sign"]
 vrfy = ["fn-dsa-comm", "fn-dsa-vrfy"]
+xwing = ["sha3", "x25519-dalek"]
 
 [dependencies]
 hex = "0.4"
 rand_chacha = { version = "0.3", optional = true }
 rand_core = { version = "0.6", features = ["std"], optional = true }
+sha3 = { version = "0.10", optional = true }
 serde = { version = "1.0", features = ["derive"] }
 serdect = "0.4"
 thiserror = "2.0"
+x25519-dalek = { version = "2.0", features = ["getrandom", "static_secrets"], optional = true }
 zeroize = { version = "1.8", optional = true }
 
 bip32 = { version = "0.5.3", features = ["std", "secp256k1"], optional = true }
@@ -72,6 +75,7 @@ git = "https://github.com/tectonic-labs/rust-fn-dsa"
 tag = "tectonic/0.3.0"
 
 [dev-dependencies]
+hex = { version = "0.4", features = ["serde"] }
 falcon-rust = "0.1.2"
 postcard = {  version = "1.0", features = ["use-std"] }
 rand = "0.8"
