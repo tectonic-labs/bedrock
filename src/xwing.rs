@@ -158,7 +158,12 @@ impl XwingScheme {
             scheme: *self,
             seed: seed.to_vec(),
         };
-        let (_sk_m, _sk_x, pk_m, pk_x) = dk.expand_key();
+        let ExpandedDecapsulationKey {
+            sk_m: _,
+            sk_x: _,
+            pk_m,
+            pk_x,
+        } = dk.expand();
         let ek = EncapsulationKey { pk_m, pk_x };
         Ok((ek, dk))
     }
@@ -224,7 +229,12 @@ impl zeroize::Zeroize for DecapsulationKey {
 impl DecapsulationKey {
     /// Decapsulate the ciphertext to produce the shared secret
     pub fn decapsulate(&self, ct: &Ciphertext) -> Result<SharedSecret> {
-        let (sk_m, sk_x, _pk_m, pk_x) = self.expand_key();
+        let ExpandedDecapsulationKey {
+            sk_m,
+            sk_x,
+            pk_m: _,
+            pk_x,
+        } = self.expand();
 
         let ss_m = sk_m.scheme().decapsulate(&ct.ct_m, &sk_m)?;
 
@@ -234,14 +244,8 @@ impl DecapsulationKey {
         Ok(ss)
     }
 
-    fn expand_key(
-        &self,
-    ) -> (
-        KemDecapsulationKey,
-        StaticSecret,
-        KemEncapsulationKey,
-        PublicKey,
-    ) {
+    /// Convert to expanded form
+    pub fn expand(&self) -> ExpandedDecapsulationKey {
         use sha3::digest::Update;
         let mut hasher = Shake256::default();
         hasher.update(&self.seed);
@@ -272,7 +276,34 @@ impl DecapsulationKey {
         reader.read(&mut x25519_seed);
         let sk_x = StaticSecret::from(x25519_seed);
         let pk_x = PublicKey::from(&sk_x);
-        (sk_m, sk_x, pk_m, pk_x)
+        ExpandedDecapsulationKey {
+            sk_m,
+            sk_x,
+            pk_m,
+            pk_x,
+        }
+    }
+}
+
+/// The expanded decapsulation key
+#[derive(Clone)]
+#[allow(missing_debug_implementations)]
+pub struct ExpandedDecapsulationKey {
+    sk_m: KemDecapsulationKey,
+    sk_x: StaticSecret,
+    pk_m: KemEncapsulationKey,
+    pk_x: PublicKey,
+}
+
+impl ExpandedDecapsulationKey {
+    /// Decapsulate the ciphertext to produce the shared secret
+    pub fn decapsulate(&self, ct: &Ciphertext) -> Result<SharedSecret> {
+        let ss_m = self.sk_m.scheme().decapsulate(&ct.ct_m, &self.sk_m)?;
+
+        let ss_x = self.sk_x.diffie_hellman(&ct.ct_x);
+
+        let ss = combine(&ss_m, &ss_x, &ct.ct_x, &self.pk_x);
+        Ok(ss)
     }
 }
 
@@ -310,13 +341,13 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use oqs::kem::{Algorithm, Kem};
     use rstest::*;
 
     #[rstest]
     #[case::mlkem512(XwingScheme::X25519MlKem512)]
     #[case::mlkem768(XwingScheme::X25519MlKem768)]
     #[case::mlkem1024(XwingScheme::X25519MlKem1024)]
+    #[case::mceliece348864(XwingScheme::X25519McEliece348864)]
     fn round_trip(#[case] scheme: XwingScheme) {
         let (ek, dk) = scheme.keypair().unwrap();
         let (ct, ss_e) = ek.encapsulate().unwrap();
@@ -329,6 +360,7 @@ mod tests {
     #[case::mlkem512(XwingScheme::X25519MlKem512)]
     #[case::mlkem768(XwingScheme::X25519MlKem768)]
     #[case::mlkem1024(XwingScheme::X25519MlKem1024)]
+    #[case::mceliece348864(XwingScheme::X25519McEliece348864)]
     fn serialize_bytes(#[case] scheme: XwingScheme) {
         let (ek, dk) = scheme.keypair().unwrap();
         let (ct, _ss_e) = ek.encapsulate().unwrap();
@@ -350,6 +382,7 @@ mod tests {
     #[case::mlkem512(XwingScheme::X25519MlKem512)]
     #[case::mlkem768(XwingScheme::X25519MlKem768)]
     #[case::mlkem1024(XwingScheme::X25519MlKem1024)]
+    #[case::mceliece348864(XwingScheme::X25519McEliece348864)]
     fn serialize_text(#[case] scheme: XwingScheme) {
         let (ek, dk) = scheme.keypair().unwrap();
         let (ct, _ss_e) = ek.encapsulate().unwrap();
@@ -395,6 +428,7 @@ mod tests {
         "ct": "0d2e38cbf17a2e2e4e0c87a94ca1e7701ae1552e02509b3b00f9c82c39e3fd435b05b91275f47abc9f1021429a26a346598cd6cd9efdc8adc1dbc35036d0290bf89733c835309202232f9bf652ea82f3d49280d6e8a3bd3135fb883445ab5b074d949c5350c7c7d6ac59905bdbfce6639da8a9d4b390ecc1dd05522d2956f2d37a05593996e5cb3fd8d5a9eb52417732e1ebf545588713b4760227115aab7ada178dadbca583b26cfedba2888a0c95b950bf07f750d7aa8103798aa3470a042c0105c6a037de2f9ebc396021b2ba2c16aba696fbac3454dc8e053b8fa55edd45215eeb57a1eab9106fb426b375a9b9e5c3419efc7610977e72640f9fd1b2ec337de33c35e5a7581b2aae4d8ee86d2e0ebf82a1350714de50d2d788687878a19644ae4e3175e8d59dc90171b3badeff65aeaf600e5e5483a3595fdeb40cbafcbd040c29a2f6900533ae999d24f54dfcef748c30313ca447cdddfa57ad78eaa890e90f3f7bf8d116968a5713cc75fd0408f36364fa265c5617039304eaeac4cbee6fc49b9fe2276768cdbec2d73a507b543cc028dc1b154b7c2b0412254c466a94a8d6ea3a47e1743469bd45c08f54cf965884be3696e961741ede16e3b1bc4feb93faaef31d911dc0cb3fa90bcda991959a9d2cbc817a5564c5c01177a59e9577589ea344d60cf5b0aa39f31863febd54603ca87ad2363c766642a3f52557bcd9e4c05a87665842ba336b83156a677030f0bad531a8387a1486a599caa748fcea7bdc1eb63f3cdb97173551ab7c1c36b69acbbdb2ff7a1e7bc70439632ddc67b97f3da1f59b3c1588515957cb8a2f86ab635ce0a78b7cdf24eac3445e8fc8b79ba04da9e903f49a7d912c197a84b4cfabc779b97d24788419bcf58035db99717edb9fd1c1df8c4005f700eabba528ddfcbaeda6dd30754f795948a34c9319ab653524b19931c7900c4167988af52292fe902e746b524d20ceffb4339e8f5535f41cf35f0f8ea8b4a7b949c5d2381116b146e9b913a83a3fa1c65ff9468c835fe4114554a6c66a80e1c9a6bb064b380be3c95e5595ec979bf1c85aa938938e3f10e72b0c87811969e8ab0d83de0b0604c4016ac3a015e19514089271bdc6ebf2ec56fab6018e44de749b4c36cc235e370da8466dbdc253542a2d704eb3316fd70d5d238cb7eaaf05966d973f62c7ef43b9a806f4ed213ac8099ea15d61a902444160883f6bf441a3e1469945c9b79489ea18390f1ebc83caca10bdb8f2429877b52bd44c94a228ef91c392ef5398c5c83982701318ccedab92f7a279c4fddebaa7fe5e986c48b7d8135b3fe4cd15be2004ce73ff86b1e55f8ecd6ba5b8114315f8e716ef3ab0a64564a4644651166ebd68b1f783e2e443dbccadfe189368647629f1a12215840b7f1d026de2f665c2eb023ff51a6df160912811ee03444ae4227fb941dc9ec4f31b445006fd384de5e60e0a5061b50cb1202f863090fc05eb814e2d42a03586c0b56f533847ac7b8184ce9690bc8dece32a88ca934f541d4cc520fa64de6b6e1c3c8e03db5971a445992227c825590688d203523f527161137334"
     }
 ]"#;
+        #[allow(unused)]
         #[derive(serde::Deserialize)]
         struct TestVector {
             #[serde(deserialize_with = "hex::serde::deserialize")]

@@ -42,7 +42,7 @@ tiny-bip39 = { version = "2.0.0", optional = true }
 
 [dependencies.oqs]
 git = "https://github.com/tectonic-labs/liboqs-rust"
-tag = "tectonic/0.11.0-rc1"
+tag = "tectonic/0.11.0-dev0"
 default-features = false
 features = [
     "serde",
@@ -75,6 +75,7 @@ git = "https://github.com/tectonic-labs/rust-fn-dsa"
 tag = "tectonic/0.3.0"
 
 [dev-dependencies]
+criterion = "0.8"
 hex = { version = "0.4", features = ["serde"] }
 falcon-rust = "0.1.2"
 postcard = {  version = "1.0", features = ["use-std"] }
@@ -98,3 +99,9 @@ unwrap_used = "deny"
 [package.metadata.docs.rs]
 all-features = true
 rustdoc-args = ["--cfg", "docsrs"]
+
+[[bench]]
+harness = false
+name = "xwing"
+path = "benches/xwing.rs"
+required-features = ["mceliece", "ml-kem", "xwing"]
