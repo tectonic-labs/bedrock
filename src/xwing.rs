@@ -130,6 +130,23 @@ impl FromStr for XwingScheme {
 
 serde_impl!(XwingScheme);
 
+impl From<XwingScheme> for KemScheme {
+    fn from(scheme: XwingScheme) -> Self {
+        match scheme {
+            XwingScheme::X25519MlKem512 => KemScheme::MlKem512,
+            XwingScheme::X25519MlKem768 => KemScheme::MlKem768,
+            XwingScheme::X25519MlKem1024 => KemScheme::MlKem1024,
+            XwingScheme::X25519McEliece348864 => KemScheme::ClassicMcEliece348864,
+        }
+    }
+}
+
+impl From<&XwingScheme> for KemScheme {
+    fn from(scheme: &XwingScheme) -> Self {
+        Self::from(*scheme)
+    }
+}
+
 impl XwingScheme {
     /// Generate X-Wing KEM keys
     pub fn keypair(&self) -> Result<(EncapsulationKey, DecapsulationKey)> {
@@ -181,6 +198,22 @@ pub struct EncapsulationKey {
     pk_x: PublicKey,
 }
 
+impl From<&ExpandedDecapsulationKey> for EncapsulationKey {
+    fn from(value: &ExpandedDecapsulationKey) -> Self {
+        Self {
+            pk_m: value.pk_m.clone(),
+            pk_x: value.pk_x,
+        }
+    }
+}
+
+impl From<&DecapsulationKey> for EncapsulationKey {
+    fn from(value: &DecapsulationKey) -> Self {
+        let expanded = value.expand();
+        Self::from(&expanded)
+    }
+}
+
 impl EncapsulationKey {
     /// Create the X-Wing ciphertext and shared secret
     pub fn encapsulate(&self) -> Result<(Ciphertext, SharedSecret)> {
@@ -192,6 +225,24 @@ impl EncapsulationKey {
         let ss = combine(&ss_m, &ss_x, &ct_x, &self.pk_x);
         let ct = Ciphertext { ct_m, ct_x };
         Ok((ct, ss))
+    }
+
+    /// Convert the encapsulation key to the raw bytes
+    pub fn to_raw_bytes(&self) -> Vec<u8> {
+        let mut bytes = self.pk_m.to_raw_bytes();
+        bytes.extend_from_slice(self.pk_x.as_bytes());
+        bytes
+    }
+
+    /// Read the raw encapsulation key bytes and try to convert to a valid key
+    pub fn from_raw_bytes(scheme: XwingScheme, raw_bytes: &[u8]) -> Result<Self> {
+        let scheme: KemScheme = scheme.into();
+        let pk_m = KemEncapsulationKey::from_raw_bytes(scheme, &raw_bytes[..raw_bytes.len() - 32])?;
+        let pk_x_bytes: [u8; 32] = (&raw_bytes[raw_bytes.len() - 32..])
+            .try_into()
+            .expect("Wrong length");
+        let pk_x = PublicKey::from(pk_x_bytes);
+        Ok(Self { pk_m, pk_x })
     }
 }
 
@@ -205,6 +256,26 @@ pub struct Ciphertext {
         deserialize_with = "deserialize_public_key_bin_or_hex"
     )]
     ct_x: PublicKey,
+}
+
+impl Ciphertext {
+    /// Convert the ciphertext to the raw bytes
+    pub fn to_raw_bytes(&self) -> Vec<u8> {
+        let mut bytes = self.ct_m.to_raw_bytes();
+        bytes.extend_from_slice(self.ct_x.as_bytes());
+        bytes
+    }
+
+    /// Read the raw ciphertext bytes and try to convert to a valid key
+    pub fn from_raw_bytes(scheme: XwingScheme, raw_bytes: &[u8]) -> Result<Self> {
+        let scheme: KemScheme = scheme.into();
+        let ct_m = KemCiphertext::from_raw_bytes(scheme, &raw_bytes[..raw_bytes.len() - 32])?;
+        let ct_x_bytes: [u8; 32] = (&raw_bytes[raw_bytes.len() - 32..])
+            .try_into()
+            .expect("Wrong length");
+        let ct_x = PublicKey::from(ct_x_bytes);
+        Ok(Self { ct_m, ct_x })
+    }
 }
 
 /// An X-Wing decapsulation key
@@ -242,6 +313,19 @@ impl DecapsulationKey {
 
         let ss = combine(&ss_m, &ss_x, &ct.ct_x, &pk_x);
         Ok(ss)
+    }
+
+    /// Convert the decapsulation key to the raw bytes which are just the seed
+    pub fn to_seed(&self) -> Vec<u8> {
+        self.seed.clone()
+    }
+
+    /// Set the seed for the [`DecapsulationKey`]
+    pub fn from_seed(scheme: XwingScheme, raw_bytes: &[u8]) -> Self {
+        Self {
+            scheme,
+            seed: raw_bytes.to_vec(),
+        }
     }
 
     /// Convert to expanded form
@@ -304,6 +388,14 @@ impl ExpandedDecapsulationKey {
 
         let ss = combine(&ss_m, &ss_x, &ct.ct_x, &self.pk_x);
         Ok(ss)
+    }
+
+    /// Return the associated encapsulation key
+    pub fn encapsulation_key(&self) -> EncapsulationKey {
+        EncapsulationKey {
+            pk_m: self.pk_m.clone(),
+            pk_x: self.pk_x,
+        }
     }
 }
 
