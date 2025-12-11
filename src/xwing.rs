@@ -133,9 +133,13 @@ serde_impl!(XwingScheme);
 impl From<XwingScheme> for KemScheme {
     fn from(scheme: XwingScheme) -> Self {
         match scheme {
+            #[cfg(feature = "ml-kem")]
             XwingScheme::X25519MlKem512 => KemScheme::MlKem512,
+            #[cfg(feature = "ml-kem")]
             XwingScheme::X25519MlKem768 => KemScheme::MlKem768,
+            #[cfg(feature = "ml-kem")]
             XwingScheme::X25519MlKem1024 => KemScheme::MlKem1024,
+            #[cfg(feature = "mceliece")]
             XwingScheme::X25519McEliece348864 => KemScheme::ClassicMcEliece348864,
         }
     }
@@ -436,10 +440,13 @@ mod tests {
     use rstest::*;
 
     #[rstest]
-    #[case::mlkem512(XwingScheme::X25519MlKem512)]
-    #[case::mlkem768(XwingScheme::X25519MlKem768)]
-    #[case::mlkem1024(XwingScheme::X25519MlKem1024)]
-    #[case::mceliece348864(XwingScheme::X25519McEliece348864)]
+    #[cfg_attr(feature = "ml-kem", case::mlkem512(XwingScheme::X25519MlKem512))]
+    #[cfg_attr(feature = "ml-kem", case::mlkem768(XwingScheme::X25519MlKem768))]
+    #[cfg_attr(feature = "ml-kem", case::mlkem1024(XwingScheme::X25519MlKem1024))]
+    #[cfg_attr(
+        feature = "mceliece",
+        case::mceliece348864(XwingScheme::X25519McEliece348864)
+    )]
     fn round_trip(#[case] scheme: XwingScheme) {
         let (ek, dk) = scheme.keypair().unwrap();
         let (ct, ss_e) = ek.encapsulate().unwrap();
@@ -449,10 +456,13 @@ mod tests {
     }
 
     #[rstest]
-    #[case::mlkem512(XwingScheme::X25519MlKem512)]
-    #[case::mlkem768(XwingScheme::X25519MlKem768)]
-    #[case::mlkem1024(XwingScheme::X25519MlKem1024)]
-    #[case::mceliece348864(XwingScheme::X25519McEliece348864)]
+    #[cfg_attr(feature = "ml-kem", case::mlkem512(XwingScheme::X25519MlKem512))]
+    #[cfg_attr(feature = "ml-kem", case::mlkem768(XwingScheme::X25519MlKem768))]
+    #[cfg_attr(feature = "ml-kem", case::mlkem1024(XwingScheme::X25519MlKem1024))]
+    #[cfg_attr(
+        feature = "mceliece",
+        case::mceliece348864(XwingScheme::X25519McEliece348864)
+    )]
     fn serialize_bytes(#[case] scheme: XwingScheme) {
         let (ek, dk) = scheme.keypair().unwrap();
         let (ct, _ss_e) = ek.encapsulate().unwrap();
@@ -471,10 +481,13 @@ mod tests {
     }
 
     #[rstest]
-    #[case::mlkem512(XwingScheme::X25519MlKem512)]
-    #[case::mlkem768(XwingScheme::X25519MlKem768)]
-    #[case::mlkem1024(XwingScheme::X25519MlKem1024)]
-    #[case::mceliece348864(XwingScheme::X25519McEliece348864)]
+    #[cfg_attr(feature = "ml-kem", case::mlkem512(XwingScheme::X25519MlKem512))]
+    #[cfg_attr(feature = "ml-kem", case::mlkem768(XwingScheme::X25519MlKem768))]
+    #[cfg_attr(feature = "ml-kem", case::mlkem1024(XwingScheme::X25519MlKem1024))]
+    #[cfg_attr(
+        feature = "mceliece",
+        case::mceliece348864(XwingScheme::X25519McEliece348864)
+    )]
     fn serialize_text(#[case] scheme: XwingScheme) {
         let (ek, dk) = scheme.keypair().unwrap();
         let (ct, _ss_e) = ek.encapsulate().unwrap();
@@ -492,6 +505,7 @@ mod tests {
         assert_eq!(ct, ct2);
     }
 
+    #[cfg(feature = "ml-kem")]
     #[test]
     fn rfc_vectors() {
         let vectors = r#"[

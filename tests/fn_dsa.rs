@@ -1,5 +1,6 @@
 #![allow(missing_docs)]
 
+#[cfg(feature = "falcon")]
 use bedrock::falcon::{FalconScheme, FalconSigningKey, FalconVerificationKey};
 use fn_dsa::{
     KeyPairGenerator, KeyPairGeneratorStandard, SigningKey, SigningKeyStandard, VerifyingKey,
@@ -29,6 +30,7 @@ fn fn_dsa_to_eth_falcon_compatibility() {
     assert!(FALCON_SCHEME.verify(MSG, &signature, &eth_pk).is_ok());
 }
 
+#[cfg(feature = "falcon")]
 #[test]
 #[allow(clippy::unwrap_used)]
 fn fn_dsa_to_bedrock_compatibility_512() {
@@ -55,6 +57,7 @@ fn fn_dsa_to_bedrock_compatibility_512() {
     assert!(FALCON_SCHEME.verify(MSG, &bedrock_sig, &bedrock_pk).is_ok());
 }
 
+#[cfg(feature = "falcon")]
 #[test]
 #[allow(clippy::unwrap_used)]
 fn bedrock_to_fn_dsa_compatibility_512() {
