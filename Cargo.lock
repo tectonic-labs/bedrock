@@ -961,7 +961,7 @@ checksum = "d6790f58c7ff633d8771f42965289203411a5e5c68388703c06e14f24770b41e"
 [[package]]
 name = "oqs"
 version = "0.11.0"
-source = "git+https://github.com/tectonic-labs/liboqs-rust?tag=tectonic%2F0.11.0-dev0#b44ed21889611bfcd4f3f95b11a265621ee1902e"
+source = "git+https://github.com/tectonic-labs/liboqs-rust?tag=tectonic%2F0.11.0-rc2#b4734b363f0b84556ed636c11875e12ece295d8c"
 dependencies = [
  "cstr_core",
  "libc",
@@ -974,7 +974,7 @@ dependencies = [
 [[package]]
 name = "oqs-sys"
 version = "0.11.0+liboqs-0.13.0"
-source = "git+https://github.com/tectonic-labs/liboqs-rust?tag=tectonic%2F0.11.0-dev0#b44ed21889611bfcd4f3f95b11a265621ee1902e"
+source = "git+https://github.com/tectonic-labs/liboqs-rust?tag=tectonic%2F0.11.0-rc2#b4734b363f0b84556ed636c11875e12ece295d8c"
 dependencies = [
  "bindgen",
  "build-deps",
