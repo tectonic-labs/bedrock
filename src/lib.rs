@@ -21,6 +21,11 @@ pub mod hhd;
 pub mod kem;
 #[cfg(feature = "ml-dsa")]
 pub mod ml_dsa;
+#[cfg(feature = "xwing")]
+pub mod xwing;
+
+#[cfg(all(feature = "xwing", not(any(feature = "ml-kem", feature = "mceliece"))))]
+compiler_error!("Can't enable `xwing` w/o picking a specific kem to use. Please enable `ml-kem` or `mceliece` also.");
 
 pub(crate) fn serialize_hex_or_bin<S>(bytes: &Vec<u8>, s: S) -> Result<S::Ok, S::Error>
 where

@@ -1,13 +1,14 @@
 #![allow(missing_docs)]
 
-use bedrock::falcon::FalconScheme;
 use falcon_rust::falcon512;
 use rand::{Rng, SeedableRng};
 
+#[cfg(feature = "falcon")]
 #[ignore]
 #[test]
 #[allow(clippy::unwrap_used)]
 fn falcon_rust_to_bedrock_512_compatibility() {
+    use bedrock::falcon::FalconScheme;
     const MSG: &[u8] = &[0u8; 8];
     const FALCON_SCHEME: FalconScheme = FalconScheme::Dsa512;
     const SEED: [u8; 32] = [3u8; 32];

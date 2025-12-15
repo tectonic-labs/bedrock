@@ -655,6 +655,21 @@ pub enum WalletError {
     Bip85Error(#[from] Bip85Error),
 }
 
+#[test]
+fn mnemonic_determinism() {
+    let mnemonic = Mnemonic::new_random();
+    let schemes = vec![SignatureScheme::Falcon512];
+
+    let wallet1 = HHDWallet::new_from_mnemonic(mnemonic.clone(), schemes.clone(), None).unwrap();
+    let wallet2 = HHDWallet::new_from_mnemonic(mnemonic.clone(), schemes.clone(), None).unwrap();
+
+    let keypair1 = wallet1.derive_fn_dsa512_keypair(0).unwrap();
+    let keypair2 = wallet2.derive_fn_dsa512_keypair(0).unwrap();
+
+    assert_eq!(keypair1.0, keypair2.0);
+    assert_eq!(keypair1.1, keypair2.1);
+}
+
 #[cfg(all(feature = "sign", feature = "vrfy"))]
 #[cfg(test)]
 #[allow(clippy::unwrap_used)]
