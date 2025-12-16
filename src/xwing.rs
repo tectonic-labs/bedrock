@@ -33,6 +33,9 @@ const X_WING_LABEL: &[u8; 6] = br"\.//^\";
 // _x -> x25519 related key
 
 /// The schemes supported by X-Wing
+/// 
+/// The current RFC at IETF details only using ML-KEM-768. 
+/// However, the implementation supports all schemes.
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Ord, PartialOrd, Hash)]
 pub enum XwingScheme {
     #[cfg(feature = "ml-kem")]
@@ -159,7 +162,7 @@ impl XwingScheme {
             XwingScheme::X25519MlKem512
             | XwingScheme::X25519MlKem768
             | XwingScheme::X25519MlKem1024 => {
-                let mut seed = [0u8; 64];
+                let mut seed = [0u8; 32];
                 rand_core::OsRng.fill_bytes(&mut seed);
                 seed.to_vec()
             }
