@@ -9,11 +9,20 @@ use serde::{Deserialize, Serialize};
 macro_rules! impl_kem_struct {
     ($name:ident, $convert:ident, $expect:expr) => {
 
-        #[derive(Clone, Debug, Serialize, Deserialize)]
+        #[derive(Clone, Serialize, Deserialize)]
         #[cfg_attr(test, derive(PartialEq, Eq))]
         #[doc = concat!("A [`", stringify!($name), "`] for kems")]
         #[repr(transparent)]
         pub struct $name(pub(crate) InnerKem);
+
+        impl std::fmt::Debug for $name {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                f.debug_struct(stringify!($name))
+                    .field("scheme", &self.0.scheme)
+                    .field("value", &"<redacted>")
+                    .finish()
+            }
+        }
 
         impl AsRef<[u8]> for $name {
             fn as_ref(&self) -> &[u8] {
@@ -126,7 +135,7 @@ base_kem_impl!(
     Kem,
 );
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 #[cfg_attr(test, derive(PartialEq, Eq))]
 pub(crate) struct InnerKem {
     scheme: KemScheme,
@@ -135,6 +144,15 @@ pub(crate) struct InnerKem {
         deserialize_with = "deserialize_hex_or_bin"
     )]
     value: Vec<u8>,
+}
+
+impl std::fmt::Debug for InnerKem {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("InnerKem")
+            .field("scheme", &self.scheme)
+            .field("value", &"<redacted>")
+            .finish()
+    }
 }
 
 #[cfg(feature = "zeroize")]

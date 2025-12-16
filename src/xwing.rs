@@ -184,7 +184,7 @@ impl XwingScheme {
             sk_x: _,
             pk_m,
             pk_x,
-        } = dk.expand();
+        } = dk.expand()?;
         let ek = EncapsulationKey { pk_m, pk_x };
         Ok((ek, dk))
     }
@@ -213,7 +213,7 @@ impl From<&ExpandedDecapsulationKey> for EncapsulationKey {
 
 impl From<&DecapsulationKey> for EncapsulationKey {
     fn from(value: &DecapsulationKey) -> Self {
-        let expanded = value.expand();
+        let expanded = value.expand().expect("Failed to expand decapsulation key");
         Self::from(&expanded)
     }
 }
@@ -244,7 +244,7 @@ impl EncapsulationKey {
         let pk_m = KemEncapsulationKey::from_raw_bytes(scheme, &raw_bytes[..raw_bytes.len() - 32])?;
         let pk_x_bytes: [u8; 32] = (&raw_bytes[raw_bytes.len() - 32..])
             .try_into()
-            .expect("Wrong length");
+            .map_err(|_| Error::InvalidLength(raw_bytes.len() - 32))?;
         let pk_x = PublicKey::from(pk_x_bytes);
         Ok(Self { pk_m, pk_x })
     }
@@ -276,14 +276,14 @@ impl Ciphertext {
         let ct_m = KemCiphertext::from_raw_bytes(scheme, &raw_bytes[..raw_bytes.len() - 32])?;
         let ct_x_bytes: [u8; 32] = (&raw_bytes[raw_bytes.len() - 32..])
             .try_into()
-            .expect("Wrong length");
+            .map_err(|_| Error::InvalidLength(raw_bytes.len() - 32))?;
         let ct_x = PublicKey::from(ct_x_bytes);
         Ok(Self { ct_m, ct_x })
     }
 }
 
 /// An X-Wing decapsulation key
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Deserialize, Serialize)]
 #[cfg_attr(test, derive(PartialEq, Eq))]
 pub struct DecapsulationKey {
     scheme: XwingScheme,
@@ -294,12 +294,24 @@ pub struct DecapsulationKey {
     seed: Vec<u8>,
 }
 
+impl std::fmt::Debug for DecapsulationKey {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("DecapsulationKey")
+            .field("scheme", &self.scheme)
+            .field("seed", &"<redacted>")
+            .finish()
+    }
+}
+
 #[cfg(feature = "zeroize")]
 impl zeroize::Zeroize for DecapsulationKey {
     fn zeroize(&mut self) {
         self.seed.zeroize();
     }
 }
+
+#[cfg(feature = "zeroize")]
+impl zeroize::ZeroizeOnDrop for DecapsulationKey {}
 
 impl DecapsulationKey {
     /// Decapsulate the ciphertext to produce the shared secret
@@ -309,7 +321,7 @@ impl DecapsulationKey {
             sk_x,
             pk_m: _,
             pk_x,
-        } = self.expand();
+        } = self.expand()?;
 
         let ss_m = sk_m.scheme().decapsulate(&ct.ct_m, &sk_m)?;
 
@@ -333,7 +345,7 @@ impl DecapsulationKey {
     }
 
     /// Convert to expanded form
-    pub fn expand(&self) -> ExpandedDecapsulationKey {
+    pub fn expand(&self) -> Result<ExpandedDecapsulationKey> {
         use sha3::digest::Update;
         let mut hasher = Shake256::default();
         hasher.update(&self.seed);
@@ -352,9 +364,7 @@ impl DecapsulationKey {
 
         let mut seed = vec![0u8; seed_length];
         reader.read(&mut seed);
-        let (pk_m, sk_m) = scheme
-            .keypair_from_seed(&seed)
-            .expect("Failed to generate key pair from seed");
+        let (pk_m, sk_m) = scheme.keypair_from_seed(&seed)?;
         #[cfg(feature = "zeroize")]
         {
             use zeroize::Zeroize;
@@ -363,13 +373,18 @@ impl DecapsulationKey {
         let mut x25519_seed = [0u8; 32];
         reader.read(&mut x25519_seed);
         let sk_x = StaticSecret::from(x25519_seed);
+        #[cfg(feature = "zeroize")]
+        {
+            use zeroize::Zeroize;
+            x25519_seed.zeroize();
+        }
         let pk_x = PublicKey::from(&sk_x);
-        ExpandedDecapsulationKey {
+        Ok(ExpandedDecapsulationKey {
             sk_m,
             sk_x,
             pk_m,
             pk_x,
-        }
+        })
     }
 }
 
