@@ -7,11 +7,20 @@ use serde::{Deserialize, Serialize};
 macro_rules! impl_ml_dsa_struct {
     ($name:ident, $convert:ident, $expect:expr) => {
 
-        #[derive(Clone, Debug, Serialize, Deserialize)]
+        #[derive(Clone, Serialize, Deserialize)]
         #[cfg_attr(test, derive(PartialEq, Eq))]
         #[doc = concat!("A [`", stringify!($name), "`] for ml-dsa")]
         #[repr(transparent)]
         pub struct $name(pub(crate) InnerMlDsa);
+
+        impl std::fmt::Debug for $name {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                f.debug_struct(stringify!($name))
+                    .field("scheme", &self.0.scheme)
+                    .field("value", &"<redacted>")
+                    .finish()
+            }
+        }
 
         impl AsRef<[u8]> for $name {
             fn as_ref(&self) -> &[u8] {
@@ -89,7 +98,7 @@ base_sign_impl!(
     Sig,
 );
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 #[cfg_attr(test, derive(PartialEq, Eq))]
 pub(crate) struct InnerMlDsa {
     scheme: MlDsaScheme,
@@ -99,6 +108,32 @@ pub(crate) struct InnerMlDsa {
     )]
     value: Vec<u8>,
 }
+
+impl std::fmt::Debug for InnerMlDsa {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("InnerMlDsa")
+            .field("scheme", &self.scheme)
+            .field("value", &"<redacted>")
+            .finish()
+    }
+}
+
+#[cfg(feature = "zeroize")]
+impl zeroize::Zeroize for InnerMlDsa {
+    fn zeroize(&mut self) {
+        self.value.zeroize();
+    }
+}
+
+#[cfg(feature = "zeroize")]
+impl zeroize::Zeroize for MlDsaSigningKey {
+    fn zeroize(&mut self) {
+        self.0.zeroize();
+    }
+}
+
+#[cfg(feature = "zeroize")]
+impl zeroize::ZeroizeOnDrop for MlDsaSigningKey {}
 
 #[cfg(test)]
 #[allow(clippy::unwrap_used)]

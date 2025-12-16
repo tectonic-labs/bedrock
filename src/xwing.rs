@@ -283,7 +283,7 @@ impl Ciphertext {
 }
 
 /// An X-Wing decapsulation key
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Deserialize, Serialize)]
 #[cfg_attr(test, derive(PartialEq, Eq))]
 pub struct DecapsulationKey {
     scheme: XwingScheme,
@@ -294,12 +294,24 @@ pub struct DecapsulationKey {
     seed: Vec<u8>,
 }
 
+impl std::fmt::Debug for DecapsulationKey {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("DecapsulationKey")
+            .field("scheme", &self.scheme)
+            .field("seed", &"<redacted>")
+            .finish()
+    }
+}
+
 #[cfg(feature = "zeroize")]
 impl zeroize::Zeroize for DecapsulationKey {
     fn zeroize(&mut self) {
         self.seed.zeroize();
     }
 }
+
+#[cfg(feature = "zeroize")]
+impl zeroize::ZeroizeOnDrop for DecapsulationKey {}
 
 impl DecapsulationKey {
     /// Decapsulate the ciphertext to produce the shared secret
@@ -361,6 +373,11 @@ impl DecapsulationKey {
         let mut x25519_seed = [0u8; 32];
         reader.read(&mut x25519_seed);
         let sk_x = StaticSecret::from(x25519_seed);
+        #[cfg(feature = "zeroize")]
+        {
+            use zeroize::Zeroize;
+            x25519_seed.zeroize();
+        }
         let pk_x = PublicKey::from(&sk_x);
         Ok(ExpandedDecapsulationKey {
             sk_m,

@@ -14,11 +14,20 @@ mod eth_falcon;
 macro_rules! impl_falcon_struct {
     ($name:ident, $convert:ident, $expect:expr) => {
 
-        #[derive(Clone, Debug, Serialize, Deserialize)]
+        #[derive(Clone, Serialize, Deserialize)]
         #[cfg_attr(test, derive(PartialEq, Eq))]
         #[doc = concat!("A [`", stringify!($name), "`] for fn-dsa")]
         #[repr(transparent)]
         pub struct $name(pub(crate) InnerFalcon);
+
+        impl std::fmt::Debug for $name {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                f.debug_struct(stringify!($name))
+                    .field("scheme", &self.0.scheme)
+                    .field("value", &"<redacted>")
+                    .finish()
+            }
+        }
 
         impl AsRef<[u8]> for $name {
             fn as_ref(&self) -> &[u8] {
@@ -188,7 +197,7 @@ impl_falcon_struct!(
 );
 impl_falcon_struct!(FalconSignature, signature_from_bytes, "a valid signature");
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 #[cfg_attr(test, derive(PartialEq, Eq))]
 pub(crate) struct InnerFalcon {
     pub(crate) scheme: FalconScheme,
@@ -198,6 +207,32 @@ pub(crate) struct InnerFalcon {
     )]
     pub(crate) value: Vec<u8>,
 }
+
+impl std::fmt::Debug for InnerFalcon {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("InnerFalcon")
+            .field("scheme", &self.scheme)
+            .field("value", &"<redacted>")
+            .finish()
+    }
+}
+
+#[cfg(feature = "zeroize")]
+impl zeroize::Zeroize for InnerFalcon {
+    fn zeroize(&mut self) {
+        self.value.zeroize();
+    }
+}
+
+#[cfg(feature = "zeroize")]
+impl zeroize::Zeroize for FalconSigningKey {
+    fn zeroize(&mut self) {
+        self.0.zeroize();
+    }
+}
+
+#[cfg(feature = "zeroize")]
+impl zeroize::ZeroizeOnDrop for FalconSigningKey {}
 
 #[cfg(test)]
 #[allow(clippy::unwrap_used)]
