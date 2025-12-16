@@ -64,7 +64,7 @@ fn bench_encapsulate<'a, M: Measurement>(group: &mut BenchmarkGroup<'a, M>) {
 fn bench_decapsulate<'a, M: Measurement>(group: &mut BenchmarkGroup<'a, M>) {
     let (pk, sk) = XwingScheme::X25519MlKem512.keypair().unwrap();
     let (ct, _ss) = pk.encapsulate().unwrap();
-    let dk = sk.expand();
+    let dk = sk.expand().unwrap();
     group.bench_function("Decapsulate-Ml-Kem-512", |b| {
         b.iter(|| {
             let _ss1 = dk.decapsulate(&ct).unwrap();
@@ -73,7 +73,7 @@ fn bench_decapsulate<'a, M: Measurement>(group: &mut BenchmarkGroup<'a, M>) {
 
     let (pk, sk) = XwingScheme::X25519MlKem768.keypair().unwrap();
     let (ct, _ss) = pk.encapsulate().unwrap();
-    let dk = sk.expand();
+    let dk = sk.expand().unwrap();
     group.bench_function("Decapsulate-Ml-Kem-768", |b| {
         b.iter(|| {
             let _ss1 = dk.decapsulate(&ct).unwrap();
@@ -82,7 +82,7 @@ fn bench_decapsulate<'a, M: Measurement>(group: &mut BenchmarkGroup<'a, M>) {
 
     let (pk, sk) = XwingScheme::X25519MlKem1024.keypair().unwrap();
     let (ct, _ss) = pk.encapsulate().unwrap();
-    let dk = sk.expand();
+    let dk = sk.expand().unwrap();
     group.bench_function("Decapsulate-Ml-Kem-1024", |b| {
         b.iter(|| {
             let _ss1 = dk.decapsulate(&ct).unwrap();
@@ -90,7 +90,7 @@ fn bench_decapsulate<'a, M: Measurement>(group: &mut BenchmarkGroup<'a, M>) {
     });
 
     let (pk, sk) = XwingScheme::X25519McEliece348864.keypair().unwrap();
-    let dk = sk.expand();
+    let dk = sk.expand().unwrap();
     let (ct, _ss) = pk.encapsulate().unwrap();
     group.bench_function("Decapsulate-McEliece348864", |b| {
         b.iter(|| {
