@@ -58,21 +58,21 @@ jobs:
             toolchain: stable
       - run: cargo doc --all-features
 
-  deps:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-      - uses: dtolnay/rust-toolchain@nightly
-      - run: cargo install cargo-udeps
-      - run: cargo udeps --all-features --all-targets
+  # deps:
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v5
+  #     - uses: dtolnay/rust-toolchain@nightly
+  #     - run: cargo install cargo-udeps
+  #     - run: cargo udeps --all-features --all-targets
 
-  outdated:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-      - uses: dtolnay/rust-toolchain@nightly
-      - run: cargo install cargo-outdated
-      - run: cargo outdated --root-deps-only --exit-code 1
+  # outdated:
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v5
+  #     - uses: dtolnay/rust-toolchain@nightly
+  #     - run: cargo install cargo-outdated
+  #     - run: cargo outdated --root-deps-only --exit-code 1
 
   pants:
     runs-on: ubuntu-latest

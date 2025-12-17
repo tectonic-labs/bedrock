@@ -6,10 +6,11 @@ use fn_dsa::{
     KeyPairGenerator, KeyPairGeneratorStandard, SigningKey, SigningKeyStandard, VerifyingKey,
     VerifyingKeyStandard, DOMAIN_NONE, FN_DSA_LOGN_512, HASH_ID_RAW,
 };
+#[cfg(feature = "falcon")]
 use fn_dsa_comm::signature_size;
 use rand::SeedableRng;
 
-#[cfg(feature = "eth_falcon")]
+#[cfg(all(feature = "eth_falcon", feature = "sign", feature = "vrfy"))]
 #[test]
 #[allow(clippy::unwrap_used)]
 fn fn_dsa_to_eth_falcon_compatibility() {
@@ -30,7 +31,7 @@ fn fn_dsa_to_eth_falcon_compatibility() {
     assert!(FALCON_SCHEME.verify(MSG, &signature, &eth_pk).is_ok());
 }
 
-#[cfg(feature = "falcon")]
+#[cfg(all(feature = "falcon", feature = "sign", feature = "vrfy"))]
 #[test]
 #[allow(clippy::unwrap_used)]
 fn fn_dsa_to_bedrock_compatibility_512() {

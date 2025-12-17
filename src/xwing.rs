@@ -33,8 +33,8 @@ const X_WING_LABEL: &[u8; 6] = br"\.//^\";
 // _x -> x25519 related key
 
 /// The schemes supported by X-Wing
-/// 
-/// The current RFC at IETF details only using ML-KEM-768. 
+///
+/// The current RFC at IETF details only using ML-KEM-768.
 /// However, the implementation supports all schemes.
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Ord, PartialOrd, Hash)]
 pub enum XwingScheme {
