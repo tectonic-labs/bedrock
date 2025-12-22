@@ -21,7 +21,8 @@
 //! ## Quick Start
 //!
 //! ### Creating and Using a Hybrid HD Wallet with ECDSA and Falcon
-//! ```no_run
+//! ```ignore
+//! // Note: This example requires features: sign, vrfy, eth_falcon
 //! use bedrock::hhd::{HHDWallet, SignatureScheme};
 //!
 //! // Create a new wallet with both ECDSA and Falcon support
@@ -163,10 +164,16 @@ pub use mnemonic::{Mnemonic, MnemonicError};
 pub use signatures::{SignatureScheme, SignatureSchemeError, SignatureSeed};
 pub use slip10::Slip10Error;
 
+#[cfg(feature = "falcon")]
 use crate::falcon::{FalconSigningKey, FalconVerificationKey};
+#[cfg(feature = "ml-dsa")]
 use crate::ml_dsa::{MlDsaSigningKey, MlDsaVerificationKey};
 use bip32::secp256k1::ecdsa::{SigningKey, VerifyingKey};
-use keys::{EcdsaSecp256k1, FnDsa512, MlDsa44, MlDsa65, MlDsa87};
+use keys::EcdsaSecp256k1;
+#[cfg(feature = "falcon")]
+use keys::FnDsa512;
+#[cfg(feature = "ml-dsa")]
+use keys::{MlDsa44, MlDsa65, MlDsa87};
 use std::{collections::HashMap, fmt};
 
 /// A Hybrid Hierarchical Deterministic (HD) Wallet derived from a single BIP-39 mnemonic.
@@ -193,7 +200,8 @@ use std::{collections::HashMap, fmt};
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
+/// // Note: This example requires features: falcon
 /// use bedrock::hhd::{HHDWallet, SignatureScheme};
 ///
 /// // Create wallet with both schemes
@@ -424,6 +432,7 @@ impl HHDWallet {
         EcdsaSecp256k1::derive_from_seed(seed_bytes, address_index).map_err(WalletError::KeyError)
     }
 
+    #[cfg(feature = "falcon")]
     /// Derives a Falcon-512 keypair at the given address index.
     ///
     /// This method derives a Falcon-512 keypair using the scheme-specific seed and the provided
@@ -471,6 +480,7 @@ impl HHDWallet {
         FnDsa512::derive_from_seed(seed_bytes, address_index).map_err(WalletError::KeyError)
     }
 
+    #[cfg(feature = "ml-dsa")]
     /// Derives a ML-DSA-44 keypair at the given address index.
     ///
     /// This method derives a ML-DSA-44 keypair using the scheme-specific seed and the provided
@@ -518,6 +528,7 @@ impl HHDWallet {
         MlDsa44::derive_from_seed(seed_bytes, address_index).map_err(WalletError::KeyError)
     }
 
+    #[cfg(feature = "ml-dsa")]
     /// Derives a ML-DSA-65 keypair at the given address index.
     ///
     /// This method derives a ML-DSA-65 keypair using the scheme-specific seed and the provided
@@ -565,6 +576,7 @@ impl HHDWallet {
         MlDsa65::derive_from_seed(seed_bytes, address_index).map_err(WalletError::KeyError)
     }
 
+    #[cfg(feature = "ml-dsa")]
     /// Derives a ML-DSA-87 keypair at the given address index.
     ///
     /// This method derives a ML-DSA-87 keypair using the scheme-specific seed and the provided
@@ -655,6 +667,7 @@ pub enum WalletError {
     Bip85Error(#[from] Bip85Error),
 }
 
+#[cfg(feature = "falcon")]
 #[test]
 fn mnemonic_determinism() {
     let mnemonic = Mnemonic::new_random();
@@ -675,7 +688,9 @@ fn mnemonic_determinism() {
 #[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
+    #[cfg(feature = "falcon")]
     use crate::falcon::FalconScheme;
+    #[cfg(feature = "ml-dsa")]
     use crate::ml_dsa::MlDsaScheme;
     use bip32::secp256k1::ecdsa::{
         signature::{Signer, Verifier},
@@ -684,8 +699,19 @@ mod tests {
     use rstest::rstest;
 
     #[rstest]
-    #[case::mldsa44(SignatureScheme::MlDsa44)]
-    #[case::mldsa65(SignatureScheme::MlDsa65)]
+    #[cfg_attr(
+        all(feature = "ml-dsa", feature = "sign", feature = "vrfy"),
+        case::mldsa44(SignatureScheme::MlDsa44)
+    )]
+    #[cfg_attr(
+        all(feature = "ml-dsa", feature = "sign", feature = "vrfy"),
+        case::mldsa65(SignatureScheme::MlDsa65)
+    )]
+    #[cfg_attr(
+        all(feature = "ml-dsa", feature = "sign", feature = "vrfy"),
+        case::mldsa87(SignatureScheme::MlDsa87)
+    )]
+    #[cfg_attr(feature = "ml-dsa", case::mldsa87(SignatureScheme::MlDsa87))]
     #[case::mldsa87(SignatureScheme::MlDsa87)]
     fn test_hhd_wallet_sign_verify_with_schemes(#[case] scheme: SignatureScheme) {
         let wallet = HHDWallet::new(vec![scheme], None).unwrap();
@@ -712,6 +738,7 @@ mod tests {
         assert!(res.is_ok());
     }
 
+    #[cfg(all(feature = "falcon", feature = "sign", feature = "vrfy"))]
     #[test]
     fn test_hhd_wallet_sign_verify_with_falcon() {
         let wallet = HHDWallet::new(vec![SignatureScheme::Falcon512], None).unwrap();

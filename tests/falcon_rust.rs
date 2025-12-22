@@ -3,7 +3,7 @@
 use falcon_rust::falcon512;
 use rand::{Rng, SeedableRng};
 
-#[cfg(feature = "falcon")]
+#[cfg(all(feature = "falcon", feature = "sign", feature = "vrfy"))]
 #[ignore]
 #[test]
 #[allow(clippy::unwrap_used)]
