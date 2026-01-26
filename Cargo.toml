@@ -1,9 +1,12 @@
 [package]
+authors = ["Tectonic Labs Developers"]
 categories = ["cryptography"]
 description = "Tectonic's common cryptography library"
 documentation = "https://docs.rs/bedrock"
 edition = "2021"
-keywords = ["post-quantum"]
+homepage = "https://github.com/tectonic-labs/bedrock"
+keywords = ["post-quantum", "crypto", "signature", "kem"]
+license = "MIT OR Apache-2.0"
 name = "bedrock"
 readme = "README.md"
 repository = "https://github.com/tectonic-labs/bedrock"
