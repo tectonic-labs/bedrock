@@ -60,37 +60,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d8b59d472eab27ade8d770dcb11da7201c11234bef9f82ce7aa517be028d462b"
 
 [[package]]
-name = "bedrock"
-version = "0.1.0"
-dependencies = [
- "bip32",
- "criterion",
- "falcon-rust",
- "fn-dsa",
- "fn-dsa-comm",
- "fn-dsa-kgen",
- "fn-dsa-sign",
- "fn-dsa-vrfy",
- "hex",
- "hmac",
- "oqs",
- "postcard",
- "rand",
- "rand_chacha",
- "rand_core",
- "rstest",
- "serde",
- "serde_json",
- "serdect",
- "sha2",
- "sha3",
- "thiserror 2.0.17",
- "tiny-bip39",
- "x25519-dalek",
- "zeroize",
-]
-
-[[package]]
 name = "bindgen"
 version = "0.72.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -99,7 +68,7 @@ dependencies = [
  "bitflags",
  "cexpr",
  "clang-sys",
- "itertools 0.12.1",
+ "itertools 0.13.0",
  "log",
  "prettyplease",
  "proc-macro2",
@@ -560,55 +529,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3a3076410a55c90011c298b04d0cfa770b00fa04e1e3c97d3f6c9de105a03844"
 
 [[package]]
-name = "fn-dsa"
-version = "0.3.0"
-source = "git+https://github.com/tectonic-labs/rust-fn-dsa?tag=tectonic%2F0.3.0#a5d330574792d0f894e0e46ec83746cd44902062"
-dependencies = [
- "fn-dsa-comm",
- "fn-dsa-kgen",
- "fn-dsa-sign",
- "fn-dsa-vrfy",
-]
-
-[[package]]
-name = "fn-dsa-comm"
-version = "0.3.0"
-source = "git+https://github.com/tectonic-labs/rust-fn-dsa?tag=tectonic%2F0.3.0#a5d330574792d0f894e0e46ec83746cd44902062"
-dependencies = [
- "cpufeatures",
- "rand_core",
- "tiny-keccak",
-]
-
-[[package]]
-name = "fn-dsa-kgen"
-version = "0.3.0"
-source = "git+https://github.com/tectonic-labs/rust-fn-dsa?tag=tectonic%2F0.3.0#a5d330574792d0f894e0e46ec83746cd44902062"
-dependencies = [
- "fn-dsa-comm",
- "zeroize",
-]
-
-[[package]]
-name = "fn-dsa-sign"
-version = "0.3.0"
-source = "git+https://github.com/tectonic-labs/rust-fn-dsa?tag=tectonic%2F0.3.0#a5d330574792d0f894e0e46ec83746cd44902062"
-dependencies = [
- "fn-dsa-comm",
- "rand_chacha",
- "rand_core",
- "zeroize",
-]
-
-[[package]]
-name = "fn-dsa-vrfy"
-version = "0.3.0"
-source = "git+https://github.com/tectonic-labs/rust-fn-dsa?tag=tectonic%2F0.3.0#a5d330574792d0f894e0e46ec83746cd44902062"
-dependencies = [
- "fn-dsa-comm",
-]
-
-[[package]]
 name = "futures-core"
 version = "0.3.31"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -957,31 +877,6 @@ name = "oorandom"
 version = "11.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d6790f58c7ff633d8771f42965289203411a5e5c68388703c06e14f24770b41e"
-
-[[package]]
-name = "oqs"
-version = "0.11.0"
-source = "git+https://github.com/tectonic-labs/liboqs-rust?tag=tectonic%2F0.11.0-rc2#b4734b363f0b84556ed636c11875e12ece295d8c"
-dependencies = [
- "cstr_core",
- "libc",
- "oqs-sys",
- "serde",
- "serdect",
- "zeroize",
-]
-
-[[package]]
-name = "oqs-sys"
-version = "0.11.0+liboqs-0.13.0"
-source = "git+https://github.com/tectonic-labs/liboqs-rust?tag=tectonic%2F0.11.0-rc2#b4734b363f0b84556ed636c11875e12ece295d8c"
-dependencies = [
- "bindgen",
- "build-deps",
- "cmake",
- "libc",
- "pkg-config",
-]
 
 [[package]]
 name = "page_size"
@@ -1462,6 +1357,118 @@ dependencies = [
  "proc-macro2",
  "quote",
  "unicode-ident",
+]
+
+[[package]]
+name = "tectonic-bedrock"
+version = "0.1.0-dev.0"
+dependencies = [
+ "bip32",
+ "criterion",
+ "falcon-rust",
+ "hex",
+ "hmac",
+ "postcard",
+ "rand",
+ "rand_chacha",
+ "rand_core",
+ "rstest",
+ "serde",
+ "serde_json",
+ "serdect",
+ "sha2",
+ "sha3",
+ "tectonic-fn-dsa",
+ "tectonic-fn-dsa-comm",
+ "tectonic-fn-dsa-kgen",
+ "tectonic-fn-dsa-sign",
+ "tectonic-fn-dsa-vrfy",
+ "tectonic-oqs",
+ "thiserror 2.0.17",
+ "tiny-bip39",
+ "x25519-dalek",
+ "zeroize",
+]
+
+[[package]]
+name = "tectonic-fn-dsa"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6cc83c6e75fbb17dcb837359c51803a6c3a3ec93a0eae60b0a4774f90c2273d7"
+dependencies = [
+ "tectonic-fn-dsa-comm",
+ "tectonic-fn-dsa-kgen",
+ "tectonic-fn-dsa-sign",
+ "tectonic-fn-dsa-vrfy",
+]
+
+[[package]]
+name = "tectonic-fn-dsa-comm"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5b3ba38da34d9c457806418c5881409eee824c85d9af1eb9b550c41e387a49a7"
+dependencies = [
+ "cpufeatures",
+ "rand_core",
+ "tiny-keccak",
+]
+
+[[package]]
+name = "tectonic-fn-dsa-kgen"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3dcd7fe4b16b5928f247cb36e799a47d83a73a0a04cc0c07663c9d975411061f"
+dependencies = [
+ "tectonic-fn-dsa-comm",
+ "zeroize",
+]
+
+[[package]]
+name = "tectonic-fn-dsa-sign"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3686da02cc22c0a77d7454eccc4a425ed8d1bdbeef97f6585420f81b3f036588"
+dependencies = [
+ "rand_chacha",
+ "rand_core",
+ "tectonic-fn-dsa-comm",
+ "zeroize",
+]
+
+[[package]]
+name = "tectonic-fn-dsa-vrfy"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e40462048ad87d358887e894299fcf087a1e252f86d5f6b816a008ee525ff61f"
+dependencies = [
+ "tectonic-fn-dsa-comm",
+]
+
+[[package]]
+name = "tectonic-oqs"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "247b49a6f457b9966873d769af0c943a11353647f81bd128747e149177cc54d0"
+dependencies = [
+ "cstr_core",
+ "libc",
+ "serde",
+ "serdect",
+ "tectonic-oqs-sys",
+ "zeroize",
+]
+
+[[package]]
+name = "tectonic-oqs-sys"
+version = "0.11.1+liboqs-0.13.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b2c48f99cd10c7e996dde2077ed1e429dc4d215da7487a66121d39fc6c5425d7"
+dependencies = [
+ "bindgen",
+ "build-deps",
+ "cmake",
+ "libc",
+ "pkg-config",
 ]
 
 [[package]]
