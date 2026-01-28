@@ -8,7 +8,7 @@ use rand::{Rng, SeedableRng};
 #[test]
 #[allow(clippy::unwrap_used)]
 fn falcon_rust_to_bedrock_512_compatibility() {
-    use bedrock::falcon::FalconScheme;
+    use tectonic_bedrock::falcon::FalconScheme;
     const MSG: &[u8] = &[0u8; 8];
     const FALCON_SCHEME: FalconScheme = FalconScheme::Dsa512;
     const SEED: [u8; 32] = [3u8; 32];
@@ -17,12 +17,17 @@ fn falcon_rust_to_bedrock_512_compatibility() {
     let (sk, pk) = falcon512::keygen(rng.r#gen());
     let sig = falcon512::sign(MSG, &sk);
 
-    let res = bedrock::falcon::FalconSigningKey::from_raw_bytes(FALCON_SCHEME, &sk.to_bytes());
+    let res =
+        tectonic_bedrock::falcon::FalconSigningKey::from_raw_bytes(FALCON_SCHEME, &sk.to_bytes());
     assert!(res.is_ok());
-    let res = bedrock::falcon::FalconVerificationKey::from_raw_bytes(FALCON_SCHEME, &pk.to_bytes());
+    let res = tectonic_bedrock::falcon::FalconVerificationKey::from_raw_bytes(
+        FALCON_SCHEME,
+        &pk.to_bytes(),
+    );
     assert!(res.is_ok());
     let bedrock_pk = res.unwrap();
-    let res = bedrock::falcon::FalconSignature::from_raw_bytes(FALCON_SCHEME, &sig.to_bytes());
+    let res =
+        tectonic_bedrock::falcon::FalconSignature::from_raw_bytes(FALCON_SCHEME, &sig.to_bytes());
     assert!(res.is_ok());
     let bedrock_sig = res.unwrap();
 

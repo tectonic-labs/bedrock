@@ -1,7 +1,5 @@
 #![allow(missing_docs)]
 
-#[cfg(feature = "falcon")]
-use bedrock::falcon::{FalconScheme, FalconSigningKey, FalconVerificationKey};
 use fn_dsa::{
     KeyPairGenerator, KeyPairGeneratorStandard, SigningKey, SigningKeyStandard, VerifyingKey,
     VerifyingKeyStandard, DOMAIN_NONE, FN_DSA_LOGN_512, HASH_ID_RAW,
@@ -9,6 +7,8 @@ use fn_dsa::{
 #[cfg(feature = "falcon")]
 use fn_dsa_comm::signature_size;
 use rand::SeedableRng;
+#[cfg(feature = "falcon")]
+use tectonic_bedrock::falcon::{FalconScheme, FalconSigningKey, FalconVerificationKey};
 
 #[cfg(all(feature = "eth_falcon", feature = "sign", feature = "vrfy"))]
 #[test]
