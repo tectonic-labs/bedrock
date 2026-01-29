@@ -26,9 +26,9 @@
 //! # Example
 //!
 //! ```no_run
-//! use bedrock::hhd::Bip85;
-//! use bedrock::hhd::Mnemonic;
-//! use bedrock::hhd::SignatureScheme;
+//! use tectonic_bedrock::hhd::Bip85;
+//! use tectonic_bedrock::hhd::Mnemonic;
+//! use tectonic_bedrock::hhd::SignatureScheme;
 //!
 //! let mnemonic = Mnemonic::from_phrase("abandon abandon abandon...").unwrap();
 //! let ecdsa_seed = Bip85::derive_seed_from_mnemonic(
@@ -103,8 +103,8 @@ impl Bip85 {
     /// # Example
     ///
     /// ```
-    /// use bedrock::hhd::Bip85;
-    /// use bedrock::hhd::SignatureScheme;
+    /// use tectonic_bedrock::hhd::Bip85;
+    /// use tectonic_bedrock::hhd::SignatureScheme;
     ///
     /// assert_eq!(Bip85::child_index_from_scheme(SignatureScheme::EcdsaSecp256k1), 1);
     /// assert_eq!(Bip85::child_index_from_scheme(SignatureScheme::Falcon512), 2);
@@ -138,8 +138,8 @@ impl Bip85 {
     /// # Example
     ///
     /// ```
-    /// use bedrock::hhd::Bip85;
-    /// use bedrock::hhd::SignatureScheme;
+    /// use tectonic_bedrock::hhd::Bip85;
+    /// use tectonic_bedrock::hhd::SignatureScheme;
     ///
     /// assert_eq!(Bip85::child_path_from_scheme(SignatureScheme::EcdsaSecp256k1), "1'");
     /// assert_eq!(Bip85::child_path_from_scheme(SignatureScheme::Falcon512), "2'");
@@ -167,8 +167,8 @@ impl Bip85 {
     /// # Example
     ///
     /// ```
-    /// use bedrock::hhd::Bip85;
-    /// use bedrock::hhd::SignatureScheme;
+    /// use tectonic_bedrock::hhd::Bip85;
+    /// use tectonic_bedrock::hhd::SignatureScheme;
     ///
     /// assert_eq!(
     ///     Bip85::derivation_path_from_scheme(SignatureScheme::EcdsaSecp256k1),
@@ -221,8 +221,8 @@ impl Bip85 {
     /// # Example
     ///
     /// ```
-    /// use bedrock::hhd::Bip85;
-    /// use bedrock::hhd::SignatureScheme;
+    /// use tectonic_bedrock::hhd::Bip85;
+    /// use tectonic_bedrock::hhd::SignatureScheme;
     ///
     /// let path = Bip85::derivation_path_from_scheme_parsed(
     ///     SignatureScheme::EcdsaSecp256k1
@@ -272,8 +272,8 @@ impl Bip85 {
     /// # Example
     ///
     /// ```
-    /// use bedrock::hhd::Bip85;
-    /// use bedrock::hhd::{Mnemonic, SignatureScheme};
+    /// use tectonic_bedrock::hhd::Bip85;
+    /// use tectonic_bedrock::hhd::{Mnemonic, SignatureScheme};
     ///
     /// let mnemonic = Mnemonic::from_phrase(
     ///     "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"

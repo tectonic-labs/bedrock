@@ -27,7 +27,7 @@
 //! # Example
 //!
 //! ```no_run
-//! use bedrock::hhd::Mnemonic;
+//! use tectonic_bedrock::hhd::Mnemonic;
 //!
 //! // Generate a new random mnemonic
 //! let mnemonic = Mnemonic::new_random();
@@ -65,7 +65,7 @@ use bip39::{
 /// # Example
 ///
 /// ```
-/// use bedrock::hhd::Mnemonic;
+/// use tectonic_bedrock::hhd::Mnemonic;
 ///
 /// // Generate a new random mnemonic
 /// let mnemonic = Mnemonic::new_random();
@@ -106,7 +106,7 @@ impl Mnemonic {
     /// # Example
     ///
     /// ```
-    /// use bedrock::hhd::Mnemonic;
+    /// use tectonic_bedrock::hhd::Mnemonic;
     ///
     /// let mnemonic = Mnemonic::new_random();
     /// let phrase = mnemonic.to_phrase();
@@ -144,7 +144,7 @@ impl Mnemonic {
     /// # Example
     ///
     /// ```
-    /// use bedrock::hhd::Mnemonic;
+    /// use tectonic_bedrock::hhd::Mnemonic;
     ///
     /// // Valid BIP-39 test phrase
     /// let phrase = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about";
@@ -171,7 +171,7 @@ impl Mnemonic {
     /// # Example
     ///
     /// ```
-    /// use bedrock::hhd::Mnemonic;
+    /// use tectonic_bedrock::hhd::Mnemonic;
     ///
     /// let mnemonic = Mnemonic::new_random();
     /// let phrase = mnemonic.to_phrase();
@@ -218,7 +218,7 @@ impl Mnemonic {
     /// # Example
     ///
     /// ```
-    /// use bedrock::hhd::Mnemonic;
+    /// use tectonic_bedrock::hhd::Mnemonic;
     ///
     /// let mnemonic = Mnemonic::new_random();
     ///

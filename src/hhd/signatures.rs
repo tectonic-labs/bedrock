@@ -96,7 +96,7 @@ pub const BIP44_HARDENED_BASE_PATH: &str = "m/44'/60'/0'/0'";
 /// # Example
 ///
 /// ```
-/// use bedrock::hhd::{SignatureSeed, SignatureScheme};
+/// use tectonic_bedrock::hhd::{SignatureSeed, SignatureScheme};
 /// use bip32::Seed;
 ///
 /// // Create a seed (typically from BIP-85 derivation)
@@ -155,7 +155,7 @@ impl SignatureSeed {
     /// # Example
     ///
     /// ```
-    /// use bedrock::hhd::SignatureSeed;
+    /// use tectonic_bedrock::hhd::SignatureSeed;
     /// use bip32::Seed;
     ///
     /// let seed = Seed::new([0u8; 64]);
@@ -188,7 +188,7 @@ impl SignatureSeed {
 /// # Example
 ///
 /// ```
-/// use bedrock::hhd::SignatureScheme;
+/// use tectonic_bedrock::hhd::SignatureScheme;
 ///
 /// let ecdsa = SignatureScheme::EcdsaSecp256k1;
 /// let falcon = SignatureScheme::Falcon512;
@@ -227,7 +227,7 @@ impl SignatureScheme {
     /// # Example
     ///
     /// ```
-    /// use bedrock::hhd::SignatureScheme;
+    /// use tectonic_bedrock::hhd::SignatureScheme;
     ///
     /// let ecdsa = SignatureScheme::EcdsaSecp256k1;
     /// let path = ecdsa.bip44_non_hardened_base_path().unwrap();
@@ -259,7 +259,7 @@ impl SignatureScheme {
     /// # Example
     ///
     /// ```
-    /// use bedrock::hhd::SignatureScheme;
+    /// use tectonic_bedrock::hhd::SignatureScheme;
     ///
     /// let ecdsa = SignatureScheme::EcdsaSecp256k1;
     /// let path = ecdsa.bip44_hardened_base_path().unwrap();
@@ -323,7 +323,7 @@ impl SignatureScheme {
     /// # Example
     ///
     /// ```
-    /// use bedrock::hhd::SignatureScheme;
+    /// use tectonic_bedrock::hhd::SignatureScheme;
     ///
     /// let ecdsa = SignatureScheme::EcdsaSecp256k1;
     /// assert_eq!(ecdsa.domain_separator(), b"Bitcoin seed");

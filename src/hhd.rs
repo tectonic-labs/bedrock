@@ -23,7 +23,7 @@
 //! ### Creating and Using a Hybrid HD Wallet with ECDSA and Falcon
 //! ```ignore
 //! // Note: This example requires features: sign, vrfy, eth_falcon
-//! use bedrock::hhd::{HHDWallet, SignatureScheme};
+//! use tectonic_bedrock::hhd::{HHDWallet, SignatureScheme};
 //!
 //! // Create a new wallet with both ECDSA and Falcon support
 //! let wallet = HHDWallet::new(
@@ -37,7 +37,7 @@
 //! ).unwrap();
 //!
 //! // Sign and verify with ECDSA
-//! use bedrock::hhd::ecdsa::{Signature, signature::{Verifier, Signer}};
+//! use tectonic_bedrock::hhd::ecdsa::{Signature, signature::{Verifier, Signer}};
 //!
 //! let message = b"Hello, world!";
 //! let ecdsa_signature: Signature = ecdsa_sk.sign(message);
@@ -50,7 +50,7 @@
 //! ).unwrap();
 //!
 //! // Sign and verify with Falcon
-//! use bedrock::falcon::FalconScheme;
+//! use tectonic_bedrock::falcon::FalconScheme;
 //! let falcon_signature = FalconScheme::Dsa512.sign(message, &falcon_sk).unwrap();
 //! let falcon_verified = FalconScheme::Dsa512.verify(message, &falcon_signature, &falcon_vk);
 //! assert!(falcon_verified.is_ok());
@@ -58,7 +58,7 @@
 //!
 //! ### Importing a Wallet from an Existing Mnemonic Phrase
 //! ```no_run
-//! use bedrock::hhd::{HHDWallet, SignatureScheme, Mnemonic};
+//! use tectonic_bedrock::hhd::{HHDWallet, SignatureScheme, Mnemonic};
 //!
 //! // Your BIP-39 phrase (for example, a 24-word phrase)
 //! let phrase = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about";
@@ -202,7 +202,7 @@ use std::{collections::HashMap, fmt};
 ///
 /// ```ignore
 /// // Note: This example requires features: falcon
-/// use bedrock::hhd::{HHDWallet, SignatureScheme};
+/// use tectonic_bedrock::hhd::{HHDWallet, SignatureScheme};
 ///
 /// // Create wallet with both schemes
 /// let wallet = HHDWallet::new(
@@ -261,7 +261,7 @@ impl HHDWallet {
     /// # Example
     ///
     /// ```
-    /// use bedrock::hhd::{HHDWallet, Mnemonic, SignatureScheme};
+    /// use tectonic_bedrock::hhd::{HHDWallet, Mnemonic, SignatureScheme};
     ///
     /// let mnemonic = Mnemonic::from_phrase(
     ///     "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"
@@ -318,7 +318,7 @@ impl HHDWallet {
     /// # Example
     ///
     /// ```
-    /// use bedrock::hhd::{HHDWallet, SignatureScheme};
+    /// use tectonic_bedrock::hhd::{HHDWallet, SignatureScheme};
     ///
     /// // Create a new wallet supporting both ECDSA and Falcon
     /// let wallet = HHDWallet::new(
@@ -347,7 +347,7 @@ impl HHDWallet {
     /// # Example
     ///
     /// ```
-    /// use bedrock::hhd::{HHDWallet, SignatureScheme};
+    /// use tectonic_bedrock::hhd::{HHDWallet, SignatureScheme};
     ///
     /// let wallet = HHDWallet::new(vec![SignatureScheme::EcdsaSecp256k1], None).unwrap();
     /// let mnemonic_phrase = wallet.mnemonic().to_phrase();
@@ -370,7 +370,7 @@ impl HHDWallet {
     /// # Example
     ///
     /// ```
-    /// use bedrock::hhd::{HHDWallet, SignatureScheme};
+    /// use tectonic_bedrock::hhd::{HHDWallet, SignatureScheme};
     ///
     /// let wallet = HHDWallet::new(
     ///     vec![SignatureScheme::EcdsaSecp256k1, SignatureScheme::Falcon512],
@@ -408,7 +408,7 @@ impl HHDWallet {
     /// # Example
     ///
     /// ```
-    /// use bedrock::hhd::{HHDWallet, SignatureScheme};
+    /// use tectonic_bedrock::hhd::{HHDWallet, SignatureScheme};
     ///
     /// let wallet = HHDWallet::new(vec![SignatureScheme::EcdsaSecp256k1], None).unwrap();
     ///
@@ -456,7 +456,7 @@ impl HHDWallet {
     /// # Example
     ///
     /// ```
-    /// use bedrock::hhd::{HHDWallet, SignatureScheme};
+    /// use tectonic_bedrock::hhd::{HHDWallet, SignatureScheme};
     ///
     /// let wallet = HHDWallet::new(vec![SignatureScheme::Falcon512], None).unwrap();
     ///
@@ -504,7 +504,7 @@ impl HHDWallet {
     /// # Example
     ///
     /// ```
-    /// use bedrock::hhd::{HHDWallet, SignatureScheme};
+    /// use tectonic_bedrock::hhd::{HHDWallet, SignatureScheme};
     ///
     /// let wallet = HHDWallet::new(vec![SignatureScheme::MlDsa44], None).unwrap();
     ///
@@ -552,7 +552,7 @@ impl HHDWallet {
     /// # Example
     ///
     /// ```
-    /// use bedrock::hhd::{HHDWallet, SignatureScheme};
+    /// use tectonic_bedrock::hhd::{HHDWallet, SignatureScheme};
     ///
     /// let wallet = HHDWallet::new(vec![SignatureScheme::MlDsa65], None).unwrap();
     ///
@@ -600,7 +600,7 @@ impl HHDWallet {
     /// # Example
     ///
     /// ```
-    /// use bedrock::hhd::{HHDWallet, SignatureScheme};
+    /// use tectonic_bedrock::hhd::{HHDWallet, SignatureScheme};
     ///
     /// let wallet = HHDWallet::new(vec![SignatureScheme::MlDsa87], None).unwrap();
     ///
