@@ -1,0 +1,52 @@
+name: Manual Publish
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Run with --dry-run?'
+        required: true
+        type: boolean
+        default: false
+
+jobs:
+  publish:
+    name: Publish Selected Tag
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Checkout selected tag
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Sync Cargo.toml to Tag Name
+        run: |
+          # Get the tag name (e.g., v1.2.3-dev01)
+          RAW_TAG=${{ github.ref_name }}
+          
+          # Strip 'v' prefix for Cargo.toml (e.g., 1.2.3-dev01)
+          VERSION=$(echo "$RAW_TAG" | sed 's/^v//')
+          
+          echo "Syncing Cargo.toml version to: $VERSION"
+          
+          # Replace the version in the [package] section
+          sed -i "0,/^version = .*/s//version = \"$VERSION\"/" Cargo.toml
+          
+          # Debug: show the change
+          grep "^version =" Cargo.toml
+
+      - name: Publish to crates.io
+        run: |
+          FLAGS="--allow-dirty"
+          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+            FLAGS="$FLAGS --dry-run"
+          fi
+          
+          cargo publish $FLAGS
