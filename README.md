@@ -11,6 +11,7 @@ Bedrock provides post-quantum cryptographic primitives including digital signatu
 - **ML-KEM (FIPS 203)**: Module-Lattice-Based Key-Encapsulation Mechanism
 - **Classic McEliece**: Code-based Key Encapsulation Mechanism
 - **ETHFALCON**: Ethereum-compatible Falcon variant with Keccak-256 XOF
+- **X-Wing**: Hybrid KEM combining X25519 with ML-KEM or Classic McEliece
 
 ## Supported Algorithms
 
@@ -41,6 +42,15 @@ Three security levels following NIST standards:
 ### Classic McEliece (Key Encapsulation)
 
 - **ClassicMcEliece-348864** (NIST Level 1) - Default when only `mceliece` feature enabled
+
+### X-Wing (Hybrid Key Encapsulation)
+
+Hybrid KEM combining X25519 with post-quantum KEMs:
+
+- **X25519-ML-KEM-512** (X25519 + ML-KEM-512)
+- **X25519-ML-KEM-768** (X25519 + ML-KEM-768) - Default
+- **X25519-ML-KEM-1024** (X25519 + ML-KEM-1024)
+- **X25519-ClassicMcEliece348864** (X25519 + Classic McEliece)
 
 ## API Reference
 
@@ -133,6 +143,41 @@ Common methods for all types:
 - `to_raw_bytes() -> Vec<u8>` - Convert to raw byte representation
 - `from_raw_bytes(scheme: KemScheme, bytes: &[u8]) -> Result<Self>` - Create from raw bytes
 - `as_ref() -> &[u8]` - Get byte slice reference
+
+### X-Wing Methods
+
+#### `XwingScheme`
+
+**Key Generation:**
+- `keypair() -> Result<(EncapsulationKey, DecapsulationKey)>`
+  Generate a new X-Wing encapsulation/decapsulation key pair (requires `xwing` feature)
+- `keypair_from_seed(seed: &[u8]) -> Result<(EncapsulationKey, DecapsulationKey)>`
+  Generate a key pair from a seed (requires `xwing` feature)
+
+#### `EncapsulationKey`
+
+- `encapsulate() -> Result<(Ciphertext, SharedSecret)>`
+  Create a ciphertext and shared secret for the encapsulation key holder
+- `to_raw_bytes() -> Vec<u8>` - Convert to raw byte representation
+- `from_raw_bytes(scheme: XwingScheme, bytes: &[u8]) -> Result<Self>` - Create from raw bytes
+
+#### `DecapsulationKey`
+
+- `decapsulate(ciphertext: &Ciphertext) -> Result<SharedSecret>`
+  Decapsulate to recover the shared secret
+- `to_seed() -> Vec<u8>` - Get the seed bytes
+- `from_seed(scheme: XwingScheme, bytes: &[u8]) -> Self` - Create from seed bytes
+- `expand() -> Result<ExpandedDecapsulationKey>` - Expand the seed into full key material
+
+#### `ExpandedDecapsulationKey`
+
+- `decapsulate(ciphertext: &Ciphertext) -> Result<SharedSecret>` - Decapsulate using expanded key
+- `encapsulation_key() -> EncapsulationKey` - Get the associated encapsulation key
+
+#### `Ciphertext`
+
+- `to_raw_bytes() -> Vec<u8>` - Convert to raw byte representation
+- `from_raw_bytes(scheme: XwingScheme, bytes: &[u8]) -> Result<Self>` - Create from raw bytes
 
 ### Serialization
 
@@ -239,6 +284,24 @@ let ss2 = scheme.decapsulate(&ct, &dk)?;
 assert_eq!(ss.as_ref(), ss2.as_ref());
 ```
 
+### X-Wing Hybrid KEM
+
+```rust
+use bedrock::xwing::XwingScheme;
+
+// Generate X-Wing keypair (combines X25519 with ML-KEM-768)
+let scheme = XwingScheme::X25519MlKem768;
+let (encapsulation_key, decapsulation_key) = scheme.keypair()?;
+
+// Encapsulate to create shared secret
+let (ciphertext, shared_secret_sender) = encapsulation_key.encapsulate()?;
+
+// Decapsulate to recover shared secret
+let shared_secret_receiver = decapsulation_key.decapsulate(&ciphertext)?;
+
+assert_eq!(shared_secret_sender, shared_secret_receiver);
+```
+
 ## Feature Flags
 
 Control which algorithms and operations are enabled:
@@ -249,6 +312,7 @@ Control which algorithms and operations are enabled:
 - `eth_falcon` - Enable ETHFALCON Ethereum-compatible variant (default, requires `falcon`)
 - `ml-kem` - Enable ML-KEM key encapsulation (default)
 - `mceliece` - Enable Classic McEliece key encapsulation (default)
+- `xwing` - Enable X-Wing hybrid KEM (default, requires `ml-kem` or `mceliece`)
 
 ### Operation Features
 - `kgen` - Enable key generation (default)
@@ -263,19 +327,24 @@ Bedrock is designed to allow selective features to minimize the dependency list.
 The default is
 
 ```toml
-default = ["eth_falcon", "falcon", "mceliece", "ml-dsa", "ml-kem", "decp", "encp", "kgen", "sign", "vrfy"]
+default = ["eth_falcon", "falcon", "mceliece", "ml-dsa", "ml-kem", "decp", "encp", "kgen", "sign", "vrfy", "hhd", "xwing"]
 ```
 
 ### Minimal Configuration Examples
 
 Verification only (no key generation or signing):
 ```toml
-bedrock = { version = "0.1", default-features = false, features = ["ml-dsa", "vrfy"] }
+tectonic-bedrock = { version = "0.1", default-features = false, features = ["ml-dsa", "vrfy"] }
 ```
 
 ML-KEM only:
 ```toml
-bedrock = { version = "0.1", default-features = false, features = ["ml-kem", "kgen", "encp", "decp"] }
+tectonic-bedrock = { version = "0.1", default-features = false, features = ["ml-kem", "kgen", "encp", "decp"] }
+```
+
+X-Wing hybrid KEM only:
+```toml
+tectonic-bedrock = { version = "0.1", default-features = false, features = ["ml-kem", "xwing", "kgen", "encp", "decp"] }
 ```
 
 ## Error Handling
@@ -315,4 +384,5 @@ Unless you explicitly state otherwise, any contribution intentionally submitted 
 - [ML-DSA (FIPS 204)](https://csrc.nist.gov/pubs/fips/204/final)
 - [ML-KEM (FIPS 203)](https://csrc.nist.gov/pubs/fips/203/final)
 - [ETHFALCON Specification](https://github.com/zknoxhq/ETHFALCON)
+- [X-Wing (IETF Draft)](https://datatracker.ietf.org/doc/draft-connolly-cfrg-xwing-kem/)
 - [liboqs](https://github.com/open-quantum-safe/liboqs)
