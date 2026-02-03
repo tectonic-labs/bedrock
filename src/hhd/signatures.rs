@@ -45,7 +45,7 @@ pub const FALCON512_KEY_GENERATION_SEED_SIZE: usize = 32;
 /// Size in bytes of the root seed for Falcon-512 HD key derivation (64 bytes = 512 bits).
 pub const FALCON512_ROOT_SEED_SIZE: usize = 64;
 /// Domain separator string used for Falcon-512 in SLIP-0010 key derivation.
-pub const FALCON512_DOMAIN_SEPARATOR: &[u8] = b"Falcon-512-v1 seed";
+pub const FALCON512_DOMAIN_SEPARATOR: &[u8] = b"Falcon-512 seed";
 /// Size in bytes of a Falcon-512 signing key (private key): 1281 bytes.
 pub const FALCON512_SIGNING_KEY_SIZE: usize = 1281;
 /// Size in bytes of a Falcon-512 verifying key (public key): 897 bytes.
@@ -63,9 +63,9 @@ pub const ML_DSA_44_ROOT_SEED_SIZE: usize = 64;
 pub const ML_DSA_65_ROOT_SEED_SIZE: usize = 64;
 pub const ML_DSA_87_ROOT_SEED_SIZE: usize = 64;
 /// Domain separator string used for ML-DSA 44 in BIP-32 key derivation.
-pub const ML_DSA_44_DOMAIN_SEPARATOR: &[u8] = b"ML-DSA-44-v1 seed";
-pub const ML_DSA_65_DOMAIN_SEPARATOR: &[u8] = b"ML-DSA-65-v1 seed";
-pub const ML_DSA_87_DOMAIN_SEPARATOR: &[u8] = b"ML-DSA-87-v1 seed";
+pub const ML_DSA_44_DOMAIN_SEPARATOR: &[u8] = b"ML-DSA-44 seed";
+pub const ML_DSA_65_DOMAIN_SEPARATOR: &[u8] = b"ML-DSA-65 seed";
+pub const ML_DSA_87_DOMAIN_SEPARATOR: &[u8] = b"ML-DSA-87 seed";
 /// Numbers taken from the original ml-dsa standard: https://nvlpubs.nist.gov/nistpubs/fips/nist.fips.204.pdf
 /// Size in bytes of a ML-DSA 44/65/87 signing key (private key)
 pub const ML_DSA_44_SIGNING_KEY_SIZE: usize = 2560;
@@ -314,7 +314,7 @@ impl SignatureScheme {
     /// extended private key from a seed. Different schemes use different separators:
     ///
     /// - **ECDSA secp256k1**: `b"Bitcoin seed"` (BIP-32 standard)
-    /// - **Falcon-512**: `b"Falcon-512-v1 seed"` (SLIP-0010 compatible)
+    /// - **Falcon-512**: `b"Falcon-512 seed"` (SLIP-0010 compatible)
     ///
     /// # Returns
     ///
@@ -329,7 +329,7 @@ impl SignatureScheme {
     /// assert_eq!(ecdsa.domain_separator(), b"Bitcoin seed");
     ///
     /// let falcon = SignatureScheme::Falcon512;
-    /// assert_eq!(falcon.domain_separator(), b"Falcon-512-v1 seed");
+    /// assert_eq!(falcon.domain_separator(), b"Falcon-512 seed");
     /// ```
     pub fn domain_separator(&self) -> &[u8] {
         match self {
