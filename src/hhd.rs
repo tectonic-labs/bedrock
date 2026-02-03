@@ -117,7 +117,7 @@
 //! - Example for address index 0: `m/44'/60'/0'/0/0`
 //!
 //! **Falcon-512** (SLIP-0010, hardened):
-//! - Domain separator: `Falcon-512-v1 seed`
+//! - Domain separator: `Falcon-512 seed`
 //! - Base path: `m/44'/60'/0'/0'`
 //! - Full path: `m/44'/60'/0'/0'/{address_index}'`
 //! - Standard: SLIP-0010 (all components hardened)
@@ -129,7 +129,7 @@
 //! |----------------------|----------------------|----------------------|
 //! | **BIP-85 Index**     | `1'`                 | `2'`                 |
 //! | **HD Standard**      | BIP-32               | SLIP-0010            |
-//! | **Domain Separator** | `Bitcoin seed`       | `Falcon-512-v1 seed` |
+//! | **Domain Separator** | `Bitcoin seed`       | `Falcon-512 seed` |
 //! | **Address Index**    | Non-hardened         | Hardened             |
 //!
 //! For more detailed implementation information, see the [ARCHITECTURE.md](https://github.com/tectonic-labs/bedrock/blob/main/src/hhd/ARCHITECTURE.md) document.

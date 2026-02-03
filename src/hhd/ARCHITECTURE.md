@@ -65,7 +65,7 @@ Master root key (512 bits; 256-bit security)
                      │
                      └─> [Falcon-512]   SLIP0010 with child_master_seed   
                                                      and   
-                                 "Falcon-512-v1 seed" as the domain separator 
+                                 "Falcon-512 seed" as the domain separator 
 ```
 
 Let's go over each step.
@@ -193,7 +193,7 @@ The output of CKD denoted by k is then passed to `HMAC-SHA512("bip-entropy-from-
 
 The entropy derived from BIP-85 procedure described above for the two branches can then be used as the seed for the generation of two keychains.
 
-The ECDSA branch can follow the traditional BIP-32 hierarchical derivation with either hardened or non-hardened derivation paths. The Falcon branch and the ML-DSA branches follow a hardened derivation path proposed in [SLIP0010](https://slips.readthedocs.io/en/latest/slip-0010/) for universal key derivation. We adopt a similar approach to ed25519 signature with the domain separator strings `"Falcon-512-v1 seed"`, `"ML-DSA-44-v1 seed"`, `"ML-DSA-65-v1 seed"` and `"ML-DSA-87-v1 seed"`, used in the master key generation step. 
+The ECDSA branch can follow the traditional BIP-32 hierarchical derivation with either hardened or non-hardened derivation paths. The Falcon branch and the ML-DSA branches follow a hardened derivation path proposed in [SLIP0010](https://slips.readthedocs.io/en/latest/slip-0010/) for universal key derivation. We adopt a similar approach to ed25519 signature with the domain separator strings `"Falcon-512 seed"`, `"ML-DSA-44 seed"`, `"ML-DSA-65 seed"` and `"ML-DSA-87 seed"`, used in the master key generation step. 
 
 We note that Falcon and ML-DSA original proposals do not provide a out-of-the-box rerandomization key technique, which does not allow for a non-hardened derivation path.
 
@@ -209,7 +209,7 @@ We note that Falcon and ML-DSA original proposals do not provide a out-of-the-bo
         │
         └─> [Falcon-512]   SLIP0010 with child_master_seed   
                                        and   
-                   "Falcon-512-v1 seed" as the domain separator 
+                   "Falcon-512 seed" as the domain separator 
 ```
 
 
