@@ -78,8 +78,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - uses: dtolnay/rust-toolchain@nightly
-      - run: cargo install cargo-pants
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: nightly
+      - uses: cargo-bins/cargo-binstall@main    
+      - run: cargo binstall cargo-pants
       - run: cargo pants --loud --dev
 
   build:

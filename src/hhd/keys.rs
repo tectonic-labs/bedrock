@@ -16,6 +16,8 @@ mod error;
 mod falcon;
 #[cfg(feature = "ml-dsa")]
 mod mldsa;
+#[cfg(feature = "slh-dsa")]
+mod slhdsa;
 
 pub use ecdsa::EcdsaSecp256k1;
 pub use error::KeyError;
@@ -23,3 +25,9 @@ pub use error::KeyError;
 pub use falcon::FnDsa512;
 #[cfg(feature = "ml-dsa")]
 pub(crate) use mldsa::{MlDsa44, MlDsa65, MlDsa87};
+#[cfg(feature = "slh-dsa")]
+pub(crate) use slhdsa::{
+    SlhDsaSha2128f, SlhDsaSha2128s, SlhDsaSha2192f, SlhDsaSha2192s, SlhDsaSha2256f, SlhDsaSha2256s,
+    SlhDsaShake128f, SlhDsaShake128s, SlhDsaShake192f, SlhDsaShake192s, SlhDsaShake256f,
+    SlhDsaShake256s,
+};

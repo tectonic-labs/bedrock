@@ -6,6 +6,7 @@
 #[cfg(any(
     feature = "falcon",
     feature = "ml-dsa",
+    feature = "slh-dsa",
     feature = "mceliece",
     feature = "ml-kem"
 ))]
@@ -21,6 +22,8 @@ pub mod hhd;
 pub mod kem;
 #[cfg(feature = "ml-dsa")]
 pub mod ml_dsa;
+#[cfg(feature = "slh-dsa")]
+pub mod slh_dsa;
 #[cfg(feature = "xwing")]
 pub mod xwing;
 
