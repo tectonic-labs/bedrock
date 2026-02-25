@@ -58,14 +58,55 @@ pub const FALCON512_SIGNATURE_SIZE: usize = 666;
 pub const ML_DSA_44_KEY_GENERATION_SEED_SIZE: usize = 32;
 pub const ML_DSA_65_KEY_GENERATION_SEED_SIZE: usize = 32;
 pub const ML_DSA_87_KEY_GENERATION_SEED_SIZE: usize = 32;
+/// Size in bytes of the seed required for SLH-DSA key generation.
+/// Liboqs SLH-DSA keypair_from_seed expects seed = (SK.seed || SK.prf || PK.seed), each n bytes;
+/// n=16 for 128-bit, n=24 for 192-bit, n=32 for 256-bit, so 3*n = 48, 72, 96.
+pub const SLH_DSA_128_KEY_GENERATION_SEED_SIZE: usize = 48; // 3 * 16
+pub const SLH_DSA_192_KEY_GENERATION_SEED_SIZE: usize = 72; // 3 * 24
+pub const SLH_DSA_256_KEY_GENERATION_SEED_SIZE: usize = 96; // 3 * 32
 /// Size in bytes of the root seed for ML-DSA HD key derivation (64 bytes = 512 bits).
 pub const ML_DSA_44_ROOT_SEED_SIZE: usize = 64;
 pub const ML_DSA_65_ROOT_SEED_SIZE: usize = 64;
 pub const ML_DSA_87_ROOT_SEED_SIZE: usize = 64;
+/// Size in bytes of the root seed for SLH-DSA HD key derivation (64 bytes = 512 bits).
+pub const SLH_DSA_128_ROOT_SEED_SIZE: usize = 64;
+pub const SLH_DSA_192_ROOT_SEED_SIZE: usize = 64;
+pub const SLH_DSA_256_ROOT_SEED_SIZE: usize = 64;
 /// Domain separator string used for ML-DSA 44 in BIP-32 key derivation.
 pub const ML_DSA_44_DOMAIN_SEPARATOR: &[u8] = b"ML-DSA-44 seed";
 pub const ML_DSA_65_DOMAIN_SEPARATOR: &[u8] = b"ML-DSA-65 seed";
 pub const ML_DSA_87_DOMAIN_SEPARATOR: &[u8] = b"ML-DSA-87 seed";
+/// Domain separator string used for SLH-DSA 128 in BIP-32 key derivation.
+pub const SLH_DSA_SHA2_128S_DOMAIN_SEPARATOR: &[u8] = b"SLH-DSA-Sha2-128s seed";
+pub const SLH_DSA_SHA2_128F_DOMAIN_SEPARATOR: &[u8] = b"SLH-DSA-Sha2-128f seed";
+pub const SLH_DSA_SHAKE_128S_DOMAIN_SEPARATOR: &[u8] = b"SLH-DSA-Shake-128s seed";
+pub const SLH_DSA_SHAKE_128F_DOMAIN_SEPARATOR: &[u8] = b"SLH-DSA-Shake-128f seed";
+/// Domain separator string used for SLH-DSA 192 in BIP-32 key derivation.
+pub const SLH_DSA_SHA2_192S_DOMAIN_SEPARATOR: &[u8] = b"SLH-DSA-Sha2-192s seed";
+pub const SLH_DSA_SHA2_192F_DOMAIN_SEPARATOR: &[u8] = b"SLH-DSA-Sha2-192f seed";
+pub const SLH_DSA_SHAKE_192S_DOMAIN_SEPARATOR: &[u8] = b"SLH-DSA-Shake-192s seed";
+pub const SLH_DSA_SHAKE_192F_DOMAIN_SEPARATOR: &[u8] = b"SLH-DSA-Shake-192f seed";
+/// Domain separator string used for SLH-DSA 256 in BIP-32 key derivation.
+pub const SLH_DSA_SHA2_256S_DOMAIN_SEPARATOR: &[u8] = b"SLH-DSA-Sha2-256s seed";
+pub const SLH_DSA_SHA2_256F_DOMAIN_SEPARATOR: &[u8] = b"SLH-DSA-Sha2-256f seed";
+pub const SLH_DSA_SHAKE_256S_DOMAIN_SEPARATOR: &[u8] = b"SLH-DSA-Shake-256s seed";
+pub const SLH_DSA_SHAKE_256F_DOMAIN_SEPARATOR: &[u8] = b"SLH-DSA-Shake-256f seed";
+/// Numbers taken from the original slh-dsa standard: https://nvlpubs.nist.gov/nistpubs/fips/nist.fips.205.pdf
+/// Size in bytes of a SLH-DSA 128 signing key (private key).
+pub const SLH_DSA_128_SIGNING_KEY_SIZE: usize = 64;
+pub const SLH_DSA_192_SIGNING_KEY_SIZE: usize = 96;
+pub const SLH_DSA_256_SIGNING_KEY_SIZE: usize = 128;
+/// Size in bytes of a SLH-DSA 128 verifying key (public key).
+pub const SLH_DSA_128_VERIFYING_KEY_SIZE: usize = 32;
+pub const SLH_DSA_192_VERIFYING_KEY_SIZE: usize = 48;
+pub const SLH_DSA_256_VERIFYING_KEY_SIZE: usize = 64;
+/// Size in bytes of a SLH-DSA 128 signature.
+pub const SLH_DSA_128_S_SIGNATURE_SIZE: usize = 7856;
+pub const SLH_DSA_128_F_SIGNATURE_SIZE: usize = 17088;
+pub const SLH_DSA_192_S_SIGNATURE_SIZE: usize = 16224;
+pub const SLH_DSA_192_F_SIGNATURE_SIZE: usize = 35664;
+pub const SLH_DSA_256_S_SIGNATURE_SIZE: usize = 29792;
+pub const SLH_DSA_256_F_SIGNATURE_SIZE: usize = 49856;
 /// Numbers taken from the original ml-dsa standard: https://nvlpubs.nist.gov/nistpubs/fips/nist.fips.204.pdf
 /// Size in bytes of a ML-DSA 44/65/87 signing key (private key)
 pub const ML_DSA_44_SIGNING_KEY_SIZE: usize = 2560;
@@ -120,6 +161,30 @@ pub enum SignatureSeed {
     MlDsa65(Seed),
     /// ML-DSA 87 signature scheme seed.
     MlDsa87(Seed),
+    /// SLH-DSA 128 (SHA2-128, small) signature scheme seed.
+    SlhDsaSha2128s(Seed),
+    /// SLH-DSA 128 (SHA2-128, fast) signature scheme seed.
+    SlhDsaSha2128f(Seed),
+    /// SLH-DSA 128 (SHAKE-128, small) signature scheme seed.
+    SlhDsaShake128s(Seed),
+    /// SLH-DSA 128 (SHAKE-128, fast) signature scheme seed.
+    SlhDsaShake128f(Seed),
+    /// SLH-DSA 192 (SHA2-192, small) signature scheme seed.
+    SlhDsaSha2192s(Seed),
+    /// SLH-DSA 192 (SHA2-192, fast) signature scheme seed.
+    SlhDsaSha2192f(Seed),
+    /// SLH-DSA 192 (SHAKE-192, small) signature scheme seed.
+    SlhDsaShake192s(Seed),
+    /// SLH-DSA 192 (SHAKE-192, fast) signature scheme seed.
+    SlhDsaShake192f(Seed),
+    /// SLH-DSA 256 (SHA2-256, small) signature scheme seed.
+    SlhDsaSha2256s(Seed),
+    /// SLH-DSA 256 (SHA2-256, fast) signature scheme seed.
+    SlhDsaSha2256f(Seed),
+    /// SLH-DSA 256 (SHAKE-256, small) signature scheme seed.
+    SlhDsaShake256s(Seed),
+    /// SLH-DSA 256 (SHAKE-256, fast) signature scheme seed.
+    SlhDsaShake256f(Seed),
 }
 
 impl fmt::Debug for SignatureSeed {
@@ -130,6 +195,18 @@ impl fmt::Debug for SignatureSeed {
             SignatureSeed::MlDsa44(_) => "MlDsa44",
             SignatureSeed::MlDsa65(_) => "MlDsa65",
             SignatureSeed::MlDsa87(_) => "MlDsa87",
+            SignatureSeed::SlhDsaSha2128s(_) => "SlhDsaSha2128s",
+            SignatureSeed::SlhDsaSha2128f(_) => "SlhDsaSha2128f",
+            SignatureSeed::SlhDsaShake128s(_) => "SlhDsaShake128s",
+            SignatureSeed::SlhDsaShake128f(_) => "SlhDsaShake128f",
+            SignatureSeed::SlhDsaSha2192s(_) => "SlhDsaSha2192s",
+            SignatureSeed::SlhDsaSha2192f(_) => "SlhDsaSha2192f",
+            SignatureSeed::SlhDsaShake192s(_) => "SlhDsaShake192s",
+            SignatureSeed::SlhDsaShake192f(_) => "SlhDsaShake192f",
+            SignatureSeed::SlhDsaSha2256s(_) => "SlhDsaSha2256s",
+            SignatureSeed::SlhDsaSha2256f(_) => "SlhDsaSha2256f",
+            SignatureSeed::SlhDsaShake256s(_) => "SlhDsaShake256s",
+            SignatureSeed::SlhDsaShake256f(_) => "SlhDsaShake256f",
         };
 
         let seed_bytes = self.as_seed().as_bytes().to_vec();
@@ -172,6 +249,18 @@ impl SignatureSeed {
             SignatureSeed::MlDsa44(seed) => seed,
             SignatureSeed::MlDsa65(seed) => seed,
             SignatureSeed::MlDsa87(seed) => seed,
+            SignatureSeed::SlhDsaSha2128s(seed) => seed,
+            SignatureSeed::SlhDsaSha2128f(seed) => seed,
+            SignatureSeed::SlhDsaShake128s(seed) => seed,
+            SignatureSeed::SlhDsaShake128f(seed) => seed,
+            SignatureSeed::SlhDsaSha2192s(seed) => seed,
+            SignatureSeed::SlhDsaSha2192f(seed) => seed,
+            SignatureSeed::SlhDsaShake192s(seed) => seed,
+            SignatureSeed::SlhDsaShake192f(seed) => seed,
+            SignatureSeed::SlhDsaSha2256s(seed) => seed,
+            SignatureSeed::SlhDsaSha2256f(seed) => seed,
+            SignatureSeed::SlhDsaShake256s(seed) => seed,
+            SignatureSeed::SlhDsaShake256f(seed) => seed,
         }
     }
 }
@@ -209,6 +298,30 @@ pub enum SignatureScheme {
     MlDsa65,
     /// ML-DSA 87 post-quantum signature scheme.
     MlDsa87,
+    /// SLH-DSA 128 (SHA2-128, small) post-quantum signature scheme.
+    SlhDsaSha2128s,
+    /// SLH-DSA 128 (SHA2-128, fast) post-quantum signature scheme.
+    SlhDsaSha2128f,
+    /// SLH-DSA 128 (SHAKE-128, small) post-quantum signature scheme.
+    SlhDsaShake128s,
+    /// SLH-DSA 128 (SHAKE-128, fast) post-quantum signature scheme.
+    SlhDsaShake128f,
+    /// SLH-DSA 192 (SHA2-192, small) post-quantum signature scheme.
+    SlhDsaSha2192s,
+    /// SLH-DSA 192 (SHA2-192, fast) post-quantum signature scheme.
+    SlhDsaSha2192f,
+    /// SLH-DSA 192 (SHAKE-192, small) post-quantum signature scheme.
+    SlhDsaShake192s,
+    /// SLH-DSA 192 (SHAKE-192, fast) post-quantum signature scheme.
+    SlhDsaShake192f,
+    /// SLH-DSA 256 (SHA2-256, small) post-quantum signature scheme.
+    SlhDsaSha2256s,
+    /// SLH-DSA 256 (SHA2-256, fast) post-quantum signature scheme.
+    SlhDsaSha2256f,
+    /// SLH-DSA 256 (SHAKE-256, small) post-quantum signature scheme.
+    SlhDsaShake256s,
+    /// SLH-DSA 256 (SHAKE-256, fast) post-quantum signature scheme.
+    SlhDsaShake256f,
 }
 
 impl SignatureScheme {
@@ -275,7 +388,19 @@ impl SignatureScheme {
             | SignatureScheme::Falcon512
             | SignatureScheme::MlDsa44
             | SignatureScheme::MlDsa65
-            | SignatureScheme::MlDsa87 => Ok(BIP44_HARDENED_BASE_PATH),
+            | SignatureScheme::MlDsa87
+            | SignatureScheme::SlhDsaSha2128s
+            | SignatureScheme::SlhDsaSha2128f
+            | SignatureScheme::SlhDsaShake128s
+            | SignatureScheme::SlhDsaShake128f
+            | SignatureScheme::SlhDsaSha2192s
+            | SignatureScheme::SlhDsaSha2192f
+            | SignatureScheme::SlhDsaShake192s
+            | SignatureScheme::SlhDsaShake192f
+            | SignatureScheme::SlhDsaSha2256s
+            | SignatureScheme::SlhDsaSha2256f
+            | SignatureScheme::SlhDsaShake256s
+            | SignatureScheme::SlhDsaShake256f => Ok(BIP44_HARDENED_BASE_PATH),
         }
     }
 
@@ -291,6 +416,18 @@ impl SignatureScheme {
             SignatureScheme::MlDsa44 => ML_DSA_44_KEY_GENERATION_SEED_SIZE,
             SignatureScheme::MlDsa65 => ML_DSA_65_KEY_GENERATION_SEED_SIZE,
             SignatureScheme::MlDsa87 => ML_DSA_87_KEY_GENERATION_SEED_SIZE,
+            SignatureScheme::SlhDsaSha2128s
+            | SignatureScheme::SlhDsaSha2128f
+            | SignatureScheme::SlhDsaShake128s
+            | SignatureScheme::SlhDsaShake128f => SLH_DSA_128_KEY_GENERATION_SEED_SIZE,
+            SignatureScheme::SlhDsaSha2192s
+            | SignatureScheme::SlhDsaSha2192f
+            | SignatureScheme::SlhDsaShake192s
+            | SignatureScheme::SlhDsaShake192f => SLH_DSA_192_KEY_GENERATION_SEED_SIZE,
+            SignatureScheme::SlhDsaSha2256s
+            | SignatureScheme::SlhDsaSha2256f
+            | SignatureScheme::SlhDsaShake256s
+            | SignatureScheme::SlhDsaShake256f => SLH_DSA_256_KEY_GENERATION_SEED_SIZE,
         }
     }
 
@@ -305,6 +442,18 @@ impl SignatureScheme {
             SignatureScheme::MlDsa44 => ML_DSA_44_ROOT_SEED_SIZE,
             SignatureScheme::MlDsa65 => ML_DSA_65_ROOT_SEED_SIZE,
             SignatureScheme::MlDsa87 => ML_DSA_87_ROOT_SEED_SIZE,
+            SignatureScheme::SlhDsaSha2128s
+            | SignatureScheme::SlhDsaSha2128f
+            | SignatureScheme::SlhDsaShake128s
+            | SignatureScheme::SlhDsaShake128f => SLH_DSA_128_ROOT_SEED_SIZE,
+            SignatureScheme::SlhDsaSha2192s
+            | SignatureScheme::SlhDsaSha2192f
+            | SignatureScheme::SlhDsaShake192s
+            | SignatureScheme::SlhDsaShake192f => SLH_DSA_192_ROOT_SEED_SIZE,
+            SignatureScheme::SlhDsaSha2256s
+            | SignatureScheme::SlhDsaSha2256f
+            | SignatureScheme::SlhDsaShake256s
+            | SignatureScheme::SlhDsaShake256f => SLH_DSA_256_ROOT_SEED_SIZE,
         }
     }
 
@@ -338,6 +487,18 @@ impl SignatureScheme {
             SignatureScheme::MlDsa44 => ML_DSA_44_DOMAIN_SEPARATOR,
             SignatureScheme::MlDsa65 => ML_DSA_65_DOMAIN_SEPARATOR,
             SignatureScheme::MlDsa87 => ML_DSA_87_DOMAIN_SEPARATOR,
+            SignatureScheme::SlhDsaSha2128s => SLH_DSA_SHA2_128S_DOMAIN_SEPARATOR,
+            SignatureScheme::SlhDsaSha2128f => SLH_DSA_SHA2_128F_DOMAIN_SEPARATOR,
+            SignatureScheme::SlhDsaShake128s => SLH_DSA_SHAKE_128S_DOMAIN_SEPARATOR,
+            SignatureScheme::SlhDsaShake128f => SLH_DSA_SHAKE_128F_DOMAIN_SEPARATOR,
+            SignatureScheme::SlhDsaSha2192s => SLH_DSA_SHA2_192S_DOMAIN_SEPARATOR,
+            SignatureScheme::SlhDsaSha2192f => SLH_DSA_SHA2_192F_DOMAIN_SEPARATOR,
+            SignatureScheme::SlhDsaShake192s => SLH_DSA_SHAKE_192S_DOMAIN_SEPARATOR,
+            SignatureScheme::SlhDsaShake192f => SLH_DSA_SHAKE_192F_DOMAIN_SEPARATOR,
+            SignatureScheme::SlhDsaSha2256s => SLH_DSA_SHA2_256S_DOMAIN_SEPARATOR,
+            SignatureScheme::SlhDsaSha2256f => SLH_DSA_SHA2_256F_DOMAIN_SEPARATOR,
+            SignatureScheme::SlhDsaShake256s => SLH_DSA_SHAKE_256S_DOMAIN_SEPARATOR,
+            SignatureScheme::SlhDsaShake256f => SLH_DSA_SHAKE_256F_DOMAIN_SEPARATOR,
         }
     }
 
@@ -352,6 +513,18 @@ impl SignatureScheme {
             SignatureScheme::MlDsa44 => ML_DSA_44_SIGNING_KEY_SIZE,
             SignatureScheme::MlDsa65 => ML_DSA_65_SIGNING_KEY_SIZE,
             SignatureScheme::MlDsa87 => ML_DSA_87_SIGNING_KEY_SIZE,
+            SignatureScheme::SlhDsaSha2128s => SLH_DSA_128_SIGNING_KEY_SIZE,
+            SignatureScheme::SlhDsaSha2128f => SLH_DSA_128_SIGNING_KEY_SIZE,
+            SignatureScheme::SlhDsaShake128s => SLH_DSA_128_SIGNING_KEY_SIZE,
+            SignatureScheme::SlhDsaShake128f => SLH_DSA_128_SIGNING_KEY_SIZE,
+            SignatureScheme::SlhDsaSha2192s => SLH_DSA_192_SIGNING_KEY_SIZE,
+            SignatureScheme::SlhDsaSha2192f => SLH_DSA_192_SIGNING_KEY_SIZE,
+            SignatureScheme::SlhDsaShake192s => SLH_DSA_192_SIGNING_KEY_SIZE,
+            SignatureScheme::SlhDsaShake192f => SLH_DSA_192_SIGNING_KEY_SIZE,
+            SignatureScheme::SlhDsaSha2256s => SLH_DSA_256_SIGNING_KEY_SIZE,
+            SignatureScheme::SlhDsaSha2256f => SLH_DSA_256_SIGNING_KEY_SIZE,
+            SignatureScheme::SlhDsaShake256s => SLH_DSA_256_SIGNING_KEY_SIZE,
+            SignatureScheme::SlhDsaShake256f => SLH_DSA_256_SIGNING_KEY_SIZE,
         }
     }
 
@@ -366,6 +539,18 @@ impl SignatureScheme {
             SignatureScheme::MlDsa44 => ML_DSA_44_VERIFYING_KEY_SIZE,
             SignatureScheme::MlDsa65 => ML_DSA_65_VERIFYING_KEY_SIZE,
             SignatureScheme::MlDsa87 => ML_DSA_87_VERIFYING_KEY_SIZE,
+            SignatureScheme::SlhDsaSha2128s => SLH_DSA_128_VERIFYING_KEY_SIZE,
+            SignatureScheme::SlhDsaSha2128f => SLH_DSA_128_VERIFYING_KEY_SIZE,
+            SignatureScheme::SlhDsaShake128s => SLH_DSA_128_VERIFYING_KEY_SIZE,
+            SignatureScheme::SlhDsaShake128f => SLH_DSA_128_VERIFYING_KEY_SIZE,
+            SignatureScheme::SlhDsaSha2192s => SLH_DSA_192_VERIFYING_KEY_SIZE,
+            SignatureScheme::SlhDsaSha2192f => SLH_DSA_192_VERIFYING_KEY_SIZE,
+            SignatureScheme::SlhDsaShake192s => SLH_DSA_192_VERIFYING_KEY_SIZE,
+            SignatureScheme::SlhDsaShake192f => SLH_DSA_192_VERIFYING_KEY_SIZE,
+            SignatureScheme::SlhDsaSha2256s => SLH_DSA_256_VERIFYING_KEY_SIZE,
+            SignatureScheme::SlhDsaSha2256f => SLH_DSA_256_VERIFYING_KEY_SIZE,
+            SignatureScheme::SlhDsaShake256s => SLH_DSA_256_VERIFYING_KEY_SIZE,
+            SignatureScheme::SlhDsaShake256f => SLH_DSA_256_VERIFYING_KEY_SIZE,
         }
     }
 
@@ -380,6 +565,24 @@ impl SignatureScheme {
             SignatureScheme::MlDsa44 => ML_DSA_44_SIGNATURE_SIZE,
             SignatureScheme::MlDsa65 => ML_DSA_65_SIGNATURE_SIZE,
             SignatureScheme::MlDsa87 => ML_DSA_87_SIGNATURE_SIZE,
+            SignatureScheme::SlhDsaSha2128s | SignatureScheme::SlhDsaShake128s => {
+                SLH_DSA_128_S_SIGNATURE_SIZE
+            }
+            SignatureScheme::SlhDsaSha2128f | SignatureScheme::SlhDsaShake128f => {
+                SLH_DSA_128_F_SIGNATURE_SIZE
+            }
+            SignatureScheme::SlhDsaSha2192s | SignatureScheme::SlhDsaShake192s => {
+                SLH_DSA_192_S_SIGNATURE_SIZE
+            }
+            SignatureScheme::SlhDsaSha2192f | SignatureScheme::SlhDsaShake192f => {
+                SLH_DSA_192_F_SIGNATURE_SIZE
+            }
+            SignatureScheme::SlhDsaSha2256s | SignatureScheme::SlhDsaShake256s => {
+                SLH_DSA_256_S_SIGNATURE_SIZE
+            }
+            SignatureScheme::SlhDsaSha2256f | SignatureScheme::SlhDsaShake256f => {
+                SLH_DSA_256_F_SIGNATURE_SIZE
+            }
         }
     }
 }

@@ -119,6 +119,18 @@ impl Bip85 {
             SignatureScheme::MlDsa44 => 4,
             SignatureScheme::MlDsa65 => 5,
             SignatureScheme::MlDsa87 => 6,
+            SignatureScheme::SlhDsaSha2128s => 7,
+            SignatureScheme::SlhDsaSha2128f => 8,
+            SignatureScheme::SlhDsaShake128s => 9,
+            SignatureScheme::SlhDsaShake128f => 10,
+            SignatureScheme::SlhDsaSha2192s => 11,
+            SignatureScheme::SlhDsaSha2192f => 12,
+            SignatureScheme::SlhDsaShake192s => 13,
+            SignatureScheme::SlhDsaShake192f => 14,
+            SignatureScheme::SlhDsaSha2256s => 15,
+            SignatureScheme::SlhDsaSha2256f => 16,
+            SignatureScheme::SlhDsaShake256s => 17,
+            SignatureScheme::SlhDsaShake256f => 18,
         }
     }
 
@@ -369,6 +381,30 @@ impl Bip85 {
             SignatureScheme::MlDsa44 => SignatureSeed::MlDsa44(Seed::new(child_seed)),
             SignatureScheme::MlDsa65 => SignatureSeed::MlDsa65(Seed::new(child_seed)),
             SignatureScheme::MlDsa87 => SignatureSeed::MlDsa87(Seed::new(child_seed)),
+            SignatureScheme::SlhDsaSha2128s => SignatureSeed::SlhDsaSha2128s(Seed::new(child_seed)),
+            SignatureScheme::SlhDsaSha2128f => SignatureSeed::SlhDsaSha2128f(Seed::new(child_seed)),
+            SignatureScheme::SlhDsaShake128s => {
+                SignatureSeed::SlhDsaShake128s(Seed::new(child_seed))
+            }
+            SignatureScheme::SlhDsaShake128f => {
+                SignatureSeed::SlhDsaShake128f(Seed::new(child_seed))
+            }
+            SignatureScheme::SlhDsaSha2192s => SignatureSeed::SlhDsaSha2192s(Seed::new(child_seed)),
+            SignatureScheme::SlhDsaSha2192f => SignatureSeed::SlhDsaSha2192f(Seed::new(child_seed)),
+            SignatureScheme::SlhDsaShake192s => {
+                SignatureSeed::SlhDsaShake192s(Seed::new(child_seed))
+            }
+            SignatureScheme::SlhDsaShake192f => {
+                SignatureSeed::SlhDsaShake192f(Seed::new(child_seed))
+            }
+            SignatureScheme::SlhDsaSha2256s => SignatureSeed::SlhDsaSha2256s(Seed::new(child_seed)),
+            SignatureScheme::SlhDsaSha2256f => SignatureSeed::SlhDsaSha2256f(Seed::new(child_seed)),
+            SignatureScheme::SlhDsaShake256s => {
+                SignatureSeed::SlhDsaShake256s(Seed::new(child_seed))
+            }
+            SignatureScheme::SlhDsaShake256f => {
+                SignatureSeed::SlhDsaShake256f(Seed::new(child_seed))
+            }
         };
 
         // Zeroize the child entropy

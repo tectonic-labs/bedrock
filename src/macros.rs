@@ -168,7 +168,8 @@ macro_rules! base_sign_impl {
                 &self,
                 seed: &[u8],
             ) -> Result<($verifying_key, $signing_key)> {
-                if seed.len() < 32 || seed.len() > 64 {
+                // ML-DSA uses 32-byte seeds; SLH-DSA uses 3*n bytes (48, 72, or 96 per FIPS 205).
+                if seed.len() < 32 || seed.len() > 96 {
                     return Err(Error::InvalidSeedLength(seed.len()));
                 }
                 let alg = self.into();

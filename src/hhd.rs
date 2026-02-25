@@ -174,6 +174,12 @@ use keys::EcdsaSecp256k1;
 use keys::FnDsa512;
 #[cfg(feature = "ml-dsa")]
 use keys::{MlDsa44, MlDsa65, MlDsa87};
+#[cfg(feature = "slh-dsa")]
+use keys::{
+    SlhDsaSha2128f, SlhDsaSha2128s, SlhDsaSha2192f, SlhDsaSha2192s, SlhDsaSha2256f, SlhDsaSha2256s,
+    SlhDsaShake128f, SlhDsaShake128s, SlhDsaShake192f, SlhDsaShake192s, SlhDsaShake256f,
+    SlhDsaShake256s,
+};
 use std::{collections::HashMap, fmt};
 
 /// A Hybrid Hierarchical Deterministic (HD) Wallet derived from a single BIP-39 mnemonic.
@@ -623,6 +629,78 @@ impl HHDWallet {
 
         MlDsa87::derive_from_seed(seed_bytes, address_index).map_err(WalletError::KeyError)
     }
+
+    #[cfg(feature = "slh-dsa")]
+    /// Derives a SLH-DSA-128 keypair at the given address index.
+    pub fn derive_slh_dsa_keypair(
+        &self,
+        address_index: u32,
+        scheme: SignatureScheme,
+    ) -> Result<
+        (
+            crate::slh_dsa::SlhDsaSigningKey,
+            crate::slh_dsa::SlhDsaVerificationKey,
+        ),
+        WalletError,
+    > {
+        let signature_seed = self
+            .master_seeds
+            .get(&scheme)
+            .ok_or(WalletError::InvalidScheme)?;
+        let seed_bytes = signature_seed.as_seed().as_bytes();
+
+        match scheme {
+            SignatureScheme::SlhDsaSha2128s => {
+                SlhDsaSha2128s::derive_from_seed(seed_bytes, address_index)
+                    .map_err(WalletError::KeyError)
+            }
+            SignatureScheme::SlhDsaSha2128f => {
+                SlhDsaSha2128f::derive_from_seed(seed_bytes, address_index)
+                    .map_err(WalletError::KeyError)
+            }
+            SignatureScheme::SlhDsaShake128s => {
+                SlhDsaShake128s::derive_from_seed(seed_bytes, address_index)
+                    .map_err(WalletError::KeyError)
+            }
+            SignatureScheme::SlhDsaShake128f => {
+                SlhDsaShake128f::derive_from_seed(seed_bytes, address_index)
+                    .map_err(WalletError::KeyError)
+            }
+            SignatureScheme::SlhDsaSha2192s => {
+                SlhDsaSha2192s::derive_from_seed(seed_bytes, address_index)
+                    .map_err(WalletError::KeyError)
+            }
+            SignatureScheme::SlhDsaSha2192f => {
+                SlhDsaSha2192f::derive_from_seed(seed_bytes, address_index)
+                    .map_err(WalletError::KeyError)
+            }
+            SignatureScheme::SlhDsaShake192s => {
+                SlhDsaShake192s::derive_from_seed(seed_bytes, address_index)
+                    .map_err(WalletError::KeyError)
+            }
+            SignatureScheme::SlhDsaShake192f => {
+                SlhDsaShake192f::derive_from_seed(seed_bytes, address_index)
+                    .map_err(WalletError::KeyError)
+            }
+            SignatureScheme::SlhDsaSha2256s => {
+                SlhDsaSha2256s::derive_from_seed(seed_bytes, address_index)
+                    .map_err(WalletError::KeyError)
+            }
+            SignatureScheme::SlhDsaSha2256f => {
+                SlhDsaSha2256f::derive_from_seed(seed_bytes, address_index)
+                    .map_err(WalletError::KeyError)
+            }
+            SignatureScheme::SlhDsaShake256s => {
+                SlhDsaShake256s::derive_from_seed(seed_bytes, address_index)
+                    .map_err(WalletError::KeyError)
+            }
+            SignatureScheme::SlhDsaShake256f => {
+                SlhDsaShake256f::derive_from_seed(seed_bytes, address_index)
+                    .map_err(WalletError::KeyError)
+            }
+            _ => Err(WalletError::InvalidScheme),
+        }
+    }
 }
 
 /// Errors that can occur during wallet operations.
@@ -681,6 +759,26 @@ fn mnemonic_determinism() {
 
     assert_eq!(keypair1.0, keypair2.0);
     assert_eq!(keypair1.1, keypair2.1);
+}
+
+#[cfg(feature = "slh-dsa")]
+#[test]
+fn mnemonic_determinism_slh_dsa() {
+    let mnemonic = Mnemonic::new_random();
+    let schemes = vec![SignatureScheme::SlhDsaSha2128s];
+
+    let wallet1 = HHDWallet::new_from_mnemonic(mnemonic.clone(), schemes.clone(), None).unwrap();
+    let wallet2 = HHDWallet::new_from_mnemonic(mnemonic.clone(), schemes.clone(), None).unwrap();
+
+    let keypair1 = wallet1
+        .derive_slh_dsa_keypair(0, SignatureScheme::SlhDsaSha2128s)
+        .unwrap();
+    let keypair2 = wallet2
+        .derive_slh_dsa_keypair(0, SignatureScheme::SlhDsaSha2128s)
+        .unwrap();
+
+    assert_eq!(keypair1.0.to_raw_bytes(), keypair2.0.to_raw_bytes());
+    assert_eq!(keypair1.1.to_raw_bytes(), keypair2.1.to_raw_bytes());
 }
 
 #[cfg(all(feature = "sign", feature = "vrfy"))]
@@ -749,6 +847,48 @@ mod tests {
         assert!(res.is_ok());
     }
 
+    #[cfg(all(feature = "slh-dsa", feature = "sign", feature = "vrfy"))]
+    #[test]
+    fn test_hhd_wallet_sign_verify_with_slh_dsa() {
+        let wallet = HHDWallet::new(vec![SignatureScheme::SlhDsaSha2128s], None).unwrap();
+        let message = b"Hello, world!";
+        let (sk, vk) = wallet
+            .derive_slh_dsa_keypair(0, SignatureScheme::SlhDsaSha2128s)
+            .unwrap();
+        let scheme = sk.scheme();
+        let signature = scheme.sign(message, &sk).unwrap();
+        let res = scheme.verify(message, &signature, &vk);
+        assert!(res.is_ok());
+    }
+
+    #[cfg(all(feature = "slh-dsa", feature = "sign", feature = "vrfy"))]
+    #[test]
+    fn test_hhd_wallet_sign_verify_with_slh_dsa_schemes() {
+        let schemes = [
+            SignatureScheme::SlhDsaSha2128s,
+            SignatureScheme::SlhDsaSha2128f,
+            SignatureScheme::SlhDsaShake128s,
+            SignatureScheme::SlhDsaShake128f,
+            SignatureScheme::SlhDsaSha2192s,
+            SignatureScheme::SlhDsaSha2192f,
+            SignatureScheme::SlhDsaShake192s,
+            SignatureScheme::SlhDsaShake192f,
+            SignatureScheme::SlhDsaSha2256s,
+            SignatureScheme::SlhDsaSha2256f,
+            SignatureScheme::SlhDsaShake256s,
+            SignatureScheme::SlhDsaShake256f,
+        ];
+        for scheme in schemes {
+            let wallet = HHDWallet::new(vec![scheme], None).unwrap();
+            let message = b"Hello, SLH-DSA!";
+            let (sk, vk) = wallet.derive_slh_dsa_keypair(0, scheme).unwrap();
+            let sig_scheme = sk.scheme();
+            let signature = sig_scheme.sign(message, &sk).unwrap();
+            let res = sig_scheme.verify(message, &signature, &vk);
+            assert!(res.is_ok());
+        }
+    }
+
     #[test]
     fn test_hhd_wallet_sign_verify_with_ecdsa() {
         let wallet = HHDWallet::new(vec![SignatureScheme::EcdsaSecp256k1], None).unwrap();
@@ -772,5 +912,15 @@ mod tests {
         assert!(debug_display.contains("master_seeds"));
         assert!(debug_display.contains("ECDSAsecp256k1"));
         assert!(debug_display.contains("Falcon512"));
+    }
+
+    #[cfg(feature = "slh-dsa")]
+    #[test]
+    fn test_hhd_wallet_debug_display_with_slh_dsa() {
+        let wallet = HHDWallet::new(vec![SignatureScheme::SlhDsaSha2128s], None).unwrap();
+        let debug_display = format!("{:?}", wallet);
+        assert!(debug_display.contains("mnemonic"));
+        assert!(debug_display.contains("master_seeds"));
+        assert!(debug_display.contains("SlhDsaSha2128s"));
     }
 }
