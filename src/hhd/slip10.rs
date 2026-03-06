@@ -20,7 +20,7 @@ type HmacSha512 = Hmac<Sha512>;
 
 /// Size in bytes of the derived key material used for the curve (secp256k1) in SLIP-10.
 /// The HMAC-SHA512 output is split into this many bytes for the private key and 32 bytes for the chain code.
-/// Schemes that need a longer keygen seed (e.g. SLH-DSA 192/256) expand this 32-byte value in their own module.
+/// Schemes that need a longer keygen seed expand this 32-byte value in their own module.
 const SLIP10_DERIVED_KEY_BYTES: usize = 32;
 
 /// SLIP10 extended private key
