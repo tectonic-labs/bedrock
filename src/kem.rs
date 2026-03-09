@@ -235,7 +235,10 @@ mod tests {
     #[cfg_attr(feature = "ml-kem", case::mlkem512(KemScheme::MlKem512, 64))]
     #[cfg_attr(feature = "ml-kem", case::mlkem768(KemScheme::MlKem768, 64))]
     #[cfg_attr(feature = "ml-kem", case::mlkem1024(KemScheme::MlKem1024, 64))]
-    #[cfg_attr(feature = "mceliece", case::mceliece(KemScheme::ClassicMcEliece348864, 32))]
+    #[cfg_attr(
+        feature = "mceliece",
+        case::mceliece(KemScheme::ClassicMcEliece348864, 32)
+    )]
     fn keypair_from_seed_valid(#[case] scheme: KemScheme, #[case] seed_len: usize) {
         let seed = vec![0xABu8; seed_len];
         let result = scheme.keypair_from_seed(&seed);
@@ -250,8 +253,14 @@ mod tests {
 
     #[cfg(feature = "kgen")]
     #[rstest]
-    #[cfg_attr(feature = "mceliece", case::mceliece_too_long(KemScheme::ClassicMcEliece348864, 64))]
-    #[cfg_attr(feature = "mceliece", case::mceliece_too_short(KemScheme::ClassicMcEliece348864, 16))]
+    #[cfg_attr(
+        feature = "mceliece",
+        case::mceliece_too_long(KemScheme::ClassicMcEliece348864, 64)
+    )]
+    #[cfg_attr(
+        feature = "mceliece",
+        case::mceliece_too_short(KemScheme::ClassicMcEliece348864, 16)
+    )]
     #[cfg_attr(feature = "ml-kem", case::mlkem_too_short(KemScheme::MlKem512, 32))]
     #[cfg_attr(feature = "ml-kem", case::mlkem_too_long(KemScheme::MlKem512, 100))]
     fn keypair_from_seed_invalid(#[case] scheme: KemScheme, #[case] seed_len: usize) {
