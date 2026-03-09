@@ -130,7 +130,8 @@ macro_rules! scheme_impl {
         }
 
         impl $name {
-            pub(crate) fn seed_size(&self) -> usize {
+            #[doc = concat!("Get the seed size for ", stringify!($name))]
+            pub fn seed_size(&self) -> usize {
                 match self {
                     $(
                         $(#[cfg($($cfg)+)])?

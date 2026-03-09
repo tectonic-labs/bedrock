@@ -232,9 +232,18 @@ mod tests {
 
     #[cfg(feature = "kgen")]
     #[rstest]
-    #[case::slh_dsa_128(SlhDsaScheme::SlhDsaSha2128s, 48)]
-    #[case::slh_dsa_192(SlhDsaScheme::SlhDsaSha2192s, 72)]
-    #[case::slh_dsa_256(SlhDsaScheme::SlhDsaSha2256s, 96)]
+    #[case::slh_dsa_sha2_128s(SlhDsaScheme::SlhDsaSha2128s, 48)]
+    #[case::slh_dsa_sha2_128f(SlhDsaScheme::SlhDsaSha2128f, 48)]
+    #[case::slh_dsa_shake_128s(SlhDsaScheme::SlhDsaShake128s, 48)]
+    #[case::slh_dsa_shake_128f(SlhDsaScheme::SlhDsaShake128f, 48)]
+    #[case::slh_dsa_sha2_192s(SlhDsaScheme::SlhDsaSha2192s, 72)]
+    #[case::slh_dsa_sha2_192f(SlhDsaScheme::SlhDsaSha2192f, 72)]
+    #[case::slh_dsa_shake_192s(SlhDsaScheme::SlhDsaShake192s, 72)]
+    #[case::slh_dsa_shake_192f(SlhDsaScheme::SlhDsaShake192f, 72)]
+    #[case::slh_dsa_sha2_256s(SlhDsaScheme::SlhDsaSha2256s, 96)]
+    #[case::slh_dsa_sha2_256f(SlhDsaScheme::SlhDsaSha2256f, 96)]
+    #[case::slh_dsa_shake_256s(SlhDsaScheme::SlhDsaShake256s, 96)]
+    #[case::slh_dsa_shake_256f(SlhDsaScheme::SlhDsaShake256f, 96)]
     fn keypair_from_seed_valid(#[case] scheme: SlhDsaScheme, #[case] seed_len: usize) {
         let seed = vec![0xABu8; seed_len];
         let result = scheme.keypair_from_seed(&seed);
