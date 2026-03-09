@@ -47,7 +47,7 @@ macro_rules! impl_slh_dsa_struct {
             #[doc = concat!("Convert [`", stringify!($name), "`] from its raw byte representation and scheme")]
             pub fn from_raw_bytes(scheme: SlhDsaScheme, bytes: &[u8]) -> Result<Self> {
                 let alg = scheme.into();
-                let sig = Sig::new(alg).expect("a valid algorithm");
+                let sig = Sig::new(alg).map_err(|e| Error::OqsError(e.to_string()))?;
                 let _value = sig.$convert(bytes).ok_or(Error::OqsError($expect.to_string()))?.to_owned();
                 Ok(InnerSlhDsa {
                     scheme,
@@ -160,6 +160,7 @@ mod tests {
     use super::*;
     use rstest::*;
 
+    #[cfg(all(feature = "kgen", feature = "sign", feature = "vrfy"))]
     #[rstest]
     #[case::slh_dsa_sha2_128s(SlhDsaScheme::SlhDsaSha2128s)]
     #[case::slh_dsa_sha2_128f(SlhDsaScheme::SlhDsaSha2128f)]

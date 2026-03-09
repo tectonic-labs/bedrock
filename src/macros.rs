@@ -131,7 +131,7 @@ macro_rules! scheme_impl {
     };
 }
 
-#[cfg(feature = "ml-dsa")]
+#[cfg(any(feature = "ml-dsa", feature = "slh-dsa"))]
 macro_rules! base_sign_impl {
     (
         $enum_name:ident,
