@@ -141,6 +141,7 @@ macro_rules! base_sign_impl {
         $signature:ident,
         $inner:ident,
         $algorithm:ident,
+        $valid_seed_sizes:expr,
     ) => {
         impl $enum_name {
             #[cfg(feature = "kgen")]
@@ -168,8 +169,8 @@ macro_rules! base_sign_impl {
                 &self,
                 seed: &[u8],
             ) -> Result<($verifying_key, $signing_key)> {
-                // ML-DSA uses 32-byte seeds; SLH-DSA uses 3*n bytes (48, 72, or 96 per FIPS 205).
-                if seed.len() < 32 || seed.len() > 96 {
+                const VALID_SIZES: &[usize] = &$valid_seed_sizes;
+                if !VALID_SIZES.contains(&seed.len()) {
                     return Err(Error::InvalidSeedLength(seed.len()));
                 }
                 let alg = self.into();

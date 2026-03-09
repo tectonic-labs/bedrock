@@ -96,6 +96,7 @@ base_sign_impl!(
     MlDsaSignature,
     InnerMlDsa,
     Sig,
+    [32],
 );
 
 #[derive(Clone, Serialize, Deserialize)]

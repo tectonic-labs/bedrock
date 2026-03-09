@@ -113,6 +113,7 @@ base_sign_impl!(
     SlhDsaSignature,
     InnerSlhDsa,
     Sig,
+    [48, 72, 96],
 );
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -228,5 +229,32 @@ mod tests {
 
         let res = pk.0.scheme.verify(&[1u8; 8], &signature, &pk);
         assert!(res.is_err());
+    }
+
+    #[cfg(feature = "kgen")]
+    #[rstest]
+    #[case::slh_dsa_128(SlhDsaScheme::SlhDsaSha2128s, 48)]
+    #[case::slh_dsa_192(SlhDsaScheme::SlhDsaSha2192s, 72)]
+    #[case::slh_dsa_256(SlhDsaScheme::SlhDsaSha2256s, 96)]
+    fn keypair_from_seed_valid(#[case] scheme: SlhDsaScheme, #[case] seed_len: usize) {
+        let seed = vec![0xABu8; seed_len];
+        let result = scheme.keypair_from_seed(&seed);
+        assert!(result.is_ok());
+
+        // Determinism: same seed produces same keypair
+        let (pk1, sk1) = result.unwrap();
+        let (pk2, sk2) = scheme.keypair_from_seed(&seed).unwrap();
+        assert_eq!(pk1.as_ref(), pk2.as_ref());
+        assert_eq!(sk1.as_ref(), sk2.as_ref());
+    }
+
+    #[cfg(feature = "kgen")]
+    #[rstest]
+    #[case::too_short(SlhDsaScheme::SlhDsaSha2128s, 32)]
+    #[case::too_long(SlhDsaScheme::SlhDsaSha2128s, 100)]
+    fn keypair_from_seed_invalid(#[case] scheme: SlhDsaScheme, #[case] seed_len: usize) {
+        let seed = vec![0xABu8; seed_len];
+        let result = scheme.keypair_from_seed(&seed);
+        assert!(result.is_err());
     }
 }
