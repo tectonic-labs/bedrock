@@ -48,7 +48,7 @@ macro_rules! impl_slh_dsa_struct {
             pub fn from_raw_bytes(scheme: SlhDsaScheme, bytes: &[u8]) -> Result<Self> {
                 let alg = scheme.into();
                 let sig = Sig::new(alg).map_err(|e| Error::OqsError(e.to_string()))?;
-                let _value = sig.$convert(bytes).ok_or(Error::OqsError($expect.to_string()))?.to_owned();
+                sig.$convert(bytes).ok_or(Error::OqsError($expect.to_string()))?;
                 Ok(InnerSlhDsa {
                     scheme,
                     value: bytes.to_vec(),
@@ -63,30 +63,30 @@ scheme_impl!(
     SlhDsaScheme,
     Algorithm,
     #[default]
-    /// SLH-DSA-Sha2-128s (NIST Level 1)
-    SlhDsaSha2128s => Algorithm::SlhDsaPureSha2128s ; "SLH-DSA-Sha2-128s" ; 1 ; 48,
-    /// SLH-DSA-Sha2-128f (NIST Level 1)
-    SlhDsaSha2128f => Algorithm::SlhDsaPureSha2128f ; "SLH-DSA-Sha2-128f" ; 2 ; 48,
-    /// SLH-DSA-Shake-128s (NIST Level 1)
-    SlhDsaShake128s => Algorithm::SlhDsaPureShake128s ; "SLH-DSA-Shake-128s" ; 3 ; 48,
-    /// SLH-DSA-Shake-128f (NIST Level 1)
-    SlhDsaShake128f => Algorithm::SlhDsaPureShake128f ; "SLH-DSA-Shake-128f" ; 4 ; 48,
-    /// SLH-DSA-Sha2-192s (NIST Level 3)
-    SlhDsaSha2192s => Algorithm::SlhDsaPureSha2192s ; "SLH-DSA-Sha2-192s" ; 5 ; 72,
-    /// SLH-DSA-Sha2-192f (NIST Level 3)
-    SlhDsaSha2192f => Algorithm::SlhDsaPureSha2192f ; "SLH-DSA-Sha2-192f" ; 6 ; 72,
-    /// SLH-DSA-Shake-192s (NIST Level 3)
-    SlhDsaShake192s => Algorithm::SlhDsaPureShake192s ; "SLH-DSA-Shake-192s" ; 7 ; 72,
-    /// SLH-DSA-Shake-192f (NIST Level 3)
-    SlhDsaShake192f => Algorithm::SlhDsaPureShake192f ; "SLH-DSA-Shake-192f" ; 8 ; 72,
-    /// SLH-DSA-Sha2-256s (NIST Level 5)
-    SlhDsaSha2256s => Algorithm::SlhDsaPureSha2256s ; "SLH-DSA-Sha2-256s" ; 9 ; 96,
-    /// SLH-DSA-Sha2-256f (NIST Level 5)
-    SlhDsaSha2256f => Algorithm::SlhDsaPureSha2256f ; "SLH-DSA-Sha2-256f" ; 10 ; 96,
-    /// SLH-DSA-Shake-256s (NIST Level 5)
-    SlhDsaShake256s => Algorithm::SlhDsaPureShake256s ; "SLH-DSA-Shake-256s" ; 11 ; 96,
-    /// SLH-DSA-Shake-256f (NIST Level 5)
-    SlhDsaShake256f => Algorithm::SlhDsaPureShake256f ; "SLH-DSA-Shake-256f" ; 12 ; 96,
+    /// SLH-DSA-SHA2-128s (NIST Level 1)
+    SlhDsaSha2128s => Algorithm::SlhDsaPureSha2128s ; "SLH-DSA-SHA2-128s" ; 1 ; 48,
+    /// SLH-DSA-SHA2-128f (NIST Level 1)
+    SlhDsaSha2128f => Algorithm::SlhDsaPureSha2128f ; "SLH-DSA-SHA2-128f" ; 2 ; 48,
+    /// SLH-DSA-SHAKE-128s (NIST Level 1)
+    SlhDsaShake128s => Algorithm::SlhDsaPureShake128s ; "SLH-DSA-SHAKE-128s" ; 3 ; 48,
+    /// SLH-DSA-SHAKE-128f (NIST Level 1)
+    SlhDsaShake128f => Algorithm::SlhDsaPureShake128f ; "SLH-DSA-SHAKE-128f" ; 4 ; 48,
+    /// SLH-DSA-SHA2-192s (NIST Level 3)
+    SlhDsaSha2192s => Algorithm::SlhDsaPureSha2192s ; "SLH-DSA-SHA2-192s" ; 5 ; 72,
+    /// SLH-DSA-SHA2-192f (NIST Level 3)
+    SlhDsaSha2192f => Algorithm::SlhDsaPureSha2192f ; "SLH-DSA-SHA2-192f" ; 6 ; 72,
+    /// SLH-DSA-SHAKE-192s (NIST Level 3)
+    SlhDsaShake192s => Algorithm::SlhDsaPureShake192s ; "SLH-DSA-SHAKE-192s" ; 7 ; 72,
+    /// SLH-DSA-SHAKE-192f (NIST Level 3)
+    SlhDsaShake192f => Algorithm::SlhDsaPureShake192f ; "SLH-DSA-SHAKE-192f" ; 8 ; 72,
+    /// SLH-DSA-SHA2-256s (NIST Level 5)
+    SlhDsaSha2256s => Algorithm::SlhDsaPureSha2256s ; "SLH-DSA-SHA2-256s" ; 9 ; 96,
+    /// SLH-DSA-SHA2-256f (NIST Level 5)
+    SlhDsaSha2256f => Algorithm::SlhDsaPureSha2256f ; "SLH-DSA-SHA2-256f" ; 10 ; 96,
+    /// SLH-DSA-SHAKE-256s (NIST Level 5)
+    SlhDsaShake256s => Algorithm::SlhDsaPureShake256s ; "SLH-DSA-SHAKE-256s" ; 11 ; 96,
+    /// SLH-DSA-SHAKE-256f (NIST Level 5)
+    SlhDsaShake256f => Algorithm::SlhDsaPureShake256f ; "SLH-DSA-SHAKE-256f" ; 12 ; 96,
 );
 
 serde_impl!(SlhDsaScheme);
@@ -251,6 +251,9 @@ mod tests {
     #[rstest]
     #[case::too_short(SlhDsaScheme::SlhDsaSha2128s, 32)]
     #[case::too_long(SlhDsaScheme::SlhDsaSha2128s, 100)]
+    #[case::level_3_seed_for_level_1(SlhDsaScheme::SlhDsaSha2128s, 72)]
+    #[case::level_5_seed_for_level_1(SlhDsaScheme::SlhDsaSha2128s, 96)]
+    #[case::level_1_seed_for_level_5(SlhDsaScheme::SlhDsaSha2256s, 48)]
     fn keypair_from_seed_invalid(#[case] scheme: SlhDsaScheme, #[case] seed_len: usize) {
         let seed = vec![0xABu8; seed_len];
         let result = scheme.keypair_from_seed(&seed);

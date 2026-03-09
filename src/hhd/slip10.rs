@@ -21,8 +21,6 @@ type HmacSha512 = Hmac<Sha512>;
 /// Size in bytes of the derived key material in SLIP-10.
 /// The HMAC-SHA512 output (64 bytes) is split at this boundary: the first 32 bytes
 /// become the child key material and the remaining 32 bytes become the chain code.
-/// Schemes that require a longer keygen seed (e.g. SLH-DSA) expand this 32-byte
-/// value in their own derivation module.
 const SLIP10_DERIVED_KEY_BYTES: usize = 32;
 
 /// SLIP10 extended private key
