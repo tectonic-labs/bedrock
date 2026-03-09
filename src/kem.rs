@@ -68,13 +68,13 @@ scheme_impl!(
     @cfg(feature = "ml-kem")
     #[cfg_attr(feature = "ml-kem", default)]
     /// ML-KEM 512 (NIST Level 1)
-    MlKem512 => Algorithm::MlKem512 ; "ML-KEM-512" ; 1 ; 32,
+    MlKem512 => Algorithm::MlKem512 ; "ML-KEM-512" ; 1 ; 64,
     @cfg(feature = "ml-kem")
     /// ML-KEM 768 (NIST Level 3)
-    MlKem768 => Algorithm::MlKem768 ; "ML-KEM-768" ; 2 ; 32,
+    MlKem768 => Algorithm::MlKem768 ; "ML-KEM-768" ; 2 ; 64,
     @cfg(feature = "ml-kem")
     /// ML-KEM 1024 (NIST Level 5)
-    MlKem1024 => Algorithm::MlKem1024 ; "ML-KEM-1024" ; 3 ; 32,
+    MlKem1024 => Algorithm::MlKem1024 ; "ML-KEM-1024" ; 3 ; 64,
     @cfg(feature = "mceliece")
     #[cfg_attr(not(feature = "ml-kem"), default)]
     /// Classic McEliece 348864 (NIST Level 1)

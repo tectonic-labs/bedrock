@@ -130,7 +130,7 @@ macro_rules! scheme_impl {
         }
 
         impl $name {
-            pub(crate) fn valid_seed_size(&self) -> usize {
+            pub(crate) fn seed_size(&self) -> usize {
                 match self {
                     $(
                         $(#[cfg($($cfg)+)])?
@@ -180,7 +180,7 @@ macro_rules! base_sign_impl {
                 &self,
                 seed: &[u8],
             ) -> Result<($verifying_key, $signing_key)> {
-                if seed.len() != self.valid_seed_size() {
+                if seed.len() != self.seed_size() {
                     return Err(Error::InvalidSeedLength(seed.len()));
                 }
                 let alg = self.into();
@@ -274,7 +274,7 @@ macro_rules! base_kem_impl {
             #[cfg(feature = "kgen")]
             #[doc = concat!("Generate a new ", stringify!($string_name), " encapsulating / decapsulating key pair from a seed")]
             pub fn keypair_from_seed(&self, seed: &[u8]) -> Result<($encapsulation_key, $decapsulation_key)> {
-                if seed.len() != self.valid_seed_size() {
+                if seed.len() != self.seed_size() {
                     return Err(Error::InvalidSeedLength(seed.len()));
                 }
                 let alg = self.into();
