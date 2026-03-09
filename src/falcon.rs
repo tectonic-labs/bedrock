@@ -72,12 +72,12 @@ scheme_impl!(
     Algorithm,
     #[default]
     /// DSA-512
-    Dsa512 => Algorithm::Falcon512 ; "FN-DSA-512" ; 1,
+    Dsa512 => Algorithm::Falcon512 ; "FN-DSA-512" ; 1 ; 32,
     /// DSA-1024
-    Dsa1024 => Algorithm::Falcon1024 ; "FN-DSA-1024" ; 2,
+    Dsa1024 => Algorithm::Falcon1024 ; "FN-DSA-1024" ; 2 ; 64,
     @cfg(feature = "eth_falcon")
     /// ETHFALCON
-    Ethereum => Algorithm::Falcon512 ; "ETHFALCON" ; 3
+    Ethereum => Algorithm::Falcon512 ; "ETHFALCON" ; 3 ; 32,
 );
 
 serde_impl!(FalconScheme);
@@ -109,7 +109,7 @@ impl FalconScheme {
         &self,
         seed: &[u8],
     ) -> Result<(FalconVerificationKey, FalconSigningKey)> {
-        if seed.len() < 32 || seed.len() > 64 {
+        if seed.len() != self.valid_seed_size() {
             return Err(Error::InvalidSeedLength(seed.len()));
         }
         let alg = self.into();

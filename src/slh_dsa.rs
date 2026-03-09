@@ -64,29 +64,29 @@ scheme_impl!(
     Algorithm,
     #[default]
     /// SLH-DSA-Sha2-128s (NIST Level 1)
-    SlhDsaSha2128s => Algorithm::SlhDsaPureSha2128s ; "SLH-DSA-Sha2-128s" ; 1,
+    SlhDsaSha2128s => Algorithm::SlhDsaPureSha2128s ; "SLH-DSA-Sha2-128s" ; 1 ; 48,
     /// SLH-DSA-Sha2-128f (NIST Level 1)
-    SlhDsaSha2128f => Algorithm::SlhDsaPureSha2128f ; "SLH-DSA-Sha2-128f" ; 2,
+    SlhDsaSha2128f => Algorithm::SlhDsaPureSha2128f ; "SLH-DSA-Sha2-128f" ; 2 ; 48,
     /// SLH-DSA-Shake-128s (NIST Level 1)
-    SlhDsaShake128s => Algorithm::SlhDsaPureShake128s ; "SLH-DSA-Shake-128s" ; 3,
+    SlhDsaShake128s => Algorithm::SlhDsaPureShake128s ; "SLH-DSA-Shake-128s" ; 3 ; 48,
     /// SLH-DSA-Shake-128f (NIST Level 1)
-    SlhDsaShake128f => Algorithm::SlhDsaPureShake128f ; "SLH-DSA-Shake-128f" ; 4,
+    SlhDsaShake128f => Algorithm::SlhDsaPureShake128f ; "SLH-DSA-Shake-128f" ; 4 ; 48,
     /// SLH-DSA-Sha2-192s (NIST Level 3)
-    SlhDsaSha2192s => Algorithm::SlhDsaPureSha2192s ; "SLH-DSA-Sha2-192s" ; 5,
+    SlhDsaSha2192s => Algorithm::SlhDsaPureSha2192s ; "SLH-DSA-Sha2-192s" ; 5 ; 72,
     /// SLH-DSA-Sha2-192f (NIST Level 3)
-    SlhDsaSha2192f => Algorithm::SlhDsaPureSha2192f ; "SLH-DSA-Sha2-192f" ; 6,
+    SlhDsaSha2192f => Algorithm::SlhDsaPureSha2192f ; "SLH-DSA-Sha2-192f" ; 6 ; 72,
     /// SLH-DSA-Shake-192s (NIST Level 3)
-    SlhDsaShake192s => Algorithm::SlhDsaPureShake192s ; "SLH-DSA-Shake-192s" ; 7,
+    SlhDsaShake192s => Algorithm::SlhDsaPureShake192s ; "SLH-DSA-Shake-192s" ; 7 ; 72,
     /// SLH-DSA-Shake-192f (NIST Level 3)
-    SlhDsaShake192f => Algorithm::SlhDsaPureShake192f ; "SLH-DSA-Shake-192f" ; 8,
+    SlhDsaShake192f => Algorithm::SlhDsaPureShake192f ; "SLH-DSA-Shake-192f" ; 8 ; 72,
     /// SLH-DSA-Sha2-256s (NIST Level 5)
-    SlhDsaSha2256s => Algorithm::SlhDsaPureSha2256s ; "SLH-DSA-Sha2-256s" ; 9,
+    SlhDsaSha2256s => Algorithm::SlhDsaPureSha2256s ; "SLH-DSA-Sha2-256s" ; 9 ; 96,
     /// SLH-DSA-Sha2-256f (NIST Level 5)
-    SlhDsaSha2256f => Algorithm::SlhDsaPureSha2256f ; "SLH-DSA-Sha2-256f" ; 10,
+    SlhDsaSha2256f => Algorithm::SlhDsaPureSha2256f ; "SLH-DSA-Sha2-256f" ; 10 ; 96,
     /// SLH-DSA-Shake-256s (NIST Level 5)
-    SlhDsaShake256s => Algorithm::SlhDsaPureShake256s ; "SLH-DSA-Shake-256s" ; 11,
+    SlhDsaShake256s => Algorithm::SlhDsaPureShake256s ; "SLH-DSA-Shake-256s" ; 11 ; 96,
     /// SLH-DSA-Shake-256f (NIST Level 5)
-    SlhDsaShake256f => Algorithm::SlhDsaPureShake256f ; "SLH-DSA-Shake-256f" ; 12,
+    SlhDsaShake256f => Algorithm::SlhDsaPureShake256f ; "SLH-DSA-Shake-256f" ; 12 ; 96,
 );
 
 serde_impl!(SlhDsaScheme);
@@ -113,7 +113,6 @@ base_sign_impl!(
     SlhDsaSignature,
     InnerSlhDsa,
     Sig,
-    [48, 72, 96],
 );
 
 #[derive(Clone, Serialize, Deserialize)]
