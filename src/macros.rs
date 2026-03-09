@@ -173,7 +173,7 @@ macro_rules! base_sign_impl {
                     return Err(Error::InvalidSeedLength(seed.len()));
                 }
                 let alg = self.into();
-                let scheme = Sig::new(alg)?;
+                let scheme = $algorithm::new(alg)?;
                 let (pk, sk) = scheme.keypair_from_seed(seed)?;
                 Ok((
                     $inner {
