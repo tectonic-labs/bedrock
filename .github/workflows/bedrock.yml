@@ -82,7 +82,7 @@ jobs:
         with:
           toolchain: nightly
       - uses: cargo-bins/cargo-binstall@v1.17.7    
-      - run: cargo binstall cargo-pants
+      - run: cargo binstall --no-confirm cargo-pants
       - run: cargo pants --loud --dev
 
   build:
