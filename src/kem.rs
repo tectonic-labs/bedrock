@@ -68,17 +68,17 @@ scheme_impl!(
     @cfg(feature = "ml-kem")
     #[cfg_attr(feature = "ml-kem", default)]
     /// ML-KEM 512 (NIST Level 1)
-    MlKem512 => Algorithm::MlKem512 ; "ML-KEM-512" ; 1,
+    MlKem512 => Algorithm::MlKem512 ; "ML-KEM-512" ; 1 ; 64,
     @cfg(feature = "ml-kem")
     /// ML-KEM 768 (NIST Level 3)
-    MlKem768 => Algorithm::MlKem768 ; "ML-KEM-768" ; 2,
+    MlKem768 => Algorithm::MlKem768 ; "ML-KEM-768" ; 2 ; 64,
     @cfg(feature = "ml-kem")
     /// ML-KEM 1024 (NIST Level 5)
-    MlKem1024 => Algorithm::MlKem1024 ; "ML-KEM-1024" ; 3,
+    MlKem1024 => Algorithm::MlKem1024 ; "ML-KEM-1024" ; 3 ; 64,
     @cfg(feature = "mceliece")
     #[cfg_attr(not(feature = "ml-kem"), default)]
     /// Classic McEliece 348864 (NIST Level 1)
-    ClassicMcEliece348864 => Algorithm::ClassicMcEliece348864 ; "ClassicMcEliece-348864" ; 4,
+    ClassicMcEliece348864 => Algorithm::ClassicMcEliece348864 ; "ClassicMcEliece-348864" ; 4 ; 32,
 );
 
 serde_impl!(KemScheme);
@@ -228,5 +228,44 @@ mod tests {
         ct.0.value.iter_mut().for_each(|v| *v = v.saturating_add(1));
         let ss2 = scheme.decapsulate(&ct, &dk).unwrap();
         assert_ne!(ss, ss2);
+    }
+
+    #[cfg(feature = "kgen")]
+    #[rstest]
+    #[cfg_attr(feature = "ml-kem", case::mlkem512(KemScheme::MlKem512, 64))]
+    #[cfg_attr(feature = "ml-kem", case::mlkem768(KemScheme::MlKem768, 64))]
+    #[cfg_attr(feature = "ml-kem", case::mlkem1024(KemScheme::MlKem1024, 64))]
+    #[cfg_attr(
+        feature = "mceliece",
+        case::mceliece(KemScheme::ClassicMcEliece348864, 32)
+    )]
+    fn keypair_from_seed_valid(#[case] scheme: KemScheme, #[case] seed_len: usize) {
+        let seed = vec![0xABu8; seed_len];
+        let result = scheme.keypair_from_seed(&seed);
+        assert!(result.is_ok());
+
+        // Determinism: same seed produces same keypair
+        let (ek1, dk1) = result.unwrap();
+        let (ek2, dk2) = scheme.keypair_from_seed(&seed).unwrap();
+        assert_eq!(ek1.as_ref(), ek2.as_ref());
+        assert_eq!(dk1.as_ref(), dk2.as_ref());
+    }
+
+    #[cfg(feature = "kgen")]
+    #[rstest]
+    #[cfg_attr(
+        feature = "mceliece",
+        case::mceliece_too_long(KemScheme::ClassicMcEliece348864, 64)
+    )]
+    #[cfg_attr(
+        feature = "mceliece",
+        case::mceliece_too_short(KemScheme::ClassicMcEliece348864, 16)
+    )]
+    #[cfg_attr(feature = "ml-kem", case::mlkem_too_short(KemScheme::MlKem512, 32))]
+    #[cfg_attr(feature = "ml-kem", case::mlkem_too_long(KemScheme::MlKem512, 100))]
+    fn keypair_from_seed_invalid(#[case] scheme: KemScheme, #[case] seed_len: usize) {
+        let seed = vec![0xABu8; seed_len];
+        let result = scheme.keypair_from_seed(&seed);
+        assert!(result.is_err());
     }
 }

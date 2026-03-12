@@ -40,7 +40,7 @@ macro_rules! scheme_impl {
         $(
             $(@cfg($($cfg:tt)+))?
             $(#[$variant_meta:meta])*
-            $variant:ident => $algorithm:path ; $display:literal ; $value:literal
+            $variant:ident => $algorithm:path ; $display:literal ; $value:literal ; $seed_size:literal
         ),+
         $(,)?
     ) => {
@@ -128,10 +128,23 @@ macro_rules! scheme_impl {
                 }
             }
         }
+
+        impl $name {
+            #[doc = concat!("Get the seed size for ", stringify!($name))]
+            pub fn seed_size(&self) -> usize {
+                match self {
+                    $(
+                        $(#[cfg($($cfg)+)])?
+                        $name::$variant => $seed_size,
+                    )+
+                }
+            }
+        }
+
     };
 }
 
-#[cfg(feature = "ml-dsa")]
+#[cfg(any(feature = "ml-dsa", feature = "slh-dsa"))]
 macro_rules! base_sign_impl {
     (
         $enum_name:ident,
@@ -168,11 +181,11 @@ macro_rules! base_sign_impl {
                 &self,
                 seed: &[u8],
             ) -> Result<($verifying_key, $signing_key)> {
-                if seed.len() < 32 || seed.len() > 64 {
+                if seed.len() != self.seed_size() {
                     return Err(Error::InvalidSeedLength(seed.len()));
                 }
                 let alg = self.into();
-                let scheme = Sig::new(alg)?;
+                let scheme = $algorithm::new(alg)?;
                 let (pk, sk) = scheme.keypair_from_seed(seed)?;
                 Ok((
                     $inner {
@@ -262,6 +275,9 @@ macro_rules! base_kem_impl {
             #[cfg(feature = "kgen")]
             #[doc = concat!("Generate a new ", stringify!($string_name), " encapsulating / decapsulating key pair from a seed")]
             pub fn keypair_from_seed(&self, seed: &[u8]) -> Result<($encapsulation_key, $decapsulation_key)> {
+                if seed.len() != self.seed_size() {
+                    return Err(Error::InvalidSeedLength(seed.len()));
+                }
                 let alg = self.into();
                 let scheme = $algorithm::new(alg)?;
                 let seed = scheme.keypair_seed_from_bytes(seed).ok_or(Error::OqsError("an invalid seed length".to_string()))?;

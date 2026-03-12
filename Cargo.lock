@@ -1361,7 +1361,7 @@ dependencies = [
 
 [[package]]
 name = "tectonic-bedrock"
-version = "0.1.0-dev.0"
+version = "0.3.0"
 dependencies = [
  "bip32",
  "criterion",
@@ -1446,9 +1446,9 @@ dependencies = [
 
 [[package]]
 name = "tectonic-oqs"
-version = "0.11.0"
+version = "0.11.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "247b49a6f457b9966873d769af0c943a11353647f81bd128747e149177cc54d0"
+checksum = "ab9b6716e0dc70a790b2afe48fe7fd28ae8cb68befe0105676c458a2fb700d53"
 dependencies = [
  "cstr_core",
  "libc",
@@ -1460,9 +1460,9 @@ dependencies = [
 
 [[package]]
 name = "tectonic-oqs-sys"
-version = "0.11.1+liboqs-0.13.0"
+version = "0.11.2+liboqs-0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b2c48f99cd10c7e996dde2077ed1e429dc4d215da7487a66121d39fc6c5425d7"
+checksum = "ab3fbcf31fdc1978f1b48a4589af24a2125dfec13daf68dc8eacfdc4b75a7ad3"
 dependencies = [
  "bindgen",
  "build-deps",

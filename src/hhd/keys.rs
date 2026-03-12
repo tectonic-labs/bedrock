@@ -16,7 +16,6 @@ mod error;
 mod falcon;
 #[cfg(feature = "ml-dsa")]
 mod mldsa;
-
 pub use ecdsa::EcdsaSecp256k1;
 pub use error::KeyError;
 #[cfg(feature = "falcon")]

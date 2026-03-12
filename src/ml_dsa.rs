@@ -65,11 +65,11 @@ scheme_impl!(
     Algorithm,
     #[default]
     /// ML-DSA 44 (NIST Level 2)
-    Dsa44 => Algorithm::MlDsa44 ; "ML-DSA-44" ; 1,
+    Dsa44 => Algorithm::MlDsa44 ; "ML-DSA-44" ; 1 ; 32,
     /// ML-DSA 65 (NIST Level 3)
-    Dsa65 => Algorithm::MlDsa65 ; "ML-DSA-65" ; 2,
+    Dsa65 => Algorithm::MlDsa65 ; "ML-DSA-65" ; 2 ; 32,
     /// ML-DSA 87 (NIST Level 5)
-    Dsa87 => Algorithm::MlDsa87 ; "ML-DSA-87" ; 3,
+    Dsa87 => Algorithm::MlDsa87 ; "ML-DSA-87" ; 3 ; 32,
 );
 
 serde_impl!(MlDsaScheme);
