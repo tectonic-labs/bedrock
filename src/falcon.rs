@@ -74,7 +74,7 @@ scheme_impl!(
     /// DSA-512
     Dsa512 => Algorithm::Falcon512 ; "FN-DSA-512" ; 1 ; 32,
     /// DSA-1024
-    Dsa1024 => Algorithm::Falcon1024 ; "FN-DSA-1024" ; 2 ; 32,
+    Dsa1024 => Algorithm::Falcon1024 ; "FN-DSA-1024" ; 2 ; 48,
     @cfg(feature = "eth_falcon")
     /// ETHFALCON
     Ethereum => Algorithm::Falcon512 ; "ETHFALCON" ; 3 ; 32,
@@ -109,7 +109,7 @@ impl FalconScheme {
         &self,
         seed: &[u8],
     ) -> Result<(FalconVerificationKey, FalconSigningKey)> {
-        if seed.len() != self.seed_size() {
+        if seed.len() < 32 || seed.len() > 64 {
             return Err(Error::InvalidSeedLength(seed.len()));
         }
         let alg = self.into();
@@ -320,8 +320,12 @@ mod tests {
         assert!(FalconScheme::Dsa512.keypair_from_seed(&[]).is_err());
         assert!(FalconScheme::Dsa512.keypair_from_seed(&[1u8; 31]).is_err());
         assert!(FalconScheme::Dsa512.keypair_from_seed(&[1u8; 32]).is_ok());
-        assert!(FalconScheme::Dsa512.keypair_from_seed(&[1u8; 33]).is_err());
-        assert!(FalconScheme::Dsa512.keypair_from_seed(&[1u8; 64]).is_err());
+        assert!(FalconScheme::Dsa512.keypair_from_seed(&[1u8; 33]).is_ok());
+        assert!(FalconScheme::Dsa512.keypair_from_seed(&[1u8; 48]).is_ok());
+        assert!(FalconScheme::Dsa512.keypair_from_seed(&[1u8; 64]).is_ok());
         assert!(FalconScheme::Dsa512.keypair_from_seed(&[1u8; 65]).is_err());
+        assert!(FalconScheme::Dsa1024.keypair_from_seed(&[1u8; 31]).is_err());
+        assert!(FalconScheme::Dsa1024.keypair_from_seed(&[1u8; 64]).is_ok());
+        assert!(FalconScheme::Dsa1024.keypair_from_seed(&[1u8; 65]).is_err());
     }
 }
