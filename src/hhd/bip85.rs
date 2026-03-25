@@ -116,9 +116,12 @@ impl Bip85 {
         match scheme {
             SignatureScheme::EcdsaSecp256k1 => 1,
             SignatureScheme::Falcon512 => 2,
+            // 3 reserved for Falcon-1024
             SignatureScheme::MlDsa44 => 4,
             SignatureScheme::MlDsa65 => 5,
             SignatureScheme::MlDsa87 => 6,
+            SignatureScheme::SlhDsaShake128f => 7,
+            SignatureScheme::SlhDsaShake128s => 8,
         }
     }
 
@@ -369,6 +372,12 @@ impl Bip85 {
             SignatureScheme::MlDsa44 => SignatureSeed::MlDsa44(Seed::new(child_seed)),
             SignatureScheme::MlDsa65 => SignatureSeed::MlDsa65(Seed::new(child_seed)),
             SignatureScheme::MlDsa87 => SignatureSeed::MlDsa87(Seed::new(child_seed)),
+            SignatureScheme::SlhDsaShake128f => {
+                SignatureSeed::SlhDsaShake128f(Seed::new(child_seed))
+            }
+            SignatureScheme::SlhDsaShake128s => {
+                SignatureSeed::SlhDsaShake128s(Seed::new(child_seed))
+            }
         };
 
         // Zeroize the child entropy
