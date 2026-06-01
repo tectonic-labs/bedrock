@@ -1378,6 +1378,7 @@ dependencies = [
  "serdect",
  "sha2",
  "sha3",
+ "tectonic-bedrock",
  "tectonic-fn-dsa",
  "tectonic-fn-dsa-comm",
  "tectonic-fn-dsa-kgen",
