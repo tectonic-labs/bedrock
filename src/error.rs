@@ -10,6 +10,12 @@ pub enum Error {
     /// OQS error
     #[error("OQS error: {0}")]
     OqsError(String),
+    /// ML-DSA error
+    #[error("ML-DSA error: {0}")]
+    MlDsaError(String),
+    /// SLH-DSA error
+    #[error("SLH-DSA error: {0}")]
+    SlhDsaError(String),
     /// Invalid scheme
     #[error("Invalid scheme: {0}")]
     InvalidScheme(u8),

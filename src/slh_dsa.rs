@@ -1,11 +1,15 @@
 //! SLH-DSA key and signature methods
 
 use crate::{deserialize_hex_or_bin, error::*, serialize_hex_or_bin};
-use oqs::sig::{Algorithm, Sig};
 use serde::{Deserialize, Serialize};
 
+#[cfg(feature = "kgen")]
+fn os_rng() -> rand_core_010::UnwrapErr<getrandom_v04::SysRng> {
+    rand_core_010::UnwrapErr(getrandom_v04::SysRng)
+}
+
 macro_rules! impl_slh_dsa_struct {
-    ($name:ident, $convert:ident, $expect:expr) => {
+    ($name:ident, $validate:ident, $expect:expr) => {
         #[derive(Clone, Serialize, Deserialize)]
         #[cfg_attr(test, derive(PartialEq, Eq))]
         #[doc = concat!("A [`", stringify!($name), "`] for slh-dsa")]
@@ -46,9 +50,7 @@ macro_rules! impl_slh_dsa_struct {
 
             #[doc = concat!("Convert [`", stringify!($name), "`] from its raw byte representation and scheme")]
             pub fn from_raw_bytes(scheme: SlhDsaScheme, bytes: &[u8]) -> Result<Self> {
-                let alg = scheme.into();
-                let sig = Sig::new(alg).map_err(|e| Error::OqsError(e.to_string()))?;
-                sig.$convert(bytes).ok_or(Error::OqsError($expect.to_string()))?;
+                scheme.$validate(bytes)?;
                 Ok(InnerSlhDsa {
                     scheme,
                     value: bytes.to_vec(),
@@ -58,62 +60,221 @@ macro_rules! impl_slh_dsa_struct {
     };
 }
 
-scheme_impl!(
+scheme_impl_pure!(
     /// SLH-DSA schemes
     SlhDsaScheme,
-    Algorithm,
     #[default]
     /// SLH-DSA-SHA2-128s (NIST Level 1)
-    SlhDsaSha2128s => Algorithm::SlhDsaPureSha2128s ; "SLH-DSA-SHA2-128s" ; 1 ; 48,
+    SlhDsaSha2128s => "SLH-DSA-SHA2-128s" ; 1 ; 48,
     /// SLH-DSA-SHA2-128f (NIST Level 1)
-    SlhDsaSha2128f => Algorithm::SlhDsaPureSha2128f ; "SLH-DSA-SHA2-128f" ; 2 ; 48,
+    SlhDsaSha2128f => "SLH-DSA-SHA2-128f" ; 2 ; 48,
     /// SLH-DSA-SHAKE-128s (NIST Level 1)
-    SlhDsaShake128s => Algorithm::SlhDsaPureShake128s ; "SLH-DSA-SHAKE-128s" ; 3 ; 48,
+    SlhDsaShake128s => "SLH-DSA-SHAKE-128s" ; 3 ; 48,
     /// SLH-DSA-SHAKE-128f (NIST Level 1)
-    SlhDsaShake128f => Algorithm::SlhDsaPureShake128f ; "SLH-DSA-SHAKE-128f" ; 4 ; 48,
+    SlhDsaShake128f => "SLH-DSA-SHAKE-128f" ; 4 ; 48,
     /// SLH-DSA-SHA2-192s (NIST Level 3)
-    SlhDsaSha2192s => Algorithm::SlhDsaPureSha2192s ; "SLH-DSA-SHA2-192s" ; 5 ; 72,
+    SlhDsaSha2192s => "SLH-DSA-SHA2-192s" ; 5 ; 72,
     /// SLH-DSA-SHA2-192f (NIST Level 3)
-    SlhDsaSha2192f => Algorithm::SlhDsaPureSha2192f ; "SLH-DSA-SHA2-192f" ; 6 ; 72,
+    SlhDsaSha2192f => "SLH-DSA-SHA2-192f" ; 6 ; 72,
     /// SLH-DSA-SHAKE-192s (NIST Level 3)
-    SlhDsaShake192s => Algorithm::SlhDsaPureShake192s ; "SLH-DSA-SHAKE-192s" ; 7 ; 72,
+    SlhDsaShake192s => "SLH-DSA-SHAKE-192s" ; 7 ; 72,
     /// SLH-DSA-SHAKE-192f (NIST Level 3)
-    SlhDsaShake192f => Algorithm::SlhDsaPureShake192f ; "SLH-DSA-SHAKE-192f" ; 8 ; 72,
+    SlhDsaShake192f => "SLH-DSA-SHAKE-192f" ; 8 ; 72,
     /// SLH-DSA-SHA2-256s (NIST Level 5)
-    SlhDsaSha2256s => Algorithm::SlhDsaPureSha2256s ; "SLH-DSA-SHA2-256s" ; 9 ; 96,
+    SlhDsaSha2256s => "SLH-DSA-SHA2-256s" ; 9 ; 96,
     /// SLH-DSA-SHA2-256f (NIST Level 5)
-    SlhDsaSha2256f => Algorithm::SlhDsaPureSha2256f ; "SLH-DSA-SHA2-256f" ; 10 ; 96,
+    SlhDsaSha2256f => "SLH-DSA-SHA2-256f" ; 10 ; 96,
     /// SLH-DSA-SHAKE-256s (NIST Level 5)
-    SlhDsaShake256s => Algorithm::SlhDsaPureShake256s ; "SLH-DSA-SHAKE-256s" ; 11 ; 96,
+    SlhDsaShake256s => "SLH-DSA-SHAKE-256s" ; 11 ; 96,
     /// SLH-DSA-SHAKE-256f (NIST Level 5)
-    SlhDsaShake256f => Algorithm::SlhDsaPureShake256f ; "SLH-DSA-SHAKE-256f" ; 12 ; 96,
+    SlhDsaShake256f => "SLH-DSA-SHAKE-256f" ; 12 ; 96,
 );
 
 serde_impl!(SlhDsaScheme);
 
+/// Dispatch a block generic over the concrete `slh_dsa` parameter type `$P` for each scheme.
+macro_rules! with_slh_dsa_params {
+    ($scheme:expr, |$P:ident| $body:block) => {
+        match $scheme {
+            SlhDsaScheme::SlhDsaSha2128s => {
+                type $P = slh_dsa::Sha2_128s;
+                $body
+            }
+            SlhDsaScheme::SlhDsaSha2128f => {
+                type $P = slh_dsa::Sha2_128f;
+                $body
+            }
+            SlhDsaScheme::SlhDsaShake128s => {
+                type $P = slh_dsa::Shake128s;
+                $body
+            }
+            SlhDsaScheme::SlhDsaShake128f => {
+                type $P = slh_dsa::Shake128f;
+                $body
+            }
+            SlhDsaScheme::SlhDsaSha2192s => {
+                type $P = slh_dsa::Sha2_192s;
+                $body
+            }
+            SlhDsaScheme::SlhDsaSha2192f => {
+                type $P = slh_dsa::Sha2_192f;
+                $body
+            }
+            SlhDsaScheme::SlhDsaShake192s => {
+                type $P = slh_dsa::Shake192s;
+                $body
+            }
+            SlhDsaScheme::SlhDsaShake192f => {
+                type $P = slh_dsa::Shake192f;
+                $body
+            }
+            SlhDsaScheme::SlhDsaSha2256s => {
+                type $P = slh_dsa::Sha2_256s;
+                $body
+            }
+            SlhDsaScheme::SlhDsaSha2256f => {
+                type $P = slh_dsa::Sha2_256f;
+                $body
+            }
+            SlhDsaScheme::SlhDsaShake256s => {
+                type $P = slh_dsa::Shake256s;
+                $body
+            }
+            SlhDsaScheme::SlhDsaShake256f => {
+                type $P = slh_dsa::Shake256f;
+                $body
+            }
+        }
+    };
+}
+
+impl SlhDsaScheme {
+    fn validate_public_key(&self, bytes: &[u8]) -> Result<()> {
+        with_slh_dsa_params!(self, |P| {
+            slh_dsa::VerifyingKey::<P>::try_from(bytes)
+                .map_err(|_| Error::SlhDsaError("an invalid verification key".to_string()))?;
+            Ok(())
+        })
+    }
+
+    fn validate_signing_key(&self, bytes: &[u8]) -> Result<()> {
+        with_slh_dsa_params!(self, |P| {
+            slh_dsa::SigningKey::<P>::try_from(bytes)
+                .map_err(|_| Error::SlhDsaError("an invalid signing key".to_string()))?;
+            Ok(())
+        })
+    }
+
+    fn validate_signature(&self, bytes: &[u8]) -> Result<()> {
+        with_slh_dsa_params!(self, |P| {
+            slh_dsa::Signature::<P>::try_from(bytes)
+                .map_err(|_| Error::SlhDsaError("an invalid signature".to_string()))?;
+            Ok(())
+        })
+    }
+
+    #[cfg(feature = "kgen")]
+    /// Generate a new SLH-DSA verification and signing key pair.
+    pub fn keypair(&self) -> Result<(SlhDsaVerificationKey, SlhDsaSigningKey)> {
+        use slh_dsa::signature::Keypair;
+        with_slh_dsa_params!(self, |P| {
+            let mut rng = os_rng();
+            let sk = slh_dsa::SigningKey::<P>::new(&mut rng);
+            let vk = sk.verifying_key();
+            Ok(self.pack_keypair(vk.to_vec(), sk.to_bytes().to_vec()))
+        })
+    }
+
+    #[cfg(feature = "kgen")]
+    /// Generate a new SLH-DSA key pair from a seed.
+    ///
+    /// The seed is `sk_seed ‖ sk_prf ‖ pk_seed`, each `N` bytes (`N` = 16/24/32 for the
+    /// 128/192/256 security levels), per FIPS-205 `slh_keygen_internal`.
+    pub fn keypair_from_seed(
+        &self,
+        seed: &[u8],
+    ) -> Result<(SlhDsaVerificationKey, SlhDsaSigningKey)> {
+        if seed.len() != self.seed_size() {
+            return Err(Error::InvalidSeedLength(seed.len()));
+        }
+        use slh_dsa::signature::Keypair;
+        let n = seed.len() / 3;
+        let (sk_seed, rest) = seed.split_at(n);
+        let (sk_prf, pk_seed) = rest.split_at(n);
+        with_slh_dsa_params!(self, |P| {
+            let sk = slh_dsa::SigningKey::<P>::slh_keygen_internal(sk_seed, sk_prf, pk_seed);
+            let vk = sk.verifying_key();
+            Ok(self.pack_keypair(vk.to_vec(), sk.to_bytes().to_vec()))
+        })
+    }
+
+    #[cfg(feature = "kgen")]
+    fn pack_keypair(&self, vk: Vec<u8>, sk: Vec<u8>) -> (SlhDsaVerificationKey, SlhDsaSigningKey) {
+        (
+            InnerSlhDsa {
+                scheme: *self,
+                value: vk,
+            }
+            .into(),
+            InnerSlhDsa {
+                scheme: *self,
+                value: sk,
+            }
+            .into(),
+        )
+    }
+
+    #[cfg(feature = "sign")]
+    /// Sign a message with the specified signing key (deterministic, empty context).
+    pub fn sign(&self, message: &[u8], signing_key: &SlhDsaSigningKey) -> Result<SlhDsaSignature> {
+        use slh_dsa::signature::Signer;
+        with_slh_dsa_params!(self, |P| {
+            let sk = slh_dsa::SigningKey::<P>::try_from(signing_key.0.value.as_slice())
+                .map_err(|_| Error::SlhDsaError("an invalid signing key".to_string()))?;
+            let signature = sk
+                .try_sign(message)
+                .map_err(|e| Error::SlhDsaError(e.to_string()))?;
+            Ok(InnerSlhDsa {
+                scheme: *self,
+                value: signature.to_vec(),
+            }
+            .into())
+        })
+    }
+
+    #[cfg(feature = "vrfy")]
+    /// Verify a signature.
+    pub fn verify(
+        &self,
+        message: &[u8],
+        signature: &SlhDsaSignature,
+        verification_key: &SlhDsaVerificationKey,
+    ) -> Result<()> {
+        use slh_dsa::signature::Verifier;
+        with_slh_dsa_params!(self, |P| {
+            let vk = slh_dsa::VerifyingKey::<P>::try_from(verification_key.0.value.as_slice())
+                .map_err(|_| Error::SlhDsaError("an invalid verification key".to_string()))?;
+            let sig = slh_dsa::Signature::<P>::try_from(signature.0.value.as_slice())
+                .map_err(|_| Error::SlhDsaError("an invalid signature".to_string()))?;
+            vk.verify(message, &sig)
+                .map_err(|_| Error::SlhDsaError("signature verification failed".to_string()))
+        })
+    }
+}
+
 impl_slh_dsa_struct!(
     SlhDsaSigningKey,
-    secret_key_from_bytes,
+    validate_signing_key,
     "a valid signing key"
 );
 
 impl_slh_dsa_struct!(
     SlhDsaVerificationKey,
-    public_key_from_bytes,
+    validate_public_key,
     "a valid verification key"
 );
 
-impl_slh_dsa_struct!(SlhDsaSignature, signature_from_bytes, "a valid signature");
-
-base_sign_impl!(
-    SlhDsaScheme,
-    "SLH-DSA",
-    SlhDsaSigningKey,
-    SlhDsaVerificationKey,
-    SlhDsaSignature,
-    InnerSlhDsa,
-    Sig,
-);
+impl_slh_dsa_struct!(SlhDsaSignature, validate_signature, "a valid signature");
 
 #[derive(Clone, Serialize, Deserialize)]
 #[cfg_attr(test, derive(PartialEq, Eq))]
@@ -156,9 +317,22 @@ impl zeroize::Zeroize for SlhDsaSigningKey {
 impl zeroize::ZeroizeOnDrop for SlhDsaSigningKey {}
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
     use rstest::*;
+
+    /// Run a test body on a thread with a large stack; SLH-DSA signatures overflow libtest's
+    /// default 2 MB stack.
+    #[allow(clippy::unwrap_used)]
+    fn with_large_stack(f: impl FnOnce() + Send + 'static) {
+        std::thread::Builder::new()
+            .stack_size(16 * 1024 * 1024)
+            .spawn(f)
+            .unwrap()
+            .join()
+            .unwrap();
+    }
 
     #[cfg(all(feature = "kgen", feature = "sign", feature = "vrfy"))]
     #[rstest]
@@ -175,6 +349,11 @@ mod tests {
     #[case::slh_dsa_shake_256s(SlhDsaScheme::SlhDsaShake256s)]
     #[case::slh_dsa_shake_256f(SlhDsaScheme::SlhDsaShake256f)]
     fn serdes(#[case] scheme: SlhDsaScheme) {
+        with_large_stack(move || serdes_inner(scheme));
+    }
+
+    #[cfg(all(feature = "kgen", feature = "sign", feature = "vrfy"))]
+    fn serdes_inner(scheme: SlhDsaScheme) {
         let (pk, sk) = scheme.keypair().unwrap();
 
         let bytes = postcard::to_stdvec(&sk).unwrap();
@@ -220,6 +399,11 @@ mod tests {
     #[case::slh_dsa_shake_256s(SlhDsaScheme::SlhDsaShake256s)]
     #[case::slh_dsa_shake_256f(SlhDsaScheme::SlhDsaShake256f)]
     fn flow(#[case] scheme: SlhDsaScheme) {
+        with_large_stack(move || flow_inner(scheme));
+    }
+
+    #[cfg(all(feature = "kgen", feature = "sign", feature = "vrfy"))]
+    fn flow_inner(scheme: SlhDsaScheme) {
         const MSG: &[u8] = &[0u8; 8];
         let (pk, sk) = scheme.keypair().unwrap();
         let signature = sk.0.scheme.sign(MSG, &sk).unwrap();
