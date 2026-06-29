@@ -168,16 +168,12 @@ pub use slip10::Slip10Error;
 use crate::falcon::{FalconSigningKey, FalconVerificationKey};
 #[cfg(feature = "ml-dsa")]
 use crate::ml_dsa::{MlDsaSigningKey, MlDsaVerificationKey};
-#[cfg(feature = "slh-dsa")]
-use crate::slh_dsa::{SlhDsaSigningKey, SlhDsaVerificationKey};
 use bip32::secp256k1::ecdsa::{SigningKey, VerifyingKey};
 use keys::EcdsaSecp256k1;
 #[cfg(feature = "falcon")]
 use keys::FnDsa512;
 #[cfg(feature = "ml-dsa")]
 use keys::{MlDsa44, MlDsa65, MlDsa87};
-#[cfg(feature = "slh-dsa")]
-use keys::{SlhDsaShake128f, SlhDsaShake128s};
 use std::{collections::HashMap, fmt};
 
 /// A Hybrid Hierarchical Deterministic (HD) Wallet derived from a single BIP-39 mnemonic.
@@ -626,72 +622,6 @@ impl HHDWallet {
         let seed_bytes = signature_seed.as_seed().as_bytes();
 
         MlDsa87::derive_from_seed(seed_bytes, address_index).map_err(WalletError::KeyError)
-    }
-
-    #[cfg(feature = "slh-dsa")]
-    /// Derives an SLH-DSA-SHAKE-128f keypair at the given address index.
-    ///
-    /// # Arguments
-    ///
-    /// * `address_index` - The address index (non-negative integer)
-    ///
-    /// # Returns
-    ///
-    /// * `Ok(SlhDsaSigningKey, SlhDsaVerificationKey)` - The derived keypair
-    /// * `Err(WalletError)` - If derivation fails
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// use tectonic_bedrock::hhd::{HHDWallet, SignatureScheme};
-    ///
-    /// let wallet = HHDWallet::new(vec![SignatureScheme::SlhDsaShake128f], None).unwrap();
-    /// let (sk, vk) = wallet.derive_slhdsa_shake128f_keypair(0).unwrap();
-    /// ```
-    pub fn derive_slhdsa_shake128f_keypair(
-        &self,
-        address_index: u32,
-    ) -> Result<(SlhDsaSigningKey, SlhDsaVerificationKey), WalletError> {
-        let signature_seed = self
-            .master_seeds
-            .get(&SignatureScheme::SlhDsaShake128f)
-            .ok_or(WalletError::InvalidScheme)?;
-        let seed_bytes = signature_seed.as_seed().as_bytes();
-
-        SlhDsaShake128f::derive_from_seed(seed_bytes, address_index).map_err(WalletError::KeyError)
-    }
-
-    #[cfg(feature = "slh-dsa")]
-    /// Derives an SLH-DSA-SHAKE-128s keypair at the given address index.
-    ///
-    /// # Arguments
-    ///
-    /// * `address_index` - The address index (non-negative integer)
-    ///
-    /// # Returns
-    ///
-    /// * `Ok(SlhDsaSigningKey, SlhDsaVerificationKey)` - The derived keypair
-    /// * `Err(WalletError)` - If derivation fails
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// use tectonic_bedrock::hhd::{HHDWallet, SignatureScheme};
-    ///
-    /// let wallet = HHDWallet::new(vec![SignatureScheme::SlhDsaShake128s], None).unwrap();
-    /// let (sk, vk) = wallet.derive_slhdsa_shake128s_keypair(0).unwrap();
-    /// ```
-    pub fn derive_slhdsa_shake128s_keypair(
-        &self,
-        address_index: u32,
-    ) -> Result<(SlhDsaSigningKey, SlhDsaVerificationKey), WalletError> {
-        let signature_seed = self
-            .master_seeds
-            .get(&SignatureScheme::SlhDsaShake128s)
-            .ok_or(WalletError::InvalidScheme)?;
-        let seed_bytes = signature_seed.as_seed().as_bytes();
-
-        SlhDsaShake128s::derive_from_seed(seed_bytes, address_index).map_err(WalletError::KeyError)
     }
 }
 
