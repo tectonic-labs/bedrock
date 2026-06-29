@@ -1,18 +1,30 @@
 //! Falcon key and signature methods
+//!
+//! Because FIPS-206 (FN-DSA) has not been published, Falcon is not a stable DSA recommended for
+//! production. The signature and key formats here may change once the final standard lands.
 
 use crate::{
     deserialize_hex_or_bin,
     error::{Error, Result},
     serialize_hex_or_bin,
 };
-use oqs::sig::{Algorithm, Sig};
 use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "eth_falcon")]
 mod eth_falcon;
 
+/// Map a [`FalconScheme`] to the fn-dsa `logn` degree parameter.
+fn logn(scheme: FalconScheme) -> u32 {
+    match scheme {
+        FalconScheme::Dsa512 => 9,
+        FalconScheme::Dsa1024 => 10,
+        #[cfg(feature = "eth_falcon")]
+        FalconScheme::Ethereum => 9,
+    }
+}
+
 macro_rules! impl_falcon_struct {
-    ($name:ident, $convert:ident, $expect:expr) => {
+    ($name:ident, $validate:ident, $expect:expr) => {
 
         #[derive(Clone, Serialize, Deserialize)]
         #[cfg_attr(test, derive(PartialEq, Eq))]
@@ -54,9 +66,7 @@ macro_rules! impl_falcon_struct {
 
             #[doc = concat!("Convert [`", stringify!($name), "`] from its raw byte representation and scheme")]
             pub fn from_raw_bytes(scheme: FalconScheme, bytes: &[u8]) -> Result<Self> {
-                let alg = scheme.into();
-                let sig = Sig::new(alg).expect("a valid algorithm");
-                let _value = sig.$convert(bytes).ok_or(Error::OqsError($expect.to_string()))?.to_owned();
+                scheme.$validate(bytes)?;
                 Ok(InnerFalcon {
                     scheme,
                     value: bytes.to_vec(),
@@ -66,41 +76,59 @@ macro_rules! impl_falcon_struct {
     };
 }
 
-scheme_impl!(
+scheme_impl_pure!(
     /// Falcon schemes
     FalconScheme,
-    Algorithm,
     #[default]
     /// DSA-512
-    Dsa512 => Algorithm::Falcon512 ; "FN-DSA-512" ; 1 ; 32,
+    Dsa512 => "FN-DSA-512" ; 1 ; 32,
     /// DSA-1024
-    Dsa1024 => Algorithm::Falcon1024 ; "FN-DSA-1024" ; 2 ; 48,
+    Dsa1024 => "FN-DSA-1024" ; 2 ; 48,
     @cfg(feature = "eth_falcon")
     /// ETHFALCON
-    Ethereum => Algorithm::Falcon512 ; "ETHFALCON" ; 3 ; 32,
+    Ethereum => "ETHFALCON" ; 3 ; 32,
 );
 
 serde_impl!(FalconScheme);
 
 impl FalconScheme {
+    /// Validate a Falcon signing (secret) key encoding for this scheme (by length).
+    fn validate_signing_key(&self, bytes: &[u8]) -> Result<()> {
+        if bytes.len() == fn_dsa_comm::sign_key_size(logn(*self)) {
+            Ok(())
+        } else {
+            Err(Error::FnDsaError("an invalid signing key".to_string()))
+        }
+    }
+
+    /// Validate a Falcon verification (public) key encoding for this scheme (by length).
+    fn validate_public_key(&self, bytes: &[u8]) -> Result<()> {
+        if bytes.len() == fn_dsa_comm::vrfy_key_size(logn(*self)) {
+            Ok(())
+        } else {
+            Err(Error::FnDsaError("an invalid public key".to_string()))
+        }
+    }
+
+    /// Validate a Falcon signature length for this scheme.
+    fn validate_signature(&self, bytes: &[u8]) -> Result<()> {
+        if bytes.len() == fn_dsa_comm::signature_size(logn(*self)) {
+            Ok(())
+        } else {
+            Err(Error::FnDsaError("an invalid signature".to_string()))
+        }
+    }
+
     #[cfg(feature = "kgen")]
     /// Generate a new Falcon signing and verification key pair
     pub fn keypair(&self) -> Result<(FalconVerificationKey, FalconSigningKey)> {
-        let alg = self.into();
-        let scheme = Sig::new(alg)?;
-        let (pk, sk) = scheme.keypair()?;
-        Ok((
-            InnerFalcon {
-                scheme: *self,
-                value: pk.into_vec(),
-            }
-            .into(),
-            InnerFalcon {
-                scheme: *self,
-                value: sk.into_vec(),
-            }
-            .into(),
-        ))
+        use fn_dsa_kgen::{sign_key_size, vrfy_key_size, KeyPairGenerator};
+        let logn = logn(*self);
+        let mut sk = vec![0u8; sign_key_size(logn)];
+        let mut vk = vec![0u8; vrfy_key_size(logn)];
+        let mut kg = fn_dsa_kgen::KeyPairGeneratorStandard::default();
+        kg.keygen(logn, &mut rand_core::OsRng, &mut sk, &mut vk);
+        Ok(self.pack_keypair(vk, sk))
     }
 
     #[cfg(feature = "kgen")]
@@ -112,21 +140,29 @@ impl FalconScheme {
         if seed.len() < 32 || seed.len() > 64 {
             return Err(Error::InvalidSeedLength(seed.len()));
         }
-        let alg = self.into();
-        let scheme = Sig::new(alg)?;
-        let (pk, sk) = scheme.keypair_from_seed(seed)?;
-        Ok((
+        use fn_dsa_kgen::{sign_key_size, vrfy_key_size, KeyPairGenerator};
+        let logn = logn(*self);
+        let mut sk = vec![0u8; sign_key_size(logn)];
+        let mut vk = vec![0u8; vrfy_key_size(logn)];
+        let mut kg = fn_dsa_kgen::KeyPairGeneratorStandard::default();
+        kg.keygen_from_seed(logn, seed, &mut sk, &mut vk);
+        Ok(self.pack_keypair(vk, sk))
+    }
+
+    #[cfg(feature = "kgen")]
+    fn pack_keypair(&self, vk: Vec<u8>, sk: Vec<u8>) -> (FalconVerificationKey, FalconSigningKey) {
+        (
             InnerFalcon {
                 scheme: *self,
-                value: pk.into_vec(),
+                value: vk,
             }
             .into(),
             InnerFalcon {
                 scheme: *self,
-                value: sk.into_vec(),
+                value: sk,
             }
             .into(),
-        ))
+        )
     }
 
     #[cfg(feature = "sign")]
@@ -135,15 +171,24 @@ impl FalconScheme {
         message: &[u8],
         signing_key: &FalconSigningKey,
     ) -> Result<FalconSignature> {
-        let alg = self.into();
-        let scheme = Sig::new(alg)?;
-        let sk = scheme
-            .secret_key_from_bytes(signing_key.0.value.as_slice())
-            .ok_or_else(|| Error::OqsError("an invalid signing key".to_string()))?;
-        let signature = scheme.sign(message, sk)?;
+        // Use the original Falcon hash-to-point (SHAKE256(nonce ‖ message), the NIST round-3
+        // convention), which fn-dsa exposes as `HASH_ID_ORIGINAL_FALCON` — NOT `HASH_ID_RAW`.
+        // This is the convention the on-chain CATX precompiles verify against. When FIPS-206
+        // (FN-DSA) is published this hash-to-point may change and will need to be revisited.
+        use fn_dsa_sign::{signature_size, SigningKey, DOMAIN_NONE, HASH_ID_ORIGINAL_FALCON};
+        let mut sk = fn_dsa_sign::SigningKeyStandard::decode(signing_key.0.value.as_slice())
+            .ok_or_else(|| Error::FnDsaError("an invalid signing key".to_string()))?;
+        let mut sig = vec![0u8; signature_size(sk.get_logn())];
+        sk.sign(
+            &mut rand_core::OsRng,
+            &DOMAIN_NONE,
+            &HASH_ID_ORIGINAL_FALCON,
+            message,
+            &mut sig,
+        );
         Ok(InnerFalcon {
             scheme: *self,
-            value: signature.into_vec(),
+            value: sig,
         }
         .into())
     }
@@ -161,16 +206,23 @@ impl FalconScheme {
         signature: &FalconSignature,
         verification_key: &FalconVerificationKey,
     ) -> Result<()> {
-        let alg = self.into();
-        let scheme = Sig::new(alg)?;
-        let sig = scheme
-            .signature_from_bytes(signature.0.value.as_slice())
-            .ok_or_else(|| Error::OqsError("an invalid signature".to_string()))?;
-        let vk = scheme
-            .public_key_from_bytes(verification_key.0.value.as_slice())
-            .ok_or_else(|| Error::OqsError("an invalid public key".to_string()))?;
-        scheme.verify(message, sig, vk)?;
-        Ok(())
+        // Must match the signing convention: original-Falcon hash-to-point, for compatibility
+        // with the signatures verified on-chain by the CATX precompiles (see `sign_inner`).
+        use fn_dsa_vrfy::{VerifyingKey, DOMAIN_NONE, HASH_ID_ORIGINAL_FALCON};
+        let vk = fn_dsa_vrfy::VerifyingKeyStandard::decode(verification_key.0.value.as_slice())
+            .ok_or_else(|| Error::FnDsaError("an invalid public key".to_string()))?;
+        if vk.verify(
+            signature.0.value.as_slice(),
+            &DOMAIN_NONE,
+            &HASH_ID_ORIGINAL_FALCON,
+            message,
+        ) {
+            Ok(())
+        } else {
+            Err(Error::FnDsaError(
+                "signature verification failed".to_string(),
+            ))
+        }
     }
 
     #[cfg(all(feature = "vrfy", not(feature = "eth_falcon")))]
@@ -187,15 +239,15 @@ impl FalconScheme {
 
 impl_falcon_struct!(
     FalconSigningKey,
-    secret_key_from_bytes,
+    validate_signing_key,
     "a valid signing key"
 );
 impl_falcon_struct!(
     FalconVerificationKey,
-    public_key_from_bytes,
+    validate_public_key,
     "a valid public key"
 );
-impl_falcon_struct!(FalconSignature, signature_from_bytes, "a valid signature");
+impl_falcon_struct!(FalconSignature, validate_signature, "a valid signature");
 
 #[derive(Clone, Serialize, Deserialize)]
 #[cfg_attr(test, derive(PartialEq, Eq))]
@@ -299,6 +351,11 @@ mod tests {
         assert!(res.is_err());
     }
 
+    // Seeded Falcon keygen is deterministic, but the seed→key derivation is implementation
+    // specific and not fixed by a published standard. These vectors are the current outputs.
+    // On-chain verification does not depend on seeded-keygen reproducibility — only on the
+    // standard NIST signature/public-key wire format. Once FIPS-206 (FN-DSA) is published the
+    // seed derivation may change and these vectors will need to be regenerated.
     #[cfg(feature = "kgen")]
     #[test]
     fn expected_seed() {
@@ -307,11 +364,11 @@ mod tests {
 
         assert_eq!(
             &hex::encode(pk.to_raw_bytes()),
-            "099ae4427327d6f80f755e906f6e9e64ed162955016f6b498586ef50d4a441d0d03189f18721c1875e41d4b096a856e716bd274528288d45ae8d896525ba023a0b9139e6dce5308a715359a69c4e6872ccd65640d554ec5f1b528b3a46028612d25fd5140e85403fecd03c019c012da47995a092f43ac93188b6ac598ce845a97018f2441e311595957bcc1f4098b28d79982ced78ceb135802c033106a893b4140a4cb6fe3545c294084149407159fc13b53a31e1c2f1a1fed099d1ada4158e439a91865b3cfec4266feb2871d57522f1e55070ac301b6f6d498d34a75b1e40b50cfc9032fc112bb2c2ae92fa5d4c2b7141c9794696048071fabcddfa3778ca37e2c8a59481032054453d70597ccabba878bbd680573205d541dc075acb288e25b1fce91f6b58a642cadaf7c578602071b41e417308ee31114d05c51cd89eb9868bcf9074994b3868bd9aa8414aeb972e1f40144a9b8b823820494341a288b82044166855ae4196b030612a289e78705413c96fa07a206a11e495a5108d66dc2f9b74592895a667c114005bd8d36aa86abca1f6d9e39219949de618646c55a51f616d111432d5caca29c86e85e23a784283eb8f05d5eae4995a80eeb8e6c39fed53c6425992e3d9007cc78b0a9d5b28c0e245604925b75d0038e404fd87084e633aac2a0364f4ba0b8fe3aa1056577528099416bed68481639a94277a3f4fea3340a95980aa3e818e8201b3ecc5156ecf7b29228bb34d1020b8a674140e5ec0aa269533a8ae918980f4bb2130aa46c409451690d26ee50fbd8501636d589b4f219a145d8ad24e7adcf726024799a134f930e6cda2dd75c4e40322457ad769d543dca44452f89e22bf9d75f9c36b531492194ffb4663a00fad06770a04a5b9094e31e016ed11b475b45fab224078db523f2278bdc681e573efc833198596ac20f89f80d690911cc10a5db5f20cd16175f5fb03d182de01d8cf77b40eeb8551369819c996bf3200d0ce5bf167397298eeefd61eb46f59f62e6b8189f5053cdb68b81e42906750b76ec5736a70a5be2f0d1a1b9f06c84d6e7ba112a872b3e8c0b9f1c5ff9109211740285f7fea4654274bcc97dee5562f9166825ae8d05f58b37dd66885f02bde5cfcc5baf4a5ab3899a4171315457b49f64a756a5a3a2e9177450c867e68c5f8188a2c9d382e67e56ec196d6a2e2cba00b9911468a629709648eb10115dacc0e4c817376e7b5a3e230a40765d604ca3a371f22a340b887691b5c04"
+            "099e0e1530bdc063a39d69d6f2c43a88908d723703318825bec72bd79824aae2b56557595174c173199eb6491165290ac7726448e04a69abef4184ad5ae8ce9c2ab9fa06b3ed564078ae36dd4df81b9ad906fd5ed04bedba4143472a37ccdd6574a3588be5c49111ee2daafd8488ce991e1c3cbbc6204ce51eeeed400cc72a1b1cdea94e2f9a8f32d631f6542b47bca938cccb10b982f89069132f2e0288894c24ef7796f5f352adb504c95811b59bdc24a49c4199da36b778184470e9e52d0cfaf8288a558944e164f4aa173dfeacbbdb54291d7660a249c473b385514b5080acb0a222c4a152f66d8cf1a978a05404928fa8a9ad4c8965ab31cb439118de353ac604037e4657e93e06d77e0a5e7b9994d6b5a5b9836e58548ad55d690cd2071f71f484a51c3552b87c891c938d0db563884beee23192bd9806ef7245e8bfd886e3fb53d5e778ec69b62c4688a3668806b26a50f9f9e64f7be02da202c291824036327715789742043a54551e5a5df4f639edcfb8927ef970d0067e4887bbb71d0c1d1abd9092d45d6c260f7b2dce0cabd01051a286dbbf4df83488ae9d606cb7eb0adb8a33dc0a96148f65b538c6b6588fb5060867269c1ebd662cad92636b75a3545f090823d0416a1885c0ef48797dc7b3dfc82470d80ca28d172a4a81218b925cd669b6b0d272e83718c0b1b1f39bee3c4c57f8eb2bcd296998152d6ab06c78c522c70127a4b4e811bf99579f7ae1fa9c429287769c6414e62a2b965e96cfa509afb288995e56d670f89ca88248864c167a24becc341d08f9b2e4ab5a5e31c924a4564973badf8a5f485a2961f6294f451b5ebdfac0c36053831a72708d242b5fe6088782e18d593e05fb20c8680ae91f7b741d0a9242e0178a897171a8b0d0700995af34d8b74d4995174c90e524a2301201dbc7e7526e5c5add93ca8d3b95a4afd7fe9b362f91cf39fb8c0dbe8211a534ec523b9e63961b9242bcb17b0aa5a4cd2706d0ebd31a09030ab8a966685471305700e4a2ea15461f25b659e8ae6807faf5a6f0878aca7120e74c3ee2ef26495a338e016c678729dc78ec6c2080128a4bec76b88288046a1098d820d0bf13417b638ec0afac8900169951fe01297177d2eaf733aeae625cdfe1a685d3474ae902251e6f93480c4d80d0d24b100c6a54eda4a5852fbd63e6d0d1991f9b9f4240019b1f7ab9b19b76090138a17c8d315d9ec4a54ecaf55a48923c628343f5005c83e8ab71b70f389b0c1750a35b2b"
         );
         assert_eq!(
             &hex::encode(sk.to_raw_bytes()),
-            "59000fc00bc0c4100f01e00044f44ec9041e82fc2fffd01f06f3debdfbdf84f820c3ffaf4028513dffb0fe08307aefffc21ff004efefc2fbe0fe03dffeeb718003fdc6e820000450b5e02f45f00fc3ec1f07fc50fff820c2045042f7f08013de7c03cf3d0bc0bffc2ebe10003d042fc0fbfffaf83f43e80108001e850fd14527cfc5eb7044f3bf43180fbe03c140200d02041e86f03001f7ffbff7cf8804afbc1410ff17ff3f040fbef8100703ce78f83fbef3cf0403d17a183f3be8103ef84045101f4ae8a1bc1fcec2080e7a0471c8040080fbb086f7cf821bddf80830c70c0ff7f812790be2040c1f4103ff810851030c013c200105fc11010ffef9088f41e00ec7ffed89f7e201180dbe000082e3cffe0fe0001810fe0fb046f8107d0fef7d0010830c907adc2e7c083fc0f820ba33f03ee76140f41004fbe13ee43008f7a0c2f830fcef9181fc3105040fc017e080fbd13b0c4e7cf440c30820c507b081fff0beec40430c51fbf41fbcf7efbe082100ff9f3bec0f48081143e0403cfffe8003d0f308213cff9000fc2f40106f7ce00ec00c107dfff1441021bf14503c0b80400bdf45081ec11c5e7ffff081e02ec4046180101100006f81106d0310003df0207f005001f810f917ff83081fbb13ff3ff3d0820c313f004fbc0b907c0c2ec11fbf44e8303f080fc3f410ff1840000bd17ff7f0801c00bf183183041181f3c10107afff003f43fc3f001c70780bf044fb9184eff1030fe0c10fc043003f87e060c2f8703b10a1bdf05084fc6e4117c1bdf050c707c0bd006003ec10b9d7e07efc00be20703d03d0bff4107e14427d0bc0fd13ce04e84004fbf281fc4f80f81fc0f7e17ed41084ffd041fbe1bee82fbcf8107f088100040141036141f7cf00ef70c31020471bef3d048f7c0021bc042085d7d0bd041fbc07a33d187e840bdfc1ec324303d100e7f0800fe040f3fe3b0fb145e80f7b13cec3f7ee7bf7e13f082001f80ec703efc317dfc2040145f7a1bd0fbfbe239e7afc213f006f7dfc1080efc23c1c1d05f7907c0c904613c0bb03f07f0830c0f8518104423afc2fc0fff000ef1ec7fffeb61915fef2fcee141f26fde611f3ffcd000925fd19fdfc24cd0f21003a3c0d00e607cae70713f403d40ef7fff1e20df8f6e5ef01ffdd1010e4c002e6de11e6021a0523d3e00b09f532e8def94cffffeef8180519e3fc1a1e0c1206eb0af304f9200801f80804d21410e706d1f7fce1ee00fceec9fa40f5f4e13ef3fb14f627ee0c0afa12f91717e4fbfd06ef3c1013fcfde50f21031d0dc6e6f5052313e5f01afd05d515d701dc05f7110609d42bcdf9d10639001216e9e909ce36fa280b25f715fed8d2f4044a1e05e4fd11edf82af5020df8f9251b00ed1af8e8fb2713ff4302d71a0010e107400906edea210b0916e315f92114de294c3f15ca0be9e52107eff5edf00315e4d600ef38df11dedff422dbfdd91700dc0cd43d051fe114ea2aed390e05002236f0ee2526fef415eef8f4f42404f1fc2ce9f6f21dfd18d7f9ebf8f613d90e03d80609e426e402e2dceacfe9fd00f544101dfbf9092a0c2f1ff2d4ebfd27152b2afdee3b080af3f90c121bf6d10505c1100322eafac0e41e0d0f08dcc21416142404f5010d1011f2110fc729db36eb090b0b2132e525daf6eff63351ff10f624ecdaff0d12b815eb08f7190813e41b0a02f6bc1221fb18e402dfe91bfb00fbc109fe18041ceedeee1e0dee0814fdcc240fe0f0f4e5dd0bf4e510cc192416f718c6fbca18fb11fee902ee02e9261be0e9d314f71923"
+            "59f84e80f7e0040c2efef3d0c213bf3c082083f4108008807e20307eebef0207e0fd242fbf084ebc08a000f0603f187f8213f0b81bcf7e10207ef44ffe13ef84e7ef8603f17e0c1fbe07de87f49e7c006fc307f0bc0c20c3f40ffaebf1fdfc314513b081f3d07fdfd23f24407d07e082003f3efbaf7ef3a0040be03d17e1bc0b4f8003a046003d7ff040ff0fd08007a0400c3fc60bc084fc000303bfc71be03be3e1bb17f0b8fbbd7bfc00c1e79f82f080bafbb002f3d040ffc042e3bfbed8003eec804207e004104081f471841b9f7ef01fbf0c2f83f7f18313a0410ff0071fe049088f84084106fc61bbf04fbd03df3efbef7b03eefb17c27e0c2eff07f17cf7ff80f4003d084e7e0c20faef90050f9e43042f7dfbef8817d0c9f4413f00507f00017ddc30fdf811810c1fc3e00202143f3be00f04102142fc3ffff41f41dc5fbf005002ebf042e7cdbbec61c310607bfc11410bb18110404813bf041f917cf3cec70c4ffd13df3e17dfc0f0417cfc11b517eebc006f460bf13b07fe830830ff04307e0c01fbfc6fc00c1f890baec5efdefe148f4100217ff39002046fbfebef7f1c7e8213effc0810b90fcfc1ff9ec20bd040037f7b0022c90c0103ec0d80fbfff9042082ffcec1fc60c2fc203df3cffef3df3c17bf83083fffe87f7e106041efb03c003efce0518307b0b90befbf1c1fc5185fbd0fdebd08107fe430c5f00fc3183dc5100179e38f800ba07d0000c103c00607b1bffbdfbf0860fce08f02ec3f89000202ffb082f0507ef02185000103084082e850c700207c13f03c145efe0821f7ec8100000e420bdf431400be039ff6e81dc814004207af02e42044082fb9ec4e04e7e08010af3dfbff7efc303c0bef0003907b043fff0fef851830791bc04327bfbcfc5080141f3f0880bf1021000c70bafbe000180fff0fe002040081f4313bffb17c102ec1ec6f4908004203607f039e48f00082f810071bf006f83fbff80e46ffb04c1001c40c40fff4317debe041f3f0411800800c013c007040f440c2e82f47ebf0400baec10c0f40e810c123e1c200013f07c17df7afc1042df906fef319d1e836f60ff111fb0ff21fe219fffb0d1eea1ae508f5ef071f0cd3e601edfdf50d13dad9f60add212225f8fcf8131e0e202ac4f32d0810f7f9ecbb020705ef061c1d1ee3023245ffdb22f9271e0f20d9f7e80b0e0b05e61acee21221110dff07c922e501f6eaedf5efd3e70e33272923fa00e10401eaf000000dc8ecd7f713e30c25dbf0e2f2bcf31907bede0bed2e282513f00c270ef4fd36e2f6eaf3082938190e250405f21df6d212f107f8072203fb0dfbf9f215fcf2e5dc0c0708e6f9f6ede8c20c0e1a0604f6d6000e15f0f81b06d90ef130f8dfcd00f81cfb0adfdcdc3b3f230328dbe2e9fcfb0217f2f9e6f5f5f10e1004b9f6370ef5fe0cec0e2d20e21b25ddf4df252d1430201d231a200eddf3d311f1ecf717ecede4eb2ae0150fe6f2d40c0b2c2227fdfe2606dc2b2b2205c0fe100de7f3001535e1cffb1c12f92a06d7ff01f9c5f121fd013506e20fe7f41fe5e2e3e900f3e3100816d1e9d912edf613e2e3ed08fb1d53312f1af9f9f11a1eee1ae3fff32a18ff160cfcee11e731eaf1edfef7262c1410cd14f12ae30d09f2edfb0de709fc0a15d801290900fc07f7bd2dd2cbd3eddfff02030adf23cbfddc1a25f0ecddca01011ce8e02df6f309db04fc200de314f1eb231015da20f8f3081414f0fec91ff01f12d302f4051f330e0be122040ae412fffcccf61ccc3c162be1f2f9fb19f21df8f4f7"
         );
     }
 

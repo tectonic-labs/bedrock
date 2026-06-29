@@ -32,15 +32,17 @@ macro_rules! serde_impl {
     };
 }
 
-macro_rules! scheme_impl {
+/// Like [`scheme_impl!`] but without the `From<$name>` conversion to an oqs `Algorithm`, for
+/// schemes that dispatch on the enum directly.
+#[allow(unused_macros)]
+macro_rules! scheme_impl_pure {
     (
         $(#[$meta:meta])*
         $name:ident,
-        $convert:ident,
         $(
             $(@cfg($($cfg:tt)+))?
             $(#[$variant_meta:meta])*
-            $variant:ident => $algorithm:path ; $display:literal ; $value:literal ; $seed_size:literal
+            $variant:ident => $display:literal ; $value:literal ; $seed_size:literal
         ),+
         $(,)?
     ) => {
@@ -54,23 +56,21 @@ macro_rules! scheme_impl {
             )+
         }
 
-        impl From<$name> for $convert {
-            fn from(scheme: $name) -> Self {
-                match scheme {
-                    $(
-                        $(#[cfg($($cfg)+)])?
-                        $name::$variant => $algorithm,
-                    )+
-                }
-            }
-        }
+        scheme_common_impl!($name, $($(@cfg($($cfg)+))? $variant => $display ; $value ; $seed_size),+);
+    };
+}
 
-        impl From<&$name> for $convert {
-            fn from(scheme: &$name) -> Self {
-                Self::from(*scheme)
-            }
-        }
-
+/// Shared (algorithm-agnostic) impls for a scheme enum: `u8` conversions, `TryFrom<u8>`,
+/// `Display`, `FromStr`, and `seed_size`.
+macro_rules! scheme_common_impl {
+    (
+        $name:ident,
+        $(
+            $(@cfg($($cfg:tt)+))?
+            $variant:ident => $display:literal ; $value:literal ; $seed_size:literal
+        ),+
+        $(,)?
+    ) => {
         impl From<$name> for u8 {
             fn from(scheme: $name) -> Self {
                 match scheme {
@@ -144,99 +144,49 @@ macro_rules! scheme_impl {
     };
 }
 
-#[cfg(any(feature = "ml-dsa", feature = "slh-dsa"))]
-macro_rules! base_sign_impl {
+/// Like [`scheme_impl_pure!`] but also generates the `From<$name>` conversion to an oqs
+/// `Algorithm`, for the KEM schemes.
+#[allow(unused_macros)]
+macro_rules! scheme_impl {
     (
-        $enum_name:ident,
-        $string_name:literal,
-        $signing_key:ident,
-        $verifying_key:ident,
-        $signature:ident,
-        $inner:ident,
-        $algorithm:ident,
+        $(#[$meta:meta])*
+        $name:ident,
+        $convert:ident,
+        $(
+            $(@cfg($($cfg:tt)+))?
+            $(#[$variant_meta:meta])*
+            $variant:ident => $algorithm:path ; $display:literal ; $value:literal ; $seed_size:literal
+        ),+
+        $(,)?
     ) => {
-        impl $enum_name {
-            #[cfg(feature = "kgen")]
-            #[doc = concat!("Generate a new ", stringify!($string_name), " signing and verifying key pair")]
-            pub fn keypair(&self) -> Result<($verifying_key, $signing_key)> {
-                let alg = self.into();
-                let scheme = $algorithm::new(alg)?;
-                let (pk, sk) = scheme.keypair()?;
+        $(#[$meta])*
+        #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Ord, PartialOrd, Hash)]
+        pub enum $name {
+            $(
+                $(#[cfg($($cfg)+)])?
+                $(#[$variant_meta])*
+                $variant,
+            )+
+        }
 
-                Ok((
-                    $inner {
-                        scheme: *self,
-                        value: pk.into_vec(),
-                    }.into(),
-                    $inner {
-                        scheme: *self,
-                        value: sk.into_vec(),
-                    }.into()
-                ))
-            }
-
-            #[cfg(feature = "kgen")]
-            #[doc = concat!("Generate a new ", stringify!($string_name), " signing and verifying key pair")]
-            pub fn keypair_from_seed(
-                &self,
-                seed: &[u8],
-            ) -> Result<($verifying_key, $signing_key)> {
-                if seed.len() != self.seed_size() {
-                    return Err(Error::InvalidSeedLength(seed.len()));
+        impl From<$name> for $convert {
+            fn from(scheme: $name) -> Self {
+                match scheme {
+                    $(
+                        $(#[cfg($($cfg)+)])?
+                        $name::$variant => $algorithm,
+                    )+
                 }
-                let alg = self.into();
-                let scheme = $algorithm::new(alg)?;
-                let (pk, sk) = scheme.keypair_from_seed(seed)?;
-                Ok((
-                    $inner {
-                        scheme: *self,
-                        value: pk.into_vec(),
-                    }
-                    .into(),
-                    $inner {
-                        scheme: *self,
-                        value: sk.into_vec(),
-                    }
-                    .into(),
-                ))
-            }
-
-            #[cfg(feature = "sign")]
-            /// Sign a message with the specified signing key
-            pub fn sign(&self, message: &[u8], signing_key: &$signing_key) -> Result<$signature> {
-                let alg = self.into();
-                let scheme = $algorithm::new(alg)?;
-                let sk = scheme
-                    .secret_key_from_bytes(signing_key.0.value.as_slice())
-                    .ok_or_else(|| Error::OqsError("an invalid signing key".to_string()))?;
-                let signature = scheme.sign(message, sk)?;
-                Ok($inner {
-                    scheme: *self,
-                    value: signature.into_vec(),
-                }
-                .into())
-            }
-
-            #[cfg(feature = "vrfy")]
-            /// Verify a signature
-            pub fn verify(
-                &self,
-                message: &[u8],
-                signature: &$signature,
-                verification_key: &$verifying_key,
-            ) -> Result<()> {
-                let alg = self.into();
-                let scheme = $algorithm::new(alg)?;
-                let sig = scheme
-                    .signature_from_bytes(signature.0.value.as_slice())
-                    .ok_or_else(|| Error::OqsError("an invalid signature".to_string()))?;
-                let vk = scheme
-                    .public_key_from_bytes(verification_key.0.value.as_slice())
-                    .ok_or_else(|| Error::OqsError("an invalid public key".to_string()))?;
-                scheme.verify(message, sig, vk)?;
-                Ok(())
             }
         }
+
+        impl From<&$name> for $convert {
+            fn from(scheme: &$name) -> Self {
+                Self::from(*scheme)
+            }
+        }
+
+        scheme_common_impl!($name, $($(@cfg($($cfg)+))? $variant => $display ; $value ; $seed_size),+);
     };
 }
 
