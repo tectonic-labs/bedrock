@@ -32,8 +32,7 @@ macro_rules! serde_impl {
     };
 }
 
-/// Like [`scheme_impl!`] but without the `From<$name>` conversion to an oqs `Algorithm`, for
-/// schemes that dispatch on the enum directly.
+/// Defines a scheme enum and its shared impls; schemes dispatch on the enum directly.
 #[allow(unused_macros)]
 macro_rules! scheme_impl_pure {
     (
@@ -141,51 +140,5 @@ macro_rules! scheme_common_impl {
             }
         }
 
-    };
-}
-
-/// Like [`scheme_impl_pure!`] but also generates the `From<$name>` conversion to an oqs
-/// `Algorithm`, for the KEM schemes.
-#[allow(unused_macros)]
-macro_rules! scheme_impl {
-    (
-        $(#[$meta:meta])*
-        $name:ident,
-        $convert:ident,
-        $(
-            $(@cfg($($cfg:tt)+))?
-            $(#[$variant_meta:meta])*
-            $variant:ident => $algorithm:path ; $display:literal ; $value:literal ; $seed_size:literal
-        ),+
-        $(,)?
-    ) => {
-        $(#[$meta])*
-        #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Ord, PartialOrd, Hash)]
-        pub enum $name {
-            $(
-                $(#[cfg($($cfg)+)])?
-                $(#[$variant_meta])*
-                $variant,
-            )+
-        }
-
-        impl From<$name> for $convert {
-            fn from(scheme: $name) -> Self {
-                match scheme {
-                    $(
-                        $(#[cfg($($cfg)+)])?
-                        $name::$variant => $algorithm,
-                    )+
-                }
-            }
-        }
-
-        impl From<&$name> for $convert {
-            fn from(scheme: &$name) -> Self {
-                Self::from(*scheme)
-            }
-        }
-
-        scheme_common_impl!($name, $($(@cfg($($cfg)+))? $variant => $display ; $value ; $seed_size),+);
     };
 }
