@@ -13,6 +13,9 @@ pub enum Error {
     /// ML-DSA error
     #[error("ML-DSA error: {0}")]
     MlDsaError(String),
+    /// ML-KEM error
+    #[error("ML-KEM error: {0}")]
+    MlKemError(String),
     /// SLH-DSA error
     #[error("SLH-DSA error: {0}")]
     SlhDsaError(String),
