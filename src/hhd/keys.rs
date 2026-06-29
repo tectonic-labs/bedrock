@@ -9,6 +9,7 @@
 //!
 //! - [`ecdsa`]: ECDSA secp256k1 keypair implementation
 //! - [`falcon`]: Falcon-512 keypair implementation
+//! - [`slhdsa`]: SLH-DSA-SHAKE-128f/128s keypair implementation
 
 mod ecdsa;
 mod error;
@@ -16,9 +17,13 @@ mod error;
 mod falcon;
 #[cfg(feature = "ml-dsa")]
 mod mldsa;
+#[cfg(feature = "slh-dsa")]
+mod slhdsa;
 pub use ecdsa::EcdsaSecp256k1;
 pub use error::KeyError;
 #[cfg(feature = "falcon")]
 pub use falcon::FnDsa512;
 #[cfg(feature = "ml-dsa")]
 pub(crate) use mldsa::{MlDsa44, MlDsa65, MlDsa87};
+#[cfg(feature = "slh-dsa")]
+pub(crate) use slhdsa::{SlhDsaShake128f, SlhDsaShake128s};
