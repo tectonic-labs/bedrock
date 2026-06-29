@@ -351,7 +351,7 @@ tectonic-bedrock = { version = "0.1", default-features = false, features = ["ml-
 
 All fallible operations return `Result<T, bedrock::error::Error>`. The `Error` enum includes:
 
-- `OqsError(String)` - Errors from the underlying OQS library
+- `McElieceError(String)` - Errors from the Classic McEliece KEM
 - `InvalidScheme(u8)` / `InvalidSchemeStr(String)` - Invalid scheme identifiers
 - `InvalidSeedLength(usize)` - Seed length out of valid range (32-64 bytes)
 - `InvalidLength(usize)` - Invalid data length
@@ -385,4 +385,4 @@ Unless you explicitly state otherwise, any contribution intentionally submitted 
 - [ML-KEM (FIPS 203)](https://csrc.nist.gov/pubs/fips/203/final)
 - [ETHFALCON Specification](https://github.com/zknoxhq/ETHFALCON)
 - [X-Wing (IETF Draft)](https://datatracker.ietf.org/doc/draft-connolly-cfrg-xwing-kem/)
-- [liboqs](https://github.com/open-quantum-safe/liboqs)
+- [classic-mceliece-rust](https://github.com/Colfenor/classic-mceliece-rust)

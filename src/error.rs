@@ -1,15 +1,13 @@
 //! Error types for the library
 
-#[cfg(feature = "oqs")]
-use oqs::Error as OqsError;
 use thiserror::Error as ThisError;
 
 /// Error type for the library
 #[derive(ThisError, Debug)]
 pub enum Error {
-    /// OQS error
-    #[error("OQS error: {0}")]
-    OqsError(String),
+    /// Classic McEliece error
+    #[error("Classic McEliece error: {0}")]
+    McElieceError(String),
     /// ML-DSA error
     #[error("ML-DSA error: {0}")]
     MlDsaError(String),
@@ -58,13 +56,6 @@ pub enum Error {
     #[cfg(feature = "hhd")]
     #[error("HD wallet error: {0}")]
     WalletError(#[from] crate::hhd::WalletError),
-}
-
-#[cfg(feature = "oqs")]
-impl From<OqsError> for Error {
-    fn from(error: OqsError) -> Self {
-        Error::OqsError(error.to_string())
-    }
 }
 
 /// Result type for the library

@@ -7,7 +7,7 @@
 //! It enables seamless coexistence of both classical ([ECDSA secp256k1](https://en.bitcoin.it/wiki/Secp256k1)) and
 //! post-quantum ([Falcon-512](https://falcon-sign.info/)) signature schemes within a unified wallet structure.
 //! The post-quantum Falcon-512 primitive leverages [Tectonic's Bedrock repository](https://github.com/tectonic-labs/bedrock),
-//! which is based on the [OQS C implementation](https://github.com/open-quantum-safe/liboqs).
+//! which implements FN-DSA (Falcon) in pure Rust via the [`fn-dsa`](https://crates.io/crates/fn-dsa) crates.
 //!
 //! ## Features
 //!

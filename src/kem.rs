@@ -6,7 +6,41 @@ use crate::{deserialize_hex_or_bin, error::*, serialize_hex_or_bin};
 use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "mceliece")]
-use oqs::kem::{Algorithm, Kem};
+use classic_mceliece_rust::{
+    decapsulate_boxed, encapsulate_boxed, keypair_boxed, Ciphertext, PublicKey, SecretKey,
+    CRYPTO_BYTES, CRYPTO_CIPHERTEXTBYTES, CRYPTO_PUBLICKEYBYTES, CRYPTO_SECRETKEYBYTES,
+};
+
+/// Reconstruct a Classic McEliece [`PublicKey`] from raw bytes, validating the length.
+#[cfg(feature = "mceliece")]
+fn mceliece_public_key(bytes: &[u8]) -> Result<PublicKey<'static>> {
+    let arr: Box<[u8; CRYPTO_PUBLICKEYBYTES]> = bytes
+        .to_vec()
+        .into_boxed_slice()
+        .try_into()
+        .map_err(|_| Error::McElieceError("an invalid encapsulation key".to_string()))?;
+    Ok(PublicKey::from(arr))
+}
+
+/// Reconstruct a Classic McEliece [`SecretKey`] from raw bytes, validating the length.
+#[cfg(feature = "mceliece")]
+fn mceliece_secret_key(bytes: &[u8]) -> Result<SecretKey<'static>> {
+    let arr: Box<[u8; CRYPTO_SECRETKEYBYTES]> = bytes
+        .to_vec()
+        .into_boxed_slice()
+        .try_into()
+        .map_err(|_| Error::McElieceError("an invalid decapsulation key".to_string()))?;
+    Ok(SecretKey::from(arr))
+}
+
+/// Reconstruct a Classic McEliece [`Ciphertext`] from raw bytes, validating the length.
+#[cfg(feature = "mceliece")]
+fn mceliece_ciphertext(bytes: &[u8]) -> Result<Ciphertext> {
+    let arr: [u8; CRYPTO_CIPHERTEXTBYTES] = bytes
+        .try_into()
+        .map_err(|_| Error::McElieceError("an invalid kem ciphertext".to_string()))?;
+    Ok(Ciphertext::from(arr))
+}
 
 macro_rules! impl_kem_struct {
     ($name:ident, $validate:ident) => {
@@ -84,7 +118,7 @@ serde_impl!(KemScheme);
 
 /// Dispatch a block generic over the concrete `ml_kem` parameter type `$P` for each ML-KEM scheme.
 ///
-/// Only the ML-KEM schemes are handled here; Classic McEliece is dispatched separately via `oqs`.
+/// Only the ML-KEM schemes are handled here; Classic McEliece is dispatched separately.
 #[cfg(feature = "ml-kem")]
 macro_rules! with_ml_kem_params {
     ($scheme:expr, |$P:ident| $body:block) => {{
@@ -102,7 +136,9 @@ macro_rules! with_ml_kem_params {
                 $body
             }
             #[cfg(feature = "mceliece")]
-            KemScheme::ClassicMcEliece348864 => unreachable!("McEliece is dispatched via oqs"),
+            KemScheme::ClassicMcEliece348864 => {
+                unreachable!("McEliece is dispatched separately")
+            }
         }
     }};
 }
@@ -122,9 +158,9 @@ impl KemScheme {
             }
             #[cfg(feature = "mceliece")]
             KemScheme::ClassicMcEliece348864 => {
-                let scheme = Kem::new(Algorithm::ClassicMcEliece348864)?;
-                let (pk, sk) = scheme.keypair()?;
-                Ok(self.pack_keypair(pk.into_vec(), sk.into_vec()))
+                let mut rng = rand_core::OsRng;
+                let (pk, sk) = keypair_boxed(&mut rng);
+                Ok(self.pack_keypair(pk.as_array().to_vec(), sk.as_array().to_vec()))
             }
         }
     }
@@ -151,12 +187,14 @@ impl KemScheme {
             }
             #[cfg(feature = "mceliece")]
             KemScheme::ClassicMcEliece348864 => {
-                let scheme = Kem::new(Algorithm::ClassicMcEliece348864)?;
-                let seed = scheme
-                    .keypair_seed_from_bytes(seed)
-                    .ok_or(Error::OqsError("an invalid seed length".to_string()))?;
-                let (pk, sk) = scheme.keypair_derand(seed)?;
-                Ok(self.pack_keypair(pk.into_vec(), sk.into_vec()))
+                use rand_core::SeedableRng;
+                // `seed.len()` is already validated to equal `seed_size()` (32) above.
+                let seed_arr: [u8; 32] = seed
+                    .try_into()
+                    .map_err(|_| Error::InvalidSeedLength(seed.len()))?;
+                let mut rng = rand_chacha::ChaCha20Rng::from_seed(seed_arr);
+                let (pk, sk) = keypair_boxed(&mut rng);
+                Ok(self.pack_keypair(pk.as_array().to_vec(), sk.as_array().to_vec()))
             }
         }
     }
@@ -210,20 +248,18 @@ impl KemScheme {
             }
             #[cfg(feature = "mceliece")]
             KemScheme::ClassicMcEliece348864 => {
-                let scheme = Kem::new(Algorithm::ClassicMcEliece348864)?;
-                let ek = scheme
-                    .public_key_from_bytes(encapsulation_key.0.value.as_slice())
-                    .ok_or_else(|| Error::OqsError("an invalid encapsulation key".to_string()))?;
-                let (ct, ss) = scheme.encapsulate(ek)?;
+                let ek = mceliece_public_key(encapsulation_key.0.value.as_slice())?;
+                let mut rng = rand_core::OsRng;
+                let (ct, ss) = encapsulate_boxed(&ek, &mut rng);
                 Ok((
                     InnerKem {
                         scheme: *self,
-                        value: ct.into_vec(),
+                        value: ct.as_array().to_vec(),
                     }
                     .into(),
                     InnerKem {
                         scheme: *self,
-                        value: ss.into_vec(),
+                        value: ss.as_array().to_vec(),
                     }
                     .into(),
                 ))
@@ -259,17 +295,12 @@ impl KemScheme {
             }
             #[cfg(feature = "mceliece")]
             KemScheme::ClassicMcEliece348864 => {
-                let scheme = Kem::new(Algorithm::ClassicMcEliece348864)?;
-                let ct = scheme
-                    .ciphertext_from_bytes(ciphertext.0.value.as_slice())
-                    .ok_or_else(|| Error::OqsError("an invalid ciphertext".to_string()))?;
-                let sk = scheme
-                    .secret_key_from_bytes(decapsulation_key.0.value.as_slice())
-                    .ok_or_else(|| Error::OqsError("an invalid decapsulation key".to_string()))?;
-                let ss = scheme.decapsulate(sk, ct)?;
+                let ct = mceliece_ciphertext(ciphertext.0.value.as_slice())?;
+                let sk = mceliece_secret_key(decapsulation_key.0.value.as_slice())?;
+                let ss = decapsulate_boxed(&ct, &sk);
                 Ok(InnerKem {
                     scheme: *self,
-                    value: ss.into_vec(),
+                    value: ss.as_array().to_vec(),
                 }
                 .into())
             }
@@ -291,10 +322,7 @@ impl KemScheme {
             }
             #[cfg(feature = "mceliece")]
             KemScheme::ClassicMcEliece348864 => {
-                let scheme = Kem::new(Algorithm::ClassicMcEliece348864)?;
-                scheme
-                    .public_key_from_bytes(bytes)
-                    .ok_or_else(|| Error::OqsError("an invalid encapsulation key".to_string()))?;
+                let _ = mceliece_public_key(bytes)?;
                 Ok(())
             }
         }
@@ -315,10 +343,7 @@ impl KemScheme {
             }
             #[cfg(feature = "mceliece")]
             KemScheme::ClassicMcEliece348864 => {
-                let scheme = Kem::new(Algorithm::ClassicMcEliece348864)?;
-                scheme
-                    .secret_key_from_bytes(bytes)
-                    .ok_or_else(|| Error::OqsError("an invalid decapsulation key".to_string()))?;
+                let _ = mceliece_secret_key(bytes)?;
                 Ok(())
             }
         }
@@ -337,10 +362,7 @@ impl KemScheme {
             }
             #[cfg(feature = "mceliece")]
             KemScheme::ClassicMcEliece348864 => {
-                let scheme = Kem::new(Algorithm::ClassicMcEliece348864)?;
-                scheme
-                    .ciphertext_from_bytes(bytes)
-                    .ok_or_else(|| Error::OqsError("an invalid kem ciphertext".to_string()))?;
+                let _ = mceliece_ciphertext(bytes)?;
                 Ok(())
             }
         }
@@ -359,11 +381,11 @@ impl KemScheme {
             }
             #[cfg(feature = "mceliece")]
             KemScheme::ClassicMcEliece348864 => {
-                let scheme = Kem::new(Algorithm::ClassicMcEliece348864)?;
-                scheme
-                    .shared_secret_from_bytes(bytes)
-                    .ok_or_else(|| Error::OqsError("an invalid shared secret".to_string()))?;
-                Ok(())
+                if bytes.len() == CRYPTO_BYTES {
+                    Ok(())
+                } else {
+                    Err(Error::McElieceError("an invalid shared secret".to_string()))
+                }
             }
         }
     }
