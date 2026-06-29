@@ -80,26 +80,6 @@ pub const ML_DSA_44_SIGNATURE_SIZE: usize = 2420;
 pub const ML_DSA_65_SIGNATURE_SIZE: usize = 3309;
 pub const ML_DSA_87_SIGNATURE_SIZE: usize = 4627;
 
-/// Size in bytes of the seed required for SLH-DSA-SHAKE-128 key generation (48 bytes = 384 bits).
-/// Per FIPS-205, SLH-DSA-SHAKE-128f/128s use n=16, so SK.seed(n) + SK.prf(n) + PK.seed(n) = 48.
-pub const SLH_DSA_SHAKE_128_KEY_GENERATION_SEED_SIZE: usize = 48;
-/// Size in bytes of the root seed for SLH-DSA HD key derivation (64 bytes = 512 bits).
-pub const SLH_DSA_SHAKE_128F_ROOT_SEED_SIZE: usize = 64;
-pub const SLH_DSA_SHAKE_128S_ROOT_SEED_SIZE: usize = 64;
-/// Domain separator strings used for SLH-DSA in SLIP-0010 key derivation.
-pub const SLH_DSA_SHAKE_128F_DOMAIN_SEPARATOR: &[u8] = b"SLH-DSA-SHAKE-128f seed";
-pub const SLH_DSA_SHAKE_128S_DOMAIN_SEPARATOR: &[u8] = b"SLH-DSA-SHAKE-128s seed";
-/// Size in bytes of SLH-DSA-SHAKE-128f/128s signing key (private key): 64 bytes.
-pub const SLH_DSA_SHAKE_128F_SIGNING_KEY_SIZE: usize = 64;
-pub const SLH_DSA_SHAKE_128S_SIGNING_KEY_SIZE: usize = 64;
-/// Size in bytes of SLH-DSA-SHAKE-128f/128s verifying key (public key): 32 bytes.
-pub const SLH_DSA_SHAKE_128F_VERIFYING_KEY_SIZE: usize = 32;
-pub const SLH_DSA_SHAKE_128S_VERIFYING_KEY_SIZE: usize = 32;
-/// Size in bytes of SLH-DSA-SHAKE-128f signature: 17088 bytes.
-pub const SLH_DSA_SHAKE_128F_SIGNATURE_SIZE: usize = 17088;
-/// Size in bytes of SLH-DSA-SHAKE-128s signature: 7856 bytes.
-pub const SLH_DSA_SHAKE_128S_SIGNATURE_SIZE: usize = 7856;
-
 /// BIP-44 non-hardened base derivation path
 pub const BIP44_NON_HARDENED_BASE_PATH: &str = "m/44'/60'/0'/0";
 
@@ -140,10 +120,6 @@ pub enum SignatureSeed {
     MlDsa65(Seed),
     /// ML-DSA 87 signature scheme seed.
     MlDsa87(Seed),
-    /// SLH-DSA-SHAKE-128f signature scheme seed.
-    SlhDsaShake128f(Seed),
-    /// SLH-DSA-SHAKE-128s signature scheme seed.
-    SlhDsaShake128s(Seed),
 }
 
 impl fmt::Debug for SignatureSeed {
@@ -154,8 +130,6 @@ impl fmt::Debug for SignatureSeed {
             SignatureSeed::MlDsa44(_) => "MlDsa44",
             SignatureSeed::MlDsa65(_) => "MlDsa65",
             SignatureSeed::MlDsa87(_) => "MlDsa87",
-            SignatureSeed::SlhDsaShake128f(_) => "SlhDsaShake128f",
-            SignatureSeed::SlhDsaShake128s(_) => "SlhDsaShake128s",
         };
 
         let seed_bytes = self.as_seed().as_bytes().to_vec();
@@ -198,8 +172,6 @@ impl SignatureSeed {
             SignatureSeed::MlDsa44(seed) => seed,
             SignatureSeed::MlDsa65(seed) => seed,
             SignatureSeed::MlDsa87(seed) => seed,
-            SignatureSeed::SlhDsaShake128f(seed) => seed,
-            SignatureSeed::SlhDsaShake128s(seed) => seed,
         }
     }
 }
@@ -237,10 +209,6 @@ pub enum SignatureScheme {
     MlDsa65,
     /// ML-DSA 87 post-quantum signature scheme.
     MlDsa87,
-    /// SLH-DSA-SHAKE-128f post-quantum signature scheme (fast signing).
-    SlhDsaShake128f,
-    /// SLH-DSA-SHAKE-128s post-quantum signature scheme (small signatures).
-    SlhDsaShake128s,
 }
 
 impl SignatureScheme {
@@ -307,9 +275,7 @@ impl SignatureScheme {
             | SignatureScheme::Falcon512
             | SignatureScheme::MlDsa44
             | SignatureScheme::MlDsa65
-            | SignatureScheme::MlDsa87
-            | SignatureScheme::SlhDsaShake128f
-            | SignatureScheme::SlhDsaShake128s => Ok(BIP44_HARDENED_BASE_PATH),
+            | SignatureScheme::MlDsa87 => Ok(BIP44_HARDENED_BASE_PATH),
         }
     }
 
@@ -325,9 +291,6 @@ impl SignatureScheme {
             SignatureScheme::MlDsa44 => ML_DSA_44_KEY_GENERATION_SEED_SIZE,
             SignatureScheme::MlDsa65 => ML_DSA_65_KEY_GENERATION_SEED_SIZE,
             SignatureScheme::MlDsa87 => ML_DSA_87_KEY_GENERATION_SEED_SIZE,
-            SignatureScheme::SlhDsaShake128f | SignatureScheme::SlhDsaShake128s => {
-                SLH_DSA_SHAKE_128_KEY_GENERATION_SEED_SIZE
-            }
         }
     }
 
@@ -342,8 +305,6 @@ impl SignatureScheme {
             SignatureScheme::MlDsa44 => ML_DSA_44_ROOT_SEED_SIZE,
             SignatureScheme::MlDsa65 => ML_DSA_65_ROOT_SEED_SIZE,
             SignatureScheme::MlDsa87 => ML_DSA_87_ROOT_SEED_SIZE,
-            SignatureScheme::SlhDsaShake128f => SLH_DSA_SHAKE_128F_ROOT_SEED_SIZE,
-            SignatureScheme::SlhDsaShake128s => SLH_DSA_SHAKE_128S_ROOT_SEED_SIZE,
         }
     }
 
@@ -377,8 +338,6 @@ impl SignatureScheme {
             SignatureScheme::MlDsa44 => ML_DSA_44_DOMAIN_SEPARATOR,
             SignatureScheme::MlDsa65 => ML_DSA_65_DOMAIN_SEPARATOR,
             SignatureScheme::MlDsa87 => ML_DSA_87_DOMAIN_SEPARATOR,
-            SignatureScheme::SlhDsaShake128f => SLH_DSA_SHAKE_128F_DOMAIN_SEPARATOR,
-            SignatureScheme::SlhDsaShake128s => SLH_DSA_SHAKE_128S_DOMAIN_SEPARATOR,
         }
     }
 
@@ -393,8 +352,6 @@ impl SignatureScheme {
             SignatureScheme::MlDsa44 => ML_DSA_44_SIGNING_KEY_SIZE,
             SignatureScheme::MlDsa65 => ML_DSA_65_SIGNING_KEY_SIZE,
             SignatureScheme::MlDsa87 => ML_DSA_87_SIGNING_KEY_SIZE,
-            SignatureScheme::SlhDsaShake128f => SLH_DSA_SHAKE_128F_SIGNING_KEY_SIZE,
-            SignatureScheme::SlhDsaShake128s => SLH_DSA_SHAKE_128S_SIGNING_KEY_SIZE,
         }
     }
 
@@ -409,8 +366,6 @@ impl SignatureScheme {
             SignatureScheme::MlDsa44 => ML_DSA_44_VERIFYING_KEY_SIZE,
             SignatureScheme::MlDsa65 => ML_DSA_65_VERIFYING_KEY_SIZE,
             SignatureScheme::MlDsa87 => ML_DSA_87_VERIFYING_KEY_SIZE,
-            SignatureScheme::SlhDsaShake128f => SLH_DSA_SHAKE_128F_VERIFYING_KEY_SIZE,
-            SignatureScheme::SlhDsaShake128s => SLH_DSA_SHAKE_128S_VERIFYING_KEY_SIZE,
         }
     }
 
@@ -425,8 +380,6 @@ impl SignatureScheme {
             SignatureScheme::MlDsa44 => ML_DSA_44_SIGNATURE_SIZE,
             SignatureScheme::MlDsa65 => ML_DSA_65_SIGNATURE_SIZE,
             SignatureScheme::MlDsa87 => ML_DSA_87_SIGNATURE_SIZE,
-            SignatureScheme::SlhDsaShake128f => SLH_DSA_SHAKE_128F_SIGNATURE_SIZE,
-            SignatureScheme::SlhDsaShake128s => SLH_DSA_SHAKE_128S_SIGNATURE_SIZE,
         }
     }
 }
