@@ -8,7 +8,8 @@
     feature = "ml-dsa",
     feature = "slh-dsa",
     feature = "mceliece",
-    feature = "ml-kem"
+    feature = "ml-kem",
+    feature = "mayo"
 ))]
 #[macro_use]
 mod macros;
@@ -20,6 +21,8 @@ pub mod falcon;
 pub mod hhd;
 #[cfg(any(feature = "mceliece", feature = "ml-kem"))]
 pub mod kem;
+#[cfg(feature = "mayo")]
+pub mod mayo;
 #[cfg(feature = "ml-dsa")]
 pub mod ml_dsa;
 #[cfg(feature = "slh-dsa")]

@@ -8,6 +8,7 @@ Bedrock provides post-quantum cryptographic primitives including digital signatu
 
 - **ML-DSA (FIPS 204)**: Module-Lattice-Based Digital Signature Algorithm
 - **Falcon/FN-DSA**: Fast Fourier Lattice-based Compact Signatures
+- **MAYO**: Multivariate oil-and-vinegar signatures with compact public keys
 - **ML-KEM (FIPS 203)**: Module-Lattice-Based Key-Encapsulation Mechanism
 - **Classic McEliece**: Code-based Key Encapsulation Mechanism
 - **ETHFALCON**: Ethereum-compatible Falcon variant with Keccak-256 XOF
@@ -30,6 +31,15 @@ Two security levels plus Ethereum variant:
 - **FN-DSA-512** (NIST Level 1) - Default
 - **FN-DSA-1024** (NIST Level 5)
 - **ETHFALCON** (Ethereum-compatible Falcon-512 with Keccak-256)
+
+### MAYO (Digital Signatures)
+
+Multivariate "oil and vinegar" signatures with compact public keys, via the `mayo` feature. Four NIST parameter sets:
+
+- **MAYO-1** (NIST Level 1) - Default
+- **MAYO-2** (NIST Level 1) - Smallest signatures
+- **MAYO-3** (NIST Level 3)
+- **MAYO-5** (NIST Level 5)
 
 ### ML-KEM (Key Encapsulation)
 

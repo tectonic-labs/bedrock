@@ -14,6 +14,9 @@ pub enum Error {
     /// ML-KEM error
     #[error("ML-KEM error: {0}")]
     MlKemError(String),
+    /// MAYO error
+    #[error("MAYO error: {0}")]
+    MayoError(String),
     /// SLH-DSA error
     #[error("SLH-DSA error: {0}")]
     SlhDsaError(String),
@@ -24,7 +27,7 @@ pub enum Error {
     #[error("Invalid scheme: {0}")]
     InvalidSchemeStr(String),
     /// Invalid seed length
-    #[error("Invalid seed length: expected at least 32 bytes, got {0}")]
+    #[error("Invalid seed length: got {0}")]
     InvalidSeedLength(usize),
     /// Invalid length
     #[error("Invalid length: {0}")]
