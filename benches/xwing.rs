@@ -1,17 +1,17 @@
-#[allow(missing_docs)]
+//! Criterion micro-benchmarks for the X-Wing hybrid KEM (keygen, encapsulate,
+//! decapsulate) across the supported post-quantum backends.
+
+// Benchmark harness, not a library/production path: `unwrap` on the KEM Result is
+// idiomatic here, so scope the crate-wide `unwrap_used = "deny"` off exactly as the
+// crate's own test modules do with `#[allow(clippy::unwrap_used)]`.
+#![allow(clippy::unwrap_used)]
 use criterion::{
     criterion_group, criterion_main, measurement::Measurement, BenchmarkGroup, Criterion,
 };
 
-use bedrock::xwing::*;
+use tectonic_bedrock::xwing::*;
 
 fn bench_keygen<'a, M: Measurement>(group: &mut BenchmarkGroup<'a, M>) {
-    group.bench_function("KeyGen Ml-Kem-512", |b| {
-        b.iter(|| {
-            let (_pk, _sk) = XwingScheme::X25519MlKem512.keypair().unwrap();
-        });
-    });
-
     group.bench_function("KeyGen Ml-Kem-768", |b| {
         b.iter(|| {
             let (_pk, _sk) = XwingScheme::X25519MlKem768.keypair().unwrap();
@@ -32,13 +32,6 @@ fn bench_keygen<'a, M: Measurement>(group: &mut BenchmarkGroup<'a, M>) {
 }
 
 fn bench_encapsulate<'a, M: Measurement>(group: &mut BenchmarkGroup<'a, M>) {
-    let (pk, _sk) = XwingScheme::X25519MlKem512.keypair().unwrap();
-    group.bench_function("Encapsulate-Ml-Kem-512", |b| {
-        b.iter(|| {
-            let (_ct, _ss) = pk.encapsulate().unwrap();
-        });
-    });
-
     let (pk, _sk) = XwingScheme::X25519MlKem768.keypair().unwrap();
     group.bench_function("Encapsulate-Ml-Kem-768", |b| {
         b.iter(|| {
@@ -62,15 +55,6 @@ fn bench_encapsulate<'a, M: Measurement>(group: &mut BenchmarkGroup<'a, M>) {
 }
 
 fn bench_decapsulate<'a, M: Measurement>(group: &mut BenchmarkGroup<'a, M>) {
-    let (pk, sk) = XwingScheme::X25519MlKem512.keypair().unwrap();
-    let (ct, _ss) = pk.encapsulate().unwrap();
-    let dk = sk.expand().unwrap();
-    group.bench_function("Decapsulate-Ml-Kem-512", |b| {
-        b.iter(|| {
-            let _ss1 = dk.decapsulate(&ct).unwrap();
-        });
-    });
-
     let (pk, sk) = XwingScheme::X25519MlKem768.keypair().unwrap();
     let (ct, _ss) = pk.encapsulate().unwrap();
     let dk = sk.expand().unwrap();

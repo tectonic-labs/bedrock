@@ -55,28 +55,22 @@ pub const FALCON512_SIGNATURE_SIZE: usize = 666;
 
 /// Size in bytes of the seed required for ML-DSA key generation (32 bytes = 256 bits).
 /// Original standard (pag. 33): 𝜉 ∈ 𝔹^32 for KeyGen_internal(𝜉).
-pub const ML_DSA_44_KEY_GENERATION_SEED_SIZE: usize = 32;
 pub const ML_DSA_65_KEY_GENERATION_SEED_SIZE: usize = 32;
 pub const ML_DSA_87_KEY_GENERATION_SEED_SIZE: usize = 32;
 /// Size in bytes of the root seed for ML-DSA HD key derivation (64 bytes = 512 bits).
-pub const ML_DSA_44_ROOT_SEED_SIZE: usize = 64;
 pub const ML_DSA_65_ROOT_SEED_SIZE: usize = 64;
 pub const ML_DSA_87_ROOT_SEED_SIZE: usize = 64;
-/// Domain separator string used for ML-DSA 44 in BIP-32 key derivation.
-pub const ML_DSA_44_DOMAIN_SEPARATOR: &[u8] = b"ML-DSA-44 seed";
+/// Domain separator string used for ML-DSA in BIP-32 key derivation.
 pub const ML_DSA_65_DOMAIN_SEPARATOR: &[u8] = b"ML-DSA-65 seed";
 pub const ML_DSA_87_DOMAIN_SEPARATOR: &[u8] = b"ML-DSA-87 seed";
 /// Numbers taken from the original ml-dsa standard: https://nvlpubs.nist.gov/nistpubs/fips/nist.fips.204.pdf
-/// Size in bytes of a ML-DSA 44/65/87 signing key (private key)
-pub const ML_DSA_44_SIGNING_KEY_SIZE: usize = 2560;
+/// Size in bytes of a ML-DSA 65/87 signing key (private key)
 pub const ML_DSA_65_SIGNING_KEY_SIZE: usize = 4032;
 pub const ML_DSA_87_SIGNING_KEY_SIZE: usize = 4896;
-/// Size in bytes of a ML-DSA 44/65/87 verifying key (public key)
-pub const ML_DSA_44_VERIFYING_KEY_SIZE: usize = 1312;
+/// Size in bytes of a ML-DSA 65/87 verifying key (public key)
 pub const ML_DSA_65_VERIFYING_KEY_SIZE: usize = 1952;
 pub const ML_DSA_87_VERIFYING_KEY_SIZE: usize = 2592;
-/// Size in bytes of a ML-DSA 44 signature.
-pub const ML_DSA_44_SIGNATURE_SIZE: usize = 2420;
+/// Size in bytes of a ML-DSA 65/87 signature.
 pub const ML_DSA_65_SIGNATURE_SIZE: usize = 3309;
 pub const ML_DSA_87_SIGNATURE_SIZE: usize = 4627;
 
@@ -114,8 +108,6 @@ pub enum SignatureSeed {
     ECDSAsecp256k1(Seed),
     /// Falcon-512 signature scheme seed.
     Falcon512(Seed),
-    /// ML-DSA 44 signature scheme seed.
-    MlDsa44(Seed),
     /// ML-DSA 65 signature scheme seed.
     MlDsa65(Seed),
     /// ML-DSA 87 signature scheme seed.
@@ -127,7 +119,6 @@ impl fmt::Debug for SignatureSeed {
         let variant = match self {
             SignatureSeed::ECDSAsecp256k1(_) => "ECDSAsecp256k1",
             SignatureSeed::Falcon512(_) => "Falcon512",
-            SignatureSeed::MlDsa44(_) => "MlDsa44",
             SignatureSeed::MlDsa65(_) => "MlDsa65",
             SignatureSeed::MlDsa87(_) => "MlDsa87",
         };
@@ -169,7 +160,6 @@ impl SignatureSeed {
         match self {
             SignatureSeed::ECDSAsecp256k1(seed) => seed,
             SignatureSeed::Falcon512(seed) => seed,
-            SignatureSeed::MlDsa44(seed) => seed,
             SignatureSeed::MlDsa65(seed) => seed,
             SignatureSeed::MlDsa87(seed) => seed,
         }
@@ -203,8 +193,6 @@ pub enum SignatureScheme {
     EcdsaSecp256k1,
     /// Falcon-512 post-quantum signature scheme.
     Falcon512,
-    /// ML-DSA 44 post-quantum signature scheme.
-    MlDsa44,
     /// ML-DSA 65 post-quantum signature scheme.
     MlDsa65,
     /// ML-DSA 87 post-quantum signature scheme.
@@ -273,7 +261,6 @@ impl SignatureScheme {
         match self {
             SignatureScheme::EcdsaSecp256k1
             | SignatureScheme::Falcon512
-            | SignatureScheme::MlDsa44
             | SignatureScheme::MlDsa65
             | SignatureScheme::MlDsa87 => Ok(BIP44_HARDENED_BASE_PATH),
         }
@@ -288,7 +275,6 @@ impl SignatureScheme {
         match self {
             SignatureScheme::EcdsaSecp256k1 => ECDSA_SECP256K1_KEY_GENERATION_SEED_SIZE,
             SignatureScheme::Falcon512 => FALCON512_KEY_GENERATION_SEED_SIZE,
-            SignatureScheme::MlDsa44 => ML_DSA_44_KEY_GENERATION_SEED_SIZE,
             SignatureScheme::MlDsa65 => ML_DSA_65_KEY_GENERATION_SEED_SIZE,
             SignatureScheme::MlDsa87 => ML_DSA_87_KEY_GENERATION_SEED_SIZE,
         }
@@ -302,7 +288,6 @@ impl SignatureScheme {
         match self {
             SignatureScheme::EcdsaSecp256k1 => ECDSA_SECP256K1_ROOT_SEED_SIZE,
             SignatureScheme::Falcon512 => FALCON512_ROOT_SEED_SIZE,
-            SignatureScheme::MlDsa44 => ML_DSA_44_ROOT_SEED_SIZE,
             SignatureScheme::MlDsa65 => ML_DSA_65_ROOT_SEED_SIZE,
             SignatureScheme::MlDsa87 => ML_DSA_87_ROOT_SEED_SIZE,
         }
@@ -335,7 +320,6 @@ impl SignatureScheme {
         match self {
             SignatureScheme::EcdsaSecp256k1 => ECDSA_SECP256K1_DOMAIN_SEPARATOR,
             SignatureScheme::Falcon512 => FALCON512_DOMAIN_SEPARATOR,
-            SignatureScheme::MlDsa44 => ML_DSA_44_DOMAIN_SEPARATOR,
             SignatureScheme::MlDsa65 => ML_DSA_65_DOMAIN_SEPARATOR,
             SignatureScheme::MlDsa87 => ML_DSA_87_DOMAIN_SEPARATOR,
         }
@@ -349,7 +333,6 @@ impl SignatureScheme {
         match self {
             SignatureScheme::EcdsaSecp256k1 => ECDSA_SECP256K1_SIGNING_KEY_SIZE,
             SignatureScheme::Falcon512 => FALCON512_SIGNING_KEY_SIZE,
-            SignatureScheme::MlDsa44 => ML_DSA_44_SIGNING_KEY_SIZE,
             SignatureScheme::MlDsa65 => ML_DSA_65_SIGNING_KEY_SIZE,
             SignatureScheme::MlDsa87 => ML_DSA_87_SIGNING_KEY_SIZE,
         }
@@ -363,7 +346,6 @@ impl SignatureScheme {
         match self {
             SignatureScheme::EcdsaSecp256k1 => ECDSA_SECP256K1_VERIFYING_KEY_SIZE,
             SignatureScheme::Falcon512 => FALCON512_VERIFYING_KEY_SIZE,
-            SignatureScheme::MlDsa44 => ML_DSA_44_VERIFYING_KEY_SIZE,
             SignatureScheme::MlDsa65 => ML_DSA_65_VERIFYING_KEY_SIZE,
             SignatureScheme::MlDsa87 => ML_DSA_87_VERIFYING_KEY_SIZE,
         }
@@ -377,7 +359,6 @@ impl SignatureScheme {
         match self {
             SignatureScheme::EcdsaSecp256k1 => ECDSA_SECP256K1_SIGNATURE_SIZE,
             SignatureScheme::Falcon512 => FALCON512_SIGNATURE_SIZE,
-            SignatureScheme::MlDsa44 => ML_DSA_44_SIGNATURE_SIZE,
             SignatureScheme::MlDsa65 => ML_DSA_65_SIGNATURE_SIZE,
             SignatureScheme::MlDsa87 => ML_DSA_87_SIGNATURE_SIZE,
         }
