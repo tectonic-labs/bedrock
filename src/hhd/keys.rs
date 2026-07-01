@@ -21,4 +21,4 @@ pub use error::KeyError;
 #[cfg(feature = "falcon")]
 pub use falcon::FnDsa512;
 #[cfg(feature = "ml-dsa")]
-pub(crate) use mldsa::{MlDsa44, MlDsa65, MlDsa87};
+pub(crate) use mldsa::{MlDsa65, MlDsa87};

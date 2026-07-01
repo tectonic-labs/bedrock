@@ -6,7 +6,6 @@ This document specifies a derivation process for Tectonic hybrid hierarchical de
 
 1. ECDSA secp256k1 signature;
 2. Falcon-512 signature [1];
-3. ML-DSA-44 signature [2];
 3. ML-DSA-65 signature [2];
 3. ML-DSA-87 signature [2];
 
@@ -16,7 +15,7 @@ The design chosen for Tectonic wallet allows a single BIP-39 mnemonic to determi
 
 We all know the hurdles of using wallets with incompatible derivation mechanisms. This steems from the fact that there is a variety of paths to achieve the same goal which leads to different outcomes. Tectonic PQ Wallet philosophy focus on using as much already developed standards as possible to design a successfull path for meaningful adoption. That being said, the Tectonic PQ Wallet uses the following standards [BIP-32](https://github.com/bitcoin/bips/blob/master/bip-0032.mediawiki), [BIP-44](https://github.com/bitcoin/bips/blob/master/bip-0044.mediawiki), [BIP-39](https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki), [BIP-85](https://github.com/bitcoin/bips/blob/master/bip-0085.mediawiki) and extends [SLIP0010](https://slips.readthedocs.io/en/latest/slip-0010/) to PQ signatures. 
 
-In summary, the process to generate a hierarchy of keypairs for both ECDSA, Falcon and ML-DSA signatures is as follows. The BIP-39 standard is used to generate a master seed from a BIP-39 mnemonic. Then, the BIP-85 standard is used to generate two child seeds to feed the hierarchical structure of ECDSA and PQ signatures. The BIP-85 standard uses the BIP-32 standard with hardened child key derivation (CKD) to produce those child seeds with the path given by `m/83696968'/{app_no}'/{index}'`. Then, the ECDSA branch (`index=1`) can follow the desired BIP-32 mechanism (hardened or non-hardened) for its hierarchical derivation, Falcon branch (`index=2`) and ML-DSA branches (`index=4,5,6`) follows a SLIP0010 approach. 
+In summary, the process to generate a hierarchy of keypairs for both ECDSA, Falcon and ML-DSA signatures is as follows. The BIP-39 standard is used to generate a master seed from a BIP-39 mnemonic. Then, the BIP-85 standard is used to generate two child seeds to feed the hierarchical structure of ECDSA and PQ signatures. The BIP-85 standard uses the BIP-32 standard with hardened child key derivation (CKD) to produce those child seeds with the path given by `m/83696968'/{app_no}'/{index}'`. Then, the ECDSA branch (`index=1`) can follow the desired BIP-32 mechanism (hardened or non-hardened) for its hierarchical derivation, Falcon branch (`index=2`) and ML-DSA branches (`index=5,6`) follows a SLIP0010 approach. 
 
 In other words, we have the following flow:
 
@@ -24,7 +23,6 @@ In other words, we have the following flow:
 2. BIP 85 to generate two child seeds using the path `m/83696968'/{app_no}'/{index}'`:
     - ECDSA branch (`index=1`): follows the BIP-32/44 standards with hardened/non-hardened key derivation.
     - Falcon branch (`index=2`): follows the SLIP0010 standard adapted to Falcon signatures.
-    - ML-DSA-44 branch (`index=4`): follows the SLIP0010 standard adapted to ML-DSA-44 signatures.
     - ML-DSA-65 branch (`index=5`): follows the SLIP0010 standard adapted to ML-DSA-65 signatures.
     - ML-DSA-87 branch (`index=6`): follows the SLIP0010 standard adapted to ML-DSA-87 signatures.
 
@@ -180,7 +178,7 @@ The derivation path follows the convention:
 m/83696968'/{app_no}'/{index}', where {app_no} is the path for the application, and {index} is the index.
 `
 
-Tectonic's post-quantum wallet app number is `app_no = 83286642`, standing for Tectonic written in a T9 keyboard. `ecdsa-secp258k1` signature is given `index=1`, `falcon-512` signature is given `index=2`, `ml-dsa-44` signature is given `index=4`, `ml-dsa-65` signature is given `index=5`, `ml-dsa-87` signature is given `index=6`. `index=3` is reserved for future analysis.
+Tectonic's post-quantum wallet app number is `app_no = 83286642`, standing for Tectonic written in a T9 keyboard. `ecdsa-secp258k1` signature is given `index=1`, `falcon-512` signature is given `index=2`, `ml-dsa-65` signature is given `index=5`, `ml-dsa-87` signature is given `index=6`. `index=3` and `index=4` are reserved for future analysis.
 
 We recall that the harneded derivation path does not use an ECC specific construction as the kpar is passed as raw bytes to the HMAC in the Data field. Therefore, this process can be applied to a generic derivation mechanism.
 
@@ -193,7 +191,7 @@ The output of CKD denoted by k is then passed to `HMAC-SHA512("bip-entropy-from-
 
 The entropy derived from BIP-85 procedure described above for the two branches can then be used as the seed for the generation of two keychains.
 
-The ECDSA branch can follow the traditional BIP-32 hierarchical derivation with either hardened or non-hardened derivation paths. The Falcon branch and the ML-DSA branches follow a hardened derivation path proposed in [SLIP0010](https://slips.readthedocs.io/en/latest/slip-0010/) for universal key derivation. We adopt a similar approach to ed25519 signature with the domain separator strings `"Falcon-512 seed"`, `"ML-DSA-44 seed"`, `"ML-DSA-65 seed"` and `"ML-DSA-87 seed"`, used in the master key generation step. 
+The ECDSA branch can follow the traditional BIP-32 hierarchical derivation with either hardened or non-hardened derivation paths. The Falcon branch and the ML-DSA branches follow a hardened derivation path proposed in [SLIP0010](https://slips.readthedocs.io/en/latest/slip-0010/) for universal key derivation. We adopt a similar approach to ed25519 signature with the domain separator strings `"Falcon-512 seed"`, `"ML-DSA-65 seed"` and `"ML-DSA-87 seed"`, used in the master key generation step. 
 
 We note that Falcon and ML-DSA original proposals do not provide a out-of-the-box rerandomization key technique, which does not allow for a non-hardened derivation path.
 

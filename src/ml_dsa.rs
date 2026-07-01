@@ -65,8 +65,6 @@ scheme_impl_pure!(
     /// ML-DSA schemes
     MlDsaScheme,
     #[default]
-    /// ML-DSA 44 (NIST Level 2)
-    Dsa44 => "ML-DSA-44" ; 1 ; 32,
     /// ML-DSA 65 (NIST Level 3)
     Dsa65 => "ML-DSA-65" ; 2 ; 32,
     /// ML-DSA 87 (NIST Level 5)
@@ -79,10 +77,6 @@ serde_impl!(MlDsaScheme);
 macro_rules! with_ml_dsa_params {
     ($scheme:expr, |$P:ident| $body:block) => {
         match $scheme {
-            MlDsaScheme::Dsa44 => {
-                type $P = ml_dsa::MlDsa44;
-                $body
-            }
             MlDsaScheme::Dsa65 => {
                 type $P = ml_dsa::MlDsa65;
                 $body
@@ -281,7 +275,6 @@ mod tests {
 
     #[cfg(all(feature = "kgen", feature = "sign"))]
     #[rstest]
-    #[case::mldsa44(MlDsaScheme::Dsa44)]
     #[case::mldsa65(MlDsaScheme::Dsa65)]
     #[case::mldsa87(MlDsaScheme::Dsa87)]
     fn serdes(#[case] scheme: MlDsaScheme) {
@@ -317,7 +310,6 @@ mod tests {
 
     #[cfg(all(feature = "kgen", feature = "sign", feature = "vrfy"))]
     #[rstest]
-    #[case::mldsa44(MlDsaScheme::Dsa44)]
     #[case::mldsa65(MlDsaScheme::Dsa65)]
     #[case::mldsa87(MlDsaScheme::Dsa87)]
     fn flow(#[case] scheme: MlDsaScheme) {
@@ -334,7 +326,6 @@ mod tests {
 
     #[cfg(all(feature = "kgen", feature = "sign", feature = "vrfy"))]
     #[rstest]
-    #[case::mldsa44(MlDsaScheme::Dsa44, 1312, 2560, 2420)]
     #[case::mldsa65(MlDsaScheme::Dsa65, 1952, 4032, 3309)]
     #[case::mldsa87(MlDsaScheme::Dsa87, 2592, 4896, 4627)]
     fn fixed_sizes(
@@ -352,7 +343,6 @@ mod tests {
 
     #[cfg(feature = "kgen")]
     #[rstest]
-    #[case::mldsa44(MlDsaScheme::Dsa44)]
     #[case::mldsa65(MlDsaScheme::Dsa65)]
     #[case::mldsa87(MlDsaScheme::Dsa87)]
     fn seed_determinism(#[case] scheme: MlDsaScheme) {

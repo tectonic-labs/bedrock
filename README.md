@@ -18,10 +18,9 @@ Bedrock provides post-quantum cryptographic primitives including digital signatu
 
 ### ML-DSA (Digital Signatures)
 
-Three security levels following NIST standards:
+Two security levels following NIST standards:
 
-- **ML-DSA-44** (NIST Level 2) - Default
-- **ML-DSA-65** (NIST Level 3)
+- **ML-DSA-65** (NIST Level 3) - Default
 - **ML-DSA-87** (NIST Level 5)
 
 ### Falcon/FN-DSA (Digital Signatures)
@@ -43,10 +42,9 @@ Multivariate "oil and vinegar" signatures with compact public keys, via the `may
 
 ### ML-KEM (Key Encapsulation)
 
-Three security levels following NIST standards:
+Two security levels following NIST standards:
 
-- **ML-KEM-512** (NIST Level 1) - Default when `ml-kem` feature enabled
-- **ML-KEM-768** (NIST Level 3)
+- **ML-KEM-768** (NIST Level 3) - Default when `ml-kem` feature enabled
 - **ML-KEM-1024** (NIST Level 5)
 
 ### Classic McEliece (Key Encapsulation)
@@ -57,7 +55,6 @@ Three security levels following NIST standards:
 
 Hybrid KEM combining X25519 with post-quantum KEMs:
 
-- **X25519-ML-KEM-512** (X25519 + ML-KEM-512)
 - **X25519-ML-KEM-768** (X25519 + ML-KEM-768) - Default
 - **X25519-ML-KEM-1024** (X25519 + ML-KEM-1024)
 - **X25519-ClassicMcEliece348864** (X25519 + Classic McEliece)
@@ -196,7 +193,7 @@ All key types, signatures, ciphertexts, and shared secrets implement `serde::Ser
 - **Binary formats** (postcard, bincode, etc.): Serialized as compact byte arrays
 
 Schemes implement the [`Display`] and [`FromStr`] traits for string parsing:
-- `to_string()` - Convert scheme to string representation (e.g., "ML-DSA-44")
+- `to_string()` - Convert scheme to string representation (e.g., "ML-DSA-65")
 - `from_str(s: &str) -> Result<Self>` or `parse()` - Parse scheme from string
 - Conversion to/from `u8` for compact storage
 
@@ -208,7 +205,7 @@ Schemes implement the [`Display`] and [`FromStr`] traits for string parsing:
 use bedrock::ml_dsa::MlDsaScheme;
 
 // Generate a keypair
-let scheme = MlDsaScheme::Dsa44;
+let scheme = MlDsaScheme::Dsa65;
 let (verification_key, signing_key) = scheme.keypair()?;
 
 // Sign a message
