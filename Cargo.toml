@@ -13,12 +13,13 @@ repository = "https://github.com/tectonic-labs/bedrock"
 version = "0.3.0"
 
 [features]
-default = ["eth_falcon", "falcon", "ml-dsa", "slh-dsa", "decp", "encp", "kgen", "sign", "vrfy", "hhd"]
+default = ["eth_falcon", "falcon", "ml-dsa", "slh-dsa", "mayo", "decp", "encp", "kgen", "sign", "vrfy", "hhd"]
 eth_falcon = ["falcon", "rand_chacha", "rand_core", "fn-dsa-comm/eth_falcon", "fn-dsa-sign?/eth_falcon", "fn-dsa-vrfy?/eth_falcon", "zeroize"]
 hhd = ["zeroize", "bip32", "hmac", "sha2", "tiny-bip39", "rand_core", "kgen"]
 falcon = ["fn-dsa-comm"]
 slh-dsa = ["dep:slh-dsa", "rand_core_010", "getrandom_v04"]
 ml-dsa = ["dep:ml-dsa", "rand_core_010", "getrandom_v04"]
+mayo = ["dep:pq-mayo", "dep:signature", "rand_core_010", "getrandom_v04"]
 mceliece = ["dep:classic-mceliece-rust", "rand_core", "rand_core/getrandom", "rand_chacha", "zeroize"]
 ml-kem = ["dep:ml-kem"]
 kgen = ["fn-dsa-comm", "fn-dsa-kgen", "rand_core", "rand_core/getrandom"]
@@ -47,6 +48,8 @@ tiny-bip39 = { version = "2.0.0", optional = true }
 ml-kem = { version = "0.3.2", default-features = false, features = ["alloc", "zeroize", "getrandom"], optional = true }
 ml-dsa = { version = "=0.1.0-rc.9", default-features = false, features = ["alloc", "rand_core", "zeroize"], optional = true }
 slh-dsa = { version = "=0.2.0-rc.5", features = ["zeroize"], optional = true }
+pq-mayo = { version = "0.5.0", optional = true }
+signature = { version = "3", optional = true }
 rand_core_010 = { package = "rand_core", version = "0.10", optional = true }
 getrandom_v04 = { package = "getrandom", version = "0.4", features = ["sys_rng"], optional = true }
 
