@@ -65,12 +65,14 @@ scheme_impl_pure!(
     /// ML-DSA schemes
     MlDsaScheme,
     #[default]
-    /// ML-DSA 44 (NIST Level 2)
-    Dsa44 => "ML-DSA-44" ; 1 ; 32,
     /// ML-DSA 65 (NIST Level 3)
     Dsa65 => "ML-DSA-65" ; 2 ; 32,
     /// ML-DSA 87 (NIST Level 5)
     Dsa87 => "ML-DSA-87" ; 3 ; 32,
+    // Deprecated: ML-DSA-44 (NIST Level 2) was removed for being too weak. Discriminant
+    // 1 stays reserved so older serialized keys/signatures report a clear migration error.
+    @deprecated
+    "ML-DSA-44" => 1 ; "ML-DSA-65",
 );
 
 serde_impl!(MlDsaScheme);
@@ -79,10 +81,6 @@ serde_impl!(MlDsaScheme);
 macro_rules! with_ml_dsa_params {
     ($scheme:expr, |$P:ident| $body:block) => {
         match $scheme {
-            MlDsaScheme::Dsa44 => {
-                type $P = ml_dsa::MlDsa44;
-                $body
-            }
             MlDsaScheme::Dsa65 => {
                 type $P = ml_dsa::MlDsa65;
                 $body
@@ -281,7 +279,6 @@ mod tests {
 
     #[cfg(all(feature = "kgen", feature = "sign"))]
     #[rstest]
-    #[case::mldsa44(MlDsaScheme::Dsa44)]
     #[case::mldsa65(MlDsaScheme::Dsa65)]
     #[case::mldsa87(MlDsaScheme::Dsa87)]
     fn serdes(#[case] scheme: MlDsaScheme) {
@@ -317,7 +314,6 @@ mod tests {
 
     #[cfg(all(feature = "kgen", feature = "sign", feature = "vrfy"))]
     #[rstest]
-    #[case::mldsa44(MlDsaScheme::Dsa44)]
     #[case::mldsa65(MlDsaScheme::Dsa65)]
     #[case::mldsa87(MlDsaScheme::Dsa87)]
     fn flow(#[case] scheme: MlDsaScheme) {
@@ -334,7 +330,6 @@ mod tests {
 
     #[cfg(all(feature = "kgen", feature = "sign", feature = "vrfy"))]
     #[rstest]
-    #[case::mldsa44(MlDsaScheme::Dsa44, 1312, 2560, 2420)]
     #[case::mldsa65(MlDsaScheme::Dsa65, 1952, 4032, 3309)]
     #[case::mldsa87(MlDsaScheme::Dsa87, 2592, 4896, 4627)]
     fn fixed_sizes(
@@ -352,7 +347,6 @@ mod tests {
 
     #[cfg(feature = "kgen")]
     #[rstest]
-    #[case::mldsa44(MlDsaScheme::Dsa44)]
     #[case::mldsa65(MlDsaScheme::Dsa65)]
     #[case::mldsa87(MlDsaScheme::Dsa87)]
     fn seed_determinism(#[case] scheme: MlDsaScheme) {
@@ -362,5 +356,26 @@ mod tests {
         assert_eq!(pk1.as_ref(), pk2.as_ref());
         assert_eq!(sk1.as_ref(), sk2.as_ref());
         assert!(scheme.keypair_from_seed(&[0u8; 31]).is_err());
+    }
+
+    /// The removed ML-DSA-44 scheme reports a deprecation error (not a generic
+    /// `InvalidScheme`) via its old wire discriminant and display string, so data from
+    /// an older library version fails with a clear migration message.
+    #[test]
+    fn ml_dsa_44_is_deprecated() {
+        assert!(matches!(
+            MlDsaScheme::try_from(1),
+            Err(Error::DeprecatedScheme {
+                scheme: "ML-DSA-44",
+                replacement: "ML-DSA-65",
+            })
+        ));
+        assert!(matches!(
+            "ML-DSA-44".parse::<MlDsaScheme>(),
+            Err(Error::DeprecatedScheme {
+                scheme: "ML-DSA-44",
+                ..
+            })
+        ));
     }
 }

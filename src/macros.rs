@@ -33,6 +33,13 @@ macro_rules! serde_impl {
 }
 
 /// Defines a scheme enum and its shared impls; schemes dispatch on the enum directly.
+///
+/// After the active variants, an optional `@deprecated` section lists schemes that have
+/// been removed for being too weak. Deprecated schemes get no enum variant, but their
+/// old wire discriminant and display string are still recognized by `TryFrom<u8>` and
+/// `FromStr`, which return [`Error::DeprecatedScheme`] so data produced by an older
+/// version of the library fails with a clear, actionable migration error instead of a
+/// generic "invalid scheme".
 #[allow(unused_macros)]
 macro_rules! scheme_impl_pure {
     (
@@ -44,6 +51,13 @@ macro_rules! scheme_impl_pure {
             $variant:ident => $display:literal ; $value:literal ; $seed_size:literal
         ),+
         $(,)?
+        $(
+            @deprecated
+            $(
+                $dep_display:literal => $dep_value:literal ; $dep_replacement:literal
+            ),+
+            $(,)?
+        )?
     ) => {
         $(#[$meta])*
         #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Ord, PartialOrd, Hash)]
@@ -55,7 +69,11 @@ macro_rules! scheme_impl_pure {
             )+
         }
 
-        scheme_common_impl!($name, $($(@cfg($($cfg)+))? $variant => $display ; $value ; $seed_size),+);
+        scheme_common_impl!(
+            $name,
+            $($(@cfg($($cfg)+))? $variant => $display ; $value ; $seed_size),+
+            $(; deprecated $($dep_display => $dep_value ; $dep_replacement),+)?
+        );
     };
 }
 
@@ -69,6 +87,7 @@ macro_rules! scheme_common_impl {
             $variant:ident => $display:literal ; $value:literal ; $seed_size:literal
         ),+
         $(,)?
+        $(; deprecated $($dep_display:literal => $dep_value:literal ; $dep_replacement:literal),+ )?
     ) => {
         impl From<$name> for u8 {
             fn from(scheme: $name) -> Self {
@@ -96,6 +115,12 @@ macro_rules! scheme_common_impl {
                         $(#[cfg($($cfg)+)])?
                         $value => Ok($name::$variant),
                     )+
+                    $($(
+                        $dep_value => Err(Error::DeprecatedScheme {
+                            scheme: $dep_display,
+                            replacement: $dep_replacement,
+                        }),
+                    )+)?
                     _ => Err(Error::InvalidScheme(v)),
                 }
             }
@@ -123,6 +148,12 @@ macro_rules! scheme_common_impl {
                         $(#[cfg($($cfg)+)])?
                         $display => Ok($name::$variant),
                     )+
+                    $($(
+                        $dep_display => Err(Error::DeprecatedScheme {
+                            scheme: $dep_display,
+                            replacement: $dep_replacement,
+                        }),
+                    )+)?
                     _ => Err(Error::InvalidSchemeStr(s.to_string())),
                 }
             }

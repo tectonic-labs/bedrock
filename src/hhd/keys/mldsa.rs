@@ -18,8 +18,7 @@
 
 use crate::hhd::keys::KeyError;
 use crate::hhd::signatures::{
-    SignatureScheme, ML_DSA_44_KEY_GENERATION_SEED_SIZE, ML_DSA_65_KEY_GENERATION_SEED_SIZE,
-    ML_DSA_87_KEY_GENERATION_SEED_SIZE,
+    SignatureScheme, ML_DSA_65_KEY_GENERATION_SEED_SIZE, ML_DSA_87_KEY_GENERATION_SEED_SIZE,
 };
 use crate::hhd::slip10::{Slip10, Slip10XPrvKey};
 use crate::ml_dsa::{MlDsaScheme, MlDsaSigningKey, MlDsaVerificationKey};
@@ -29,7 +28,7 @@ use zeroize::Zeroize;
 macro_rules! impl_ml_dsa_struct {
     (
         $name:ident,
-        $version:ident, // ML-DSA version: Dsa44, Dsa65, Dsa87
+        $version:ident, // ML-DSA version: Dsa65, Dsa87
         $seed_size_const:ident,
     ) => {
         #[derive(Clone, Debug)]
@@ -118,8 +117,6 @@ macro_rules! impl_ml_dsa_struct {
     };
 }
 
-impl_ml_dsa_struct!(MlDsa44, Dsa44, ML_DSA_44_KEY_GENERATION_SEED_SIZE,);
-
 impl_ml_dsa_struct!(MlDsa65, Dsa65, ML_DSA_65_KEY_GENERATION_SEED_SIZE,);
 
 impl_ml_dsa_struct!(MlDsa87, Dsa87, ML_DSA_87_KEY_GENERATION_SEED_SIZE,);
@@ -142,16 +139,12 @@ mod tests {
 
     /// Test that MlDsa keypair can be derived from a seed
     #[rstest]
-    #[case::mldsa44(SignatureScheme::MlDsa44)]
     #[case::mldsa65(SignatureScheme::MlDsa65)]
     #[case::mldsa87(SignatureScheme::MlDsa87)]
     fn test_mldsa_derive_from_seed_basic(#[case] scheme: SignatureScheme) {
         let address_index = 0u32;
 
         let keypair = match scheme {
-            SignatureScheme::MlDsa44 => {
-                MlDsa44::derive_from_seed(&TEST_ML_DSA_SEED_64, address_index)
-            }
             SignatureScheme::MlDsa65 => {
                 MlDsa65::derive_from_seed(&TEST_ML_DSA_SEED_64, address_index)
             }
@@ -169,7 +162,6 @@ mod tests {
 
     /// Test that MlDsa keypair derivation is deterministic
     #[rstest]
-    #[case::mldsa44(SignatureScheme::MlDsa44)]
     #[case::mldsa65(SignatureScheme::MlDsa65)]
     #[case::mldsa87(SignatureScheme::MlDsa87)]
     fn test_mldsa_derive_from_seed_deterministic(#[case] scheme: SignatureScheme) {
@@ -177,11 +169,6 @@ mod tests {
 
         // Derive same keypair twice
         let (keypair1, keypair2) = match scheme {
-            SignatureScheme::MlDsa44 => {
-                let keypair1 = MlDsa44::derive_from_seed(&TEST_ML_DSA_SEED_64, address_index);
-                let keypair2 = MlDsa44::derive_from_seed(&TEST_ML_DSA_SEED_64, address_index);
-                (keypair1, keypair2)
-            }
             SignatureScheme::MlDsa65 => {
                 let keypair1 = MlDsa65::derive_from_seed(&TEST_ML_DSA_SEED_64, address_index);
                 let keypair2 = MlDsa65::derive_from_seed(&TEST_ML_DSA_SEED_64, address_index);
@@ -213,7 +200,6 @@ mod tests {
     #[cfg(all(feature = "sign", feature = "vrfy"))]
     /// Tests signing and verification using the keypair methods.
     #[rstest]
-    #[case::mldsa44(SignatureScheme::MlDsa44, MlDsaScheme::Dsa44)]
     #[case::mldsa65(SignatureScheme::MlDsa65, MlDsaScheme::Dsa65)]
     #[case::mldsa87(SignatureScheme::MlDsa87, MlDsaScheme::Dsa87)]
     fn test_mldsa_sign_verify(
@@ -221,7 +207,6 @@ mod tests {
         #[case] mldsa_scheme: MlDsaScheme,
     ) {
         let keypair = match key_scheme {
-            SignatureScheme::MlDsa44 => MlDsa44::derive_from_seed(&TEST_ML_DSA_SEED_64, 0),
             SignatureScheme::MlDsa65 => MlDsa65::derive_from_seed(&TEST_ML_DSA_SEED_64, 0),
             SignatureScheme::MlDsa87 => MlDsa87::derive_from_seed(&TEST_ML_DSA_SEED_64, 0),
             _ => panic!("Invalid scheme"),

@@ -18,10 +18,9 @@ Bedrock provides post-quantum cryptographic primitives including digital signatu
 
 ### ML-DSA (Digital Signatures)
 
-Three security levels following NIST standards:
+Two security levels following NIST standards:
 
-- **ML-DSA-44** (NIST Level 2) - Default
-- **ML-DSA-65** (NIST Level 3)
+- **ML-DSA-65** (NIST Level 3) - Default
 - **ML-DSA-87** (NIST Level 5)
 
 ### Falcon/FN-DSA (Digital Signatures)
@@ -43,10 +42,9 @@ Multivariate "oil and vinegar" signatures with compact public keys, via the `may
 
 ### ML-KEM (Key Encapsulation)
 
-Three security levels following NIST standards:
+Two security levels following NIST standards:
 
-- **ML-KEM-512** (NIST Level 1) - Default when `ml-kem` feature enabled
-- **ML-KEM-768** (NIST Level 3)
+- **ML-KEM-768** (NIST Level 3) - Default when `ml-kem` feature enabled
 - **ML-KEM-1024** (NIST Level 5)
 
 ### Classic McEliece (Key Encapsulation)
@@ -57,10 +55,44 @@ Three security levels following NIST standards:
 
 Hybrid KEM combining X25519 with post-quantum KEMs:
 
-- **X25519-ML-KEM-512** (X25519 + ML-KEM-512)
 - **X25519-ML-KEM-768** (X25519 + ML-KEM-768) - Default
 - **X25519-ML-KEM-1024** (X25519 + ML-KEM-1024)
 - **X25519-ClassicMcEliece348864** (X25519 + Classic McEliece)
+
+### Excluded Schemes
+
+The weakest ML-KEM and ML-DSA parameter sets are intentionally **not** offered — they
+are considered too weak for new deployments, so the library provides no way to select
+them:
+
+| Scheme | NIST Level | Status | Notes |
+|--------|-----------|--------|-------|
+| **ML-KEM-512** | Level 1 | Removed | Use ML-KEM-768 (the new `KemScheme` default) or higher. |
+| **ML-DSA-44** | Level 2 | Removed | Use ML-DSA-65 (the new `MlDsaScheme` default) or higher. |
+| **X25519-ML-KEM-512** | — | Removed | Hybrid built on ML-KEM-512; use X25519-ML-KEM-768 or higher. |
+
+Removing these dropped the `KemScheme::MlKem512`, `MlDsaScheme::Dsa44`, and
+`XwingScheme::X25519MlKem512` variants, the `SignatureScheme::MlDsa44` /
+`SignatureSeed::MlDsa44` HD-wallet variants, the `HHDWallet::derive_mldsa44_keypair`
+method, and all `ML_DSA_44_*` constants. See the [CHANGELOG](./CHANGELOG.md) for the
+full breaking-change entry.
+
+The serde discriminants and BIP-85 child indices of the surviving schemes are unchanged,
+so existing serialized keys and derivation paths for the stronger schemes remain valid.
+
+**Deprecation path for existing data.** The wire discriminants (`1`) and name strings
+(`"ML-KEM-512"`, `"ML-DSA-44"`, `"X25519-ML-KEM-512"`) of the removed schemes stay
+**reserved**: deserializing or parsing data produced by an older version of the library
+returns a specific `Error::DeprecatedScheme { scheme, replacement }` — naming the removed
+scheme and its recommended replacement — rather than a generic `InvalidScheme`. This gives
+anything that may already have used these schemes a clear, actionable migration error
+instead of a silent or confusing failure. The discriminants are never reassigned to other
+schemes.
+
+> **Note:** exclusion applies only to the weakest ML-KEM / ML-DSA lattice sets. Level 1
+> parameter sets from other families — FN-DSA-512, MAYO-1, MAYO-2, and
+> ClassicMcEliece-348864 — remain available, since their security margins and intended
+> use cases differ.
 
 ## API Reference
 
@@ -196,7 +228,7 @@ All key types, signatures, ciphertexts, and shared secrets implement `serde::Ser
 - **Binary formats** (postcard, bincode, etc.): Serialized as compact byte arrays
 
 Schemes implement the [`Display`] and [`FromStr`] traits for string parsing:
-- `to_string()` - Convert scheme to string representation (e.g., "ML-DSA-44")
+- `to_string()` - Convert scheme to string representation (e.g., "ML-DSA-65")
 - `from_str(s: &str) -> Result<Self>` or `parse()` - Parse scheme from string
 - Conversion to/from `u8` for compact storage
 
@@ -208,7 +240,7 @@ Schemes implement the [`Display`] and [`FromStr`] traits for string parsing:
 use bedrock::ml_dsa::MlDsaScheme;
 
 // Generate a keypair
-let scheme = MlDsaScheme::Dsa44;
+let scheme = MlDsaScheme::Dsa65;
 let (verification_key, signing_key) = scheme.keypair()?;
 
 // Sign a message

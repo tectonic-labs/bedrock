@@ -100,9 +100,6 @@ scheme_impl_pure!(
     KemScheme,
     @cfg(feature = "ml-kem")
     #[cfg_attr(feature = "ml-kem", default)]
-    /// ML-KEM 512 (NIST Level 1)
-    MlKem512 => "ML-KEM-512" ; 1 ; 64,
-    @cfg(feature = "ml-kem")
     /// ML-KEM 768 (NIST Level 3)
     MlKem768 => "ML-KEM-768" ; 2 ; 64,
     @cfg(feature = "ml-kem")
@@ -112,6 +109,10 @@ scheme_impl_pure!(
     #[cfg_attr(not(feature = "ml-kem"), default)]
     /// Classic McEliece 348864 (NIST Level 1)
     ClassicMcEliece348864 => "ClassicMcEliece-348864" ; 4 ; 32,
+    // Deprecated: ML-KEM-512 (NIST Level 1) was removed for being too weak. Discriminant
+    // 1 stays reserved so older serialized keys report a clear migration error.
+    @deprecated
+    "ML-KEM-512" => 1 ; "ML-KEM-768",
 );
 
 serde_impl!(KemScheme);
@@ -123,10 +124,6 @@ serde_impl!(KemScheme);
 macro_rules! with_ml_kem_params {
     ($scheme:expr, |$P:ident| $body:block) => {{
         match $scheme {
-            KemScheme::MlKem512 => {
-                type $P = ml_kem::MlKem512;
-                $body
-            }
             KemScheme::MlKem768 => {
                 type $P = ml_kem::MlKem768;
                 $body
@@ -149,7 +146,7 @@ impl KemScheme {
     pub fn keypair(&self) -> Result<(KemEncapsulationKey, KemDecapsulationKey)> {
         match self {
             #[cfg(feature = "ml-kem")]
-            KemScheme::MlKem512 | KemScheme::MlKem768 | KemScheme::MlKem1024 => {
+            KemScheme::MlKem768 | KemScheme::MlKem1024 => {
                 use ml_kem::KeyExport;
                 with_ml_kem_params!(*self, |P| {
                     let (dk, ek) = <P as ml_kem::Kem>::generate_keypair();
@@ -176,7 +173,7 @@ impl KemScheme {
         }
         match self {
             #[cfg(feature = "ml-kem")]
-            KemScheme::MlKem512 | KemScheme::MlKem768 | KemScheme::MlKem1024 => {
+            KemScheme::MlKem768 | KemScheme::MlKem1024 => {
                 use ml_kem::KeyExport;
                 with_ml_kem_params!(*self, |P| {
                     let seed = ml_kem::Seed::try_from(seed)
@@ -224,7 +221,7 @@ impl KemScheme {
     ) -> Result<(KemCiphertext, KemSharedSecret)> {
         match self {
             #[cfg(feature = "ml-kem")]
-            KemScheme::MlKem512 | KemScheme::MlKem768 | KemScheme::MlKem1024 => {
+            KemScheme::MlKem768 | KemScheme::MlKem1024 => {
                 use ml_kem::{Encapsulate, TryKeyInit};
                 with_ml_kem_params!(*self, |P| {
                     let ek = ml_kem::EncapsulationKey::<P>::new_from_slice(
@@ -276,7 +273,7 @@ impl KemScheme {
     ) -> Result<KemSharedSecret> {
         match self {
             #[cfg(feature = "ml-kem")]
-            KemScheme::MlKem512 | KemScheme::MlKem768 | KemScheme::MlKem1024 => {
+            KemScheme::MlKem768 | KemScheme::MlKem1024 => {
                 use ml_kem::{Decapsulate, KeyInit};
                 with_ml_kem_params!(*self, |P| {
                     let dk = ml_kem::DecapsulationKey::<P>::new_from_slice(
@@ -311,7 +308,7 @@ impl KemScheme {
     fn validate_encapsulation_key(&self, bytes: &[u8]) -> Result<()> {
         match self {
             #[cfg(feature = "ml-kem")]
-            KemScheme::MlKem512 | KemScheme::MlKem768 | KemScheme::MlKem1024 => {
+            KemScheme::MlKem768 | KemScheme::MlKem1024 => {
                 use ml_kem::TryKeyInit;
                 with_ml_kem_params!(*self, |P| {
                     ml_kem::EncapsulationKey::<P>::new_from_slice(bytes).map_err(|_| {
@@ -332,7 +329,7 @@ impl KemScheme {
     fn validate_decapsulation_key(&self, bytes: &[u8]) -> Result<()> {
         match self {
             #[cfg(feature = "ml-kem")]
-            KemScheme::MlKem512 | KemScheme::MlKem768 | KemScheme::MlKem1024 => {
+            KemScheme::MlKem768 | KemScheme::MlKem1024 => {
                 use ml_kem::KeyInit;
                 with_ml_kem_params!(*self, |P| {
                     ml_kem::DecapsulationKey::<P>::new_from_slice(bytes).map_err(|_| {
@@ -353,7 +350,7 @@ impl KemScheme {
     fn validate_ciphertext(&self, bytes: &[u8]) -> Result<()> {
         match self {
             #[cfg(feature = "ml-kem")]
-            KemScheme::MlKem512 | KemScheme::MlKem768 | KemScheme::MlKem1024 => {
+            KemScheme::MlKem768 | KemScheme::MlKem1024 => {
                 with_ml_kem_params!(*self, |P| {
                     ml_kem::Ciphertext::<P>::try_from(bytes)
                         .map_err(|_| Error::MlKemError("an invalid kem ciphertext".to_string()))?;
@@ -372,7 +369,7 @@ impl KemScheme {
     fn validate_shared_secret(&self, bytes: &[u8]) -> Result<()> {
         match self {
             #[cfg(feature = "ml-kem")]
-            KemScheme::MlKem512 | KemScheme::MlKem768 | KemScheme::MlKem1024 => {
+            KemScheme::MlKem768 | KemScheme::MlKem1024 => {
                 if bytes.len() == 32 {
                     Ok(())
                 } else {
@@ -451,7 +448,6 @@ mod tests {
 
     #[cfg(all(feature = "kgen", feature = "encp"))]
     #[rstest]
-    #[cfg_attr(feature = "ml-kem", case::mlkem512(KemScheme::MlKem512))]
     #[cfg_attr(feature = "ml-kem", case::mlkem768(KemScheme::MlKem768))]
     #[cfg_attr(feature = "ml-kem", case::mlkem1024(KemScheme::MlKem1024))]
     #[cfg_attr(feature = "mceliece", case::mceliece(KemScheme::ClassicMcEliece348864))]
@@ -495,7 +491,6 @@ mod tests {
 
     #[cfg(all(feature = "kgen", feature = "encp", feature = "decp"))]
     #[rstest]
-    #[cfg_attr(feature = "ml-kem", case::mlkem512(KemScheme::MlKem512))]
     #[cfg_attr(feature = "ml-kem", case::mlkem768(KemScheme::MlKem768))]
     #[cfg_attr(feature = "ml-kem", case::mlkem1024(KemScheme::MlKem1024))]
     #[cfg_attr(feature = "mceliece", case::mceliece(KemScheme::ClassicMcEliece348864))]
@@ -513,7 +508,6 @@ mod tests {
 
     #[cfg(feature = "kgen")]
     #[rstest]
-    #[cfg_attr(feature = "ml-kem", case::mlkem512(KemScheme::MlKem512, 64))]
     #[cfg_attr(feature = "ml-kem", case::mlkem768(KemScheme::MlKem768, 64))]
     #[cfg_attr(feature = "ml-kem", case::mlkem1024(KemScheme::MlKem1024, 64))]
     #[cfg_attr(
@@ -542,11 +536,32 @@ mod tests {
         feature = "mceliece",
         case::mceliece_too_short(KemScheme::ClassicMcEliece348864, 16)
     )]
-    #[cfg_attr(feature = "ml-kem", case::mlkem_too_short(KemScheme::MlKem512, 32))]
-    #[cfg_attr(feature = "ml-kem", case::mlkem_too_long(KemScheme::MlKem512, 100))]
+    #[cfg_attr(feature = "ml-kem", case::mlkem_too_short(KemScheme::MlKem768, 32))]
+    #[cfg_attr(feature = "ml-kem", case::mlkem_too_long(KemScheme::MlKem768, 100))]
     fn keypair_from_seed_invalid(#[case] scheme: KemScheme, #[case] seed_len: usize) {
         let seed = vec![0xABu8; seed_len];
         let result = scheme.keypair_from_seed(&seed);
         assert!(result.is_err());
+    }
+
+    /// The removed ML-KEM-512 scheme reports a deprecation error (not a generic
+    /// `InvalidScheme`) via its old wire discriminant and display string, so data from
+    /// an older library version fails with a clear migration message.
+    #[test]
+    fn ml_kem_512_is_deprecated() {
+        assert!(matches!(
+            KemScheme::try_from(1),
+            Err(Error::DeprecatedScheme {
+                scheme: "ML-KEM-512",
+                replacement: "ML-KEM-768",
+            })
+        ));
+        assert!(matches!(
+            "ML-KEM-512".parse::<KemScheme>(),
+            Err(Error::DeprecatedScheme {
+                scheme: "ML-KEM-512",
+                ..
+            })
+        ));
     }
 }

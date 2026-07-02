@@ -39,9 +39,6 @@ const X_WING_LABEL: &[u8; 6] = br"\.//^\";
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Ord, PartialOrd, Hash)]
 pub enum XwingScheme {
     #[cfg(feature = "ml-kem")]
-    /// x25519 w/ML-Kem-512
-    X25519MlKem512,
-    #[cfg(feature = "ml-kem")]
     /// x25519 w/ML-Kem-768
     #[default]
     X25519MlKem768,
@@ -58,8 +55,6 @@ impl From<XwingScheme> for u8 {
     fn from(scheme: XwingScheme) -> Self {
         use XwingScheme::*;
         match scheme {
-            #[cfg(feature = "ml-kem")]
-            X25519MlKem512 => 1,
             #[cfg(feature = "ml-kem")]
             X25519MlKem768 => 2,
             #[cfg(feature = "ml-kem")]
@@ -82,13 +77,17 @@ impl TryFrom<u8> for XwingScheme {
     fn try_from(v: u8) -> Result<Self> {
         match v {
             #[cfg(feature = "ml-kem")]
-            1 => Ok(XwingScheme::X25519MlKem512),
-            #[cfg(feature = "ml-kem")]
             2 => Ok(XwingScheme::X25519MlKem768),
             #[cfg(feature = "ml-kem")]
             3 => Ok(XwingScheme::X25519MlKem1024),
             #[cfg(feature = "mceliece")]
             4 => Ok(XwingScheme::X25519McEliece348864),
+            // Deprecated: X25519-ML-KEM-512 was removed for building on the too-weak
+            // ML-KEM-512. Discriminant 1 stays reserved for a clear migration error.
+            1 => Err(Error::DeprecatedScheme {
+                scheme: "X25519-ML-KEM-512",
+                replacement: "X25519-ML-KEM-768",
+            }),
             _ => Err(Error::InvalidScheme(v)),
         }
     }
@@ -100,8 +99,6 @@ impl Display for XwingScheme {
             f,
             "{}",
             match self {
-                #[cfg(feature = "ml-kem")]
-                Self::X25519MlKem512 => "X25519-ML-KEM-512",
                 #[cfg(feature = "ml-kem")]
                 Self::X25519MlKem768 => "X25519-ML-KEM-768",
                 #[cfg(feature = "ml-kem")]
@@ -119,13 +116,15 @@ impl FromStr for XwingScheme {
     fn from_str(s: &str) -> Result<Self> {
         match s {
             #[cfg(feature = "ml-kem")]
-            "X25519-ML-KEM-512" => Ok(XwingScheme::X25519MlKem512),
-            #[cfg(feature = "ml-kem")]
             "X25519-ML-KEM-768" => Ok(XwingScheme::X25519MlKem768),
             #[cfg(feature = "ml-kem")]
             "X25519-ML-KEM-1024" => Ok(XwingScheme::X25519MlKem1024),
             #[cfg(feature = "mceliece")]
             "X25519-ClassicMcEliece348864" => Ok(XwingScheme::X25519McEliece348864),
+            "X25519-ML-KEM-512" => Err(Error::DeprecatedScheme {
+                scheme: "X25519-ML-KEM-512",
+                replacement: "X25519-ML-KEM-768",
+            }),
             _ => Err(Error::InvalidSchemeStr(s.to_string())),
         }
     }
@@ -136,8 +135,6 @@ serde_impl!(XwingScheme);
 impl From<XwingScheme> for KemScheme {
     fn from(scheme: XwingScheme) -> Self {
         match scheme {
-            #[cfg(feature = "ml-kem")]
-            XwingScheme::X25519MlKem512 => KemScheme::MlKem512,
             #[cfg(feature = "ml-kem")]
             XwingScheme::X25519MlKem768 => KemScheme::MlKem768,
             #[cfg(feature = "ml-kem")]
@@ -159,9 +156,7 @@ impl XwingScheme {
     pub fn keypair(&self) -> Result<(EncapsulationKey, DecapsulationKey)> {
         let seed = match self {
             #[cfg(feature = "ml-kem")]
-            XwingScheme::X25519MlKem512
-            | XwingScheme::X25519MlKem768
-            | XwingScheme::X25519MlKem1024 => {
+            XwingScheme::X25519MlKem768 | XwingScheme::X25519MlKem1024 => {
                 let mut seed = [0u8; 32];
                 rand_core::OsRng.fill_bytes(&mut seed);
                 seed.to_vec()
@@ -356,8 +351,6 @@ impl DecapsulationKey {
 
         let (seed_length, scheme) = match self.scheme {
             #[cfg(feature = "ml-kem")]
-            XwingScheme::X25519MlKem512 => (64, KemScheme::MlKem512),
-            #[cfg(feature = "ml-kem")]
             XwingScheme::X25519MlKem768 => (64, KemScheme::MlKem768),
             #[cfg(feature = "ml-kem")]
             XwingScheme::X25519MlKem1024 => (64, KemScheme::MlKem1024),
@@ -458,7 +451,6 @@ mod tests {
     use rstest::*;
 
     #[rstest]
-    #[cfg_attr(feature = "ml-kem", case::mlkem512(XwingScheme::X25519MlKem512))]
     #[cfg_attr(feature = "ml-kem", case::mlkem768(XwingScheme::X25519MlKem768))]
     #[cfg_attr(feature = "ml-kem", case::mlkem1024(XwingScheme::X25519MlKem1024))]
     #[cfg_attr(
@@ -474,7 +466,6 @@ mod tests {
     }
 
     #[rstest]
-    #[cfg_attr(feature = "ml-kem", case::mlkem512(XwingScheme::X25519MlKem512))]
     #[cfg_attr(feature = "ml-kem", case::mlkem768(XwingScheme::X25519MlKem768))]
     #[cfg_attr(feature = "ml-kem", case::mlkem1024(XwingScheme::X25519MlKem1024))]
     #[cfg_attr(
@@ -499,7 +490,6 @@ mod tests {
     }
 
     #[rstest]
-    #[cfg_attr(feature = "ml-kem", case::mlkem512(XwingScheme::X25519MlKem512))]
     #[cfg_attr(feature = "ml-kem", case::mlkem768(XwingScheme::X25519MlKem768))]
     #[cfg_attr(feature = "ml-kem", case::mlkem1024(XwingScheme::X25519MlKem1024))]
     #[cfg_attr(
@@ -569,7 +559,7 @@ mod tests {
             ct: Vec<u8>,
         }
 
-        let test_vectors = serde_json::from_str::<Vec<TestVector>>(&vectors).unwrap();
+        let test_vectors = serde_json::from_str::<Vec<TestVector>>(vectors).unwrap();
 
         for test in &test_vectors {
             let (pk, sk) = XwingScheme::X25519MlKem768
@@ -590,5 +580,25 @@ mod tests {
             let ss = sk.decapsulate(&ct).unwrap();
             assert_eq!(ss, test.ss);
         }
+    }
+
+    /// The removed X25519-ML-KEM-512 hybrid reports a deprecation error (not a generic
+    /// `InvalidScheme`) via its old wire discriminant and display string.
+    #[test]
+    fn x25519_ml_kem_512_is_deprecated() {
+        assert!(matches!(
+            XwingScheme::try_from(1),
+            Err(Error::DeprecatedScheme {
+                scheme: "X25519-ML-KEM-512",
+                replacement: "X25519-ML-KEM-768",
+            })
+        ));
+        assert!(matches!(
+            "X25519-ML-KEM-512".parse::<XwingScheme>(),
+            Err(Error::DeprecatedScheme {
+                scheme: "X25519-ML-KEM-512",
+                ..
+            })
+        ));
     }
 }
