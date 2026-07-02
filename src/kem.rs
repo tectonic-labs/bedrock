@@ -109,6 +109,10 @@ scheme_impl_pure!(
     #[cfg_attr(not(feature = "ml-kem"), default)]
     /// Classic McEliece 348864 (NIST Level 1)
     ClassicMcEliece348864 => "ClassicMcEliece-348864" ; 4 ; 32,
+    // Deprecated: ML-KEM-512 (NIST Level 1) was removed for being too weak. Discriminant
+    // 1 stays reserved so older serialized keys report a clear migration error.
+    @deprecated
+    "ML-KEM-512" => 1 ; "ML-KEM-768",
 );
 
 serde_impl!(KemScheme);
@@ -538,5 +542,26 @@ mod tests {
         let seed = vec![0xABu8; seed_len];
         let result = scheme.keypair_from_seed(&seed);
         assert!(result.is_err());
+    }
+
+    /// The removed ML-KEM-512 scheme reports a deprecation error (not a generic
+    /// `InvalidScheme`) via its old wire discriminant and display string, so data from
+    /// an older library version fails with a clear migration message.
+    #[test]
+    fn ml_kem_512_is_deprecated() {
+        assert!(matches!(
+            KemScheme::try_from(1),
+            Err(Error::DeprecatedScheme {
+                scheme: "ML-KEM-512",
+                replacement: "ML-KEM-768",
+            })
+        ));
+        assert!(matches!(
+            "ML-KEM-512".parse::<KemScheme>(),
+            Err(Error::DeprecatedScheme {
+                scheme: "ML-KEM-512",
+                ..
+            })
+        ));
     }
 }

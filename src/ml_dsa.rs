@@ -69,6 +69,10 @@ scheme_impl_pure!(
     Dsa65 => "ML-DSA-65" ; 2 ; 32,
     /// ML-DSA 87 (NIST Level 5)
     Dsa87 => "ML-DSA-87" ; 3 ; 32,
+    // Deprecated: ML-DSA-44 (NIST Level 2) was removed for being too weak. Discriminant
+    // 1 stays reserved so older serialized keys/signatures report a clear migration error.
+    @deprecated
+    "ML-DSA-44" => 1 ; "ML-DSA-65",
 );
 
 serde_impl!(MlDsaScheme);
@@ -352,5 +356,26 @@ mod tests {
         assert_eq!(pk1.as_ref(), pk2.as_ref());
         assert_eq!(sk1.as_ref(), sk2.as_ref());
         assert!(scheme.keypair_from_seed(&[0u8; 31]).is_err());
+    }
+
+    /// The removed ML-DSA-44 scheme reports a deprecation error (not a generic
+    /// `InvalidScheme`) via its old wire discriminant and display string, so data from
+    /// an older library version fails with a clear migration message.
+    #[test]
+    fn ml_dsa_44_is_deprecated() {
+        assert!(matches!(
+            MlDsaScheme::try_from(1),
+            Err(Error::DeprecatedScheme {
+                scheme: "ML-DSA-44",
+                replacement: "ML-DSA-65",
+            })
+        ));
+        assert!(matches!(
+            "ML-DSA-44".parse::<MlDsaScheme>(),
+            Err(Error::DeprecatedScheme {
+                scheme: "ML-DSA-44",
+                ..
+            })
+        ));
     }
 }

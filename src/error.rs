@@ -26,6 +26,17 @@ pub enum Error {
     /// Invalid scheme
     #[error("Invalid scheme: {0}")]
     InvalidSchemeStr(String),
+    /// A deprecated scheme, removed for being too weak, was requested (e.g. when
+    /// deserializing data produced by an older version of the library).
+    #[error(
+        "scheme '{scheme}' is deprecated and no longer supported (too weak); use '{replacement}' or a stronger parameter set"
+    )]
+    DeprecatedScheme {
+        /// The deprecated scheme identifier that was requested.
+        scheme: &'static str,
+        /// The recommended replacement scheme.
+        replacement: &'static str,
+    },
     /// Invalid seed length
     #[error("Invalid seed length: got {0}")]
     InvalidSeedLength(usize),

@@ -82,6 +82,12 @@ impl TryFrom<u8> for XwingScheme {
             3 => Ok(XwingScheme::X25519MlKem1024),
             #[cfg(feature = "mceliece")]
             4 => Ok(XwingScheme::X25519McEliece348864),
+            // Deprecated: X25519-ML-KEM-512 was removed for building on the too-weak
+            // ML-KEM-512. Discriminant 1 stays reserved for a clear migration error.
+            1 => Err(Error::DeprecatedScheme {
+                scheme: "X25519-ML-KEM-512",
+                replacement: "X25519-ML-KEM-768",
+            }),
             _ => Err(Error::InvalidScheme(v)),
         }
     }
@@ -115,6 +121,10 @@ impl FromStr for XwingScheme {
             "X25519-ML-KEM-1024" => Ok(XwingScheme::X25519MlKem1024),
             #[cfg(feature = "mceliece")]
             "X25519-ClassicMcEliece348864" => Ok(XwingScheme::X25519McEliece348864),
+            "X25519-ML-KEM-512" => Err(Error::DeprecatedScheme {
+                scheme: "X25519-ML-KEM-512",
+                replacement: "X25519-ML-KEM-768",
+            }),
             _ => Err(Error::InvalidSchemeStr(s.to_string())),
         }
     }
@@ -570,5 +580,25 @@ mod tests {
             let ss = sk.decapsulate(&ct).unwrap();
             assert_eq!(ss, test.ss);
         }
+    }
+
+    /// The removed X25519-ML-KEM-512 hybrid reports a deprecation error (not a generic
+    /// `InvalidScheme`) via its old wire discriminant and display string.
+    #[test]
+    fn x25519_ml_kem_512_is_deprecated() {
+        assert!(matches!(
+            XwingScheme::try_from(1),
+            Err(Error::DeprecatedScheme {
+                scheme: "X25519-ML-KEM-512",
+                replacement: "X25519-ML-KEM-768",
+            })
+        ));
+        assert!(matches!(
+            "X25519-ML-KEM-512".parse::<XwingScheme>(),
+            Err(Error::DeprecatedScheme {
+                scheme: "X25519-ML-KEM-512",
+                ..
+            })
+        ));
     }
 }
