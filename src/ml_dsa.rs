@@ -64,9 +64,9 @@ macro_rules! impl_ml_dsa_struct {
 scheme_impl_pure!(
     /// ML-DSA schemes
     MlDsaScheme,
-    #[default]
     /// ML-DSA 44 (NIST Level 2)
     Dsa44 => "ML-DSA-44" ; 1 ; 32,
+    #[default]
     /// ML-DSA 65 (NIST Level 3)
     Dsa65 => "ML-DSA-65" ; 2 ; 32,
     /// ML-DSA 87 (NIST Level 5)

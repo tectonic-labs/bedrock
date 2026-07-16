@@ -9,11 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Restored ML-DSA-44 (NIST Level 2) as the default `MlDsaScheme`. This reinstates the
-  `MlDsaScheme::Dsa44` variant, the `SignatureScheme::MlDsa44` / `SignatureSeed::MlDsa44`
-  HD-wallet variants, the `HHDWallet::derive_mldsa44_keypair` method, and all
-  `ML_DSA_44_*` constants, restoring wire discriminant `1` and BIP-85 child index `4` for
-  ML-DSA-44.
+- Restored ML-DSA-44 (NIST Level 2). This reinstates the `MlDsaScheme::Dsa44` variant, the
+  `SignatureScheme::MlDsa44` / `SignatureSeed::MlDsa44` HD-wallet variants, the
+  `HHDWallet::derive_mldsa44_keypair` method, and all `ML_DSA_44_*` constants, restoring
+  wire discriminant `1` and BIP-85 child index `4` for ML-DSA-44. `MlDsaScheme::Dsa65`
+  remains the default.
 
 ### Removed
 

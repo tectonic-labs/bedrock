@@ -20,8 +20,8 @@ Bedrock provides post-quantum cryptographic primitives including digital signatu
 
 Three security levels following NIST standards:
 
-- **ML-DSA-44** (NIST Level 2) - Default
-- **ML-DSA-65** (NIST Level 3)
+- **ML-DSA-44** (NIST Level 2)
+- **ML-DSA-65** (NIST Level 3) - Default
 - **ML-DSA-87** (NIST Level 5)
 
 ### Falcon/FN-DSA (Digital Signatures)
