@@ -7,21 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Added
+
+- Restored ML-DSA-44 (NIST Level 2) as the default `MlDsaScheme`. This reinstates the
+  `MlDsaScheme::Dsa44` variant, the `SignatureScheme::MlDsa44` / `SignatureSeed::MlDsa44`
+  HD-wallet variants, the `HHDWallet::derive_mldsa44_keypair` method, and all
+  `ML_DSA_44_*` constants, restoring wire discriminant `1` and BIP-85 child index `4` for
+  ML-DSA-44.
+
 ### Removed
 
-- **BREAKING:** Removed ML-KEM-512 (NIST Level 1) and ML-DSA-44 (NIST Level 2),
-  now considered too weak to offer. This drops the `KemScheme::MlKem512`,
-  `MlDsaScheme::Dsa44`, and `XwingScheme::X25519MlKem512` variants, the
-  `SignatureScheme::MlDsa44` / `SignatureSeed::MlDsa44` HD-wallet variants, the
-  `HHDWallet::derive_mldsa44_keypair` method, and all `ML_DSA_44_*` constants.
-  Defaults move to ML-KEM-768 and ML-DSA-65. Serde discriminants and BIP-85 child
-  indices of the surviving schemes are unchanged, so existing serialized keys and
-  derivation paths for stronger schemes remain valid.
+- **BREAKING:** Removed ML-KEM-512 (NIST Level 1), now considered too weak to offer. This
+  drops the `KemScheme::MlKem512` and `XwingScheme::X25519MlKem512` variants. The default
+  moves to ML-KEM-768. Serde discriminants and BIP-85 child indices of the surviving
+  schemes are unchanged, so existing serialized keys and derivation paths for stronger
+  schemes remain valid.
 
 ### Deprecated
 
 - The removed schemes' wire discriminants (`1`) and name strings (`"ML-KEM-512"`,
-  `"ML-DSA-44"`, `"X25519-ML-KEM-512"`) are reserved and now map to a new
+  `"X25519-ML-KEM-512"`) are reserved and now map to a new
   `Error::DeprecatedScheme { scheme, replacement }` on `TryFrom<u8>` / `FromStr` (and
   therefore on deserialization), so data produced by an older version fails with a clear
   migration error instead of a generic `InvalidScheme`. The discriminants are never
