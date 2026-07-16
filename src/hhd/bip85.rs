@@ -89,8 +89,10 @@ impl Bip85 {
     /// - ML-DSA 44: `4`
     /// - ML-DSA 65: `5`
     /// - ML-DSA 87: `6`
+    /// - MAYO-2: `8`
     ///
-    /// Note: reserving index 3 for Falcon1024 support.
+    /// Note: reserving index 3 for Falcon1024 support, index 7 for MAYO-1,
+    /// and index 9 for MAYO-3.
     ///
     /// # Arguments
     ///
@@ -111,6 +113,7 @@ impl Bip85 {
     /// assert_eq!(Bip85::child_index_from_scheme(SignatureScheme::MlDsa44), 4);
     /// assert_eq!(Bip85::child_index_from_scheme(SignatureScheme::MlDsa65), 5);
     /// assert_eq!(Bip85::child_index_from_scheme(SignatureScheme::MlDsa87), 6);
+    /// assert_eq!(Bip85::child_index_from_scheme(SignatureScheme::Mayo2), 8);
     /// ```
     pub fn child_index_from_scheme(scheme: SignatureScheme) -> u32 {
         match scheme {
@@ -119,6 +122,7 @@ impl Bip85 {
             SignatureScheme::MlDsa44 => 4,
             SignatureScheme::MlDsa65 => 5,
             SignatureScheme::MlDsa87 => 6,
+            SignatureScheme::Mayo2 => 8,
         }
     }
 
@@ -146,6 +150,7 @@ impl Bip85 {
     /// assert_eq!(Bip85::child_path_from_scheme(SignatureScheme::MlDsa44), "4'");
     /// assert_eq!(Bip85::child_path_from_scheme(SignatureScheme::MlDsa65), "5'");
     /// assert_eq!(Bip85::child_path_from_scheme(SignatureScheme::MlDsa87), "6'");
+    /// assert_eq!(Bip85::child_path_from_scheme(SignatureScheme::Mayo2), "8'");
     /// ```
     pub fn child_path_from_scheme(scheme: SignatureScheme) -> String {
         format!("{}'", Bip85::child_index_from_scheme(scheme))
@@ -189,6 +194,10 @@ impl Bip85 {
     /// assert_eq!(
     ///     Bip85::derivation_path_from_scheme(SignatureScheme::MlDsa87),
     ///     "m/83696968'/83286642'/6'"
+    /// );
+    /// assert_eq!(
+    ///     Bip85::derivation_path_from_scheme(SignatureScheme::Mayo2),
+    ///     "m/83696968'/83286642'/8'"
     /// );
     /// ```
     pub fn derivation_path_from_scheme(scheme: SignatureScheme) -> String {
@@ -369,6 +378,7 @@ impl Bip85 {
             SignatureScheme::MlDsa44 => SignatureSeed::MlDsa44(Seed::new(child_seed)),
             SignatureScheme::MlDsa65 => SignatureSeed::MlDsa65(Seed::new(child_seed)),
             SignatureScheme::MlDsa87 => SignatureSeed::MlDsa87(Seed::new(child_seed)),
+            SignatureScheme::Mayo2 => SignatureSeed::Mayo2(Seed::new(child_seed)),
         };
 
         // Zeroize the child entropy
@@ -413,6 +423,7 @@ mod tests {
     #[case(SignatureScheme::MlDsa44, "m/83696968'/83286642'/4'")]
     #[case(SignatureScheme::MlDsa65, "m/83696968'/83286642'/5'")]
     #[case(SignatureScheme::MlDsa87, "m/83696968'/83286642'/6'")]
+    #[case(SignatureScheme::Mayo2, "m/83696968'/83286642'/8'")]
     fn test_bip85_paths(#[case] scheme: SignatureScheme, #[case] expected: &str) {
         assert_eq!(Bip85::derivation_path_from_scheme(scheme), expected);
     }
@@ -423,6 +434,7 @@ mod tests {
     #[case(SignatureScheme::MlDsa44, "m/83696968'/83286642'/4'")]
     #[case(SignatureScheme::MlDsa65, "m/83696968'/83286642'/5'")]
     #[case(SignatureScheme::MlDsa87, "m/83696968'/83286642'/6'")]
+    #[case(SignatureScheme::Mayo2, "m/83696968'/83286642'/8'")]
     fn test_bip85_paths_parsed(#[case] scheme: SignatureScheme, #[case] expected: &str) {
         let path =
             Bip85::derivation_path_from_scheme_parsed(scheme).expect("should parse valid path");

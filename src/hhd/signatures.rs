@@ -80,6 +80,26 @@ pub const ML_DSA_44_SIGNATURE_SIZE: usize = 2420;
 pub const ML_DSA_65_SIGNATURE_SIZE: usize = 3309;
 pub const ML_DSA_87_SIGNATURE_SIZE: usize = 4627;
 
+/// Size in bytes of the seed required for MAYO-2 key generation (24 bytes = 192 bits).
+///
+/// MAYO keygen seed sizes are 24 bytes (MAYO-1/2), 32 bytes (MAYO-3), and 40 bytes
+/// (MAYO-5), while a SLIP-0010 child key is always 32 bytes. Derivation rule for the
+/// MAYO family: MAYO-1/2 truncate the 32-byte SLIP-0010 child key to its first
+/// 24 bytes, MAYO-3 uses all 32 bytes directly, and MAYO-5 is not supported in HHD
+/// (its 40-byte seed cannot be sourced from a 32-byte SLIP-0010 child key).
+/// Only MAYO-2 is currently implemented.
+pub const MAYO_2_KEY_GENERATION_SEED_SIZE: usize = 24;
+/// Size in bytes of the root seed for MAYO-2 HD key derivation (64 bytes = 512 bits).
+pub const MAYO_2_ROOT_SEED_SIZE: usize = 64;
+/// Domain separator string used for MAYO-2 in SLIP-0010 key derivation.
+pub const MAYO_2_DOMAIN_SEPARATOR: &[u8] = b"MAYO-2 seed";
+/// Size in bytes of a MAYO-2 signing key (private key): 24 bytes (the compact seed).
+pub const MAYO_2_SIGNING_KEY_SIZE: usize = 24;
+/// Size in bytes of a MAYO-2 verifying key (public key): 4368 bytes.
+pub const MAYO_2_VERIFYING_KEY_SIZE: usize = 4368;
+/// Size in bytes of a MAYO-2 signature: 216 bytes.
+pub const MAYO_2_SIGNATURE_SIZE: usize = 216;
+
 /// BIP-44 non-hardened base derivation path
 pub const BIP44_NON_HARDENED_BASE_PATH: &str = "m/44'/60'/0'/0";
 
@@ -120,6 +140,8 @@ pub enum SignatureSeed {
     MlDsa65(Seed),
     /// ML-DSA 87 signature scheme seed.
     MlDsa87(Seed),
+    /// MAYO-2 signature scheme seed.
+    Mayo2(Seed),
 }
 
 impl fmt::Debug for SignatureSeed {
@@ -130,6 +152,7 @@ impl fmt::Debug for SignatureSeed {
             SignatureSeed::MlDsa44(_) => "MlDsa44",
             SignatureSeed::MlDsa65(_) => "MlDsa65",
             SignatureSeed::MlDsa87(_) => "MlDsa87",
+            SignatureSeed::Mayo2(_) => "Mayo2",
         };
 
         let seed_bytes = self.as_seed().as_bytes().to_vec();
@@ -172,6 +195,7 @@ impl SignatureSeed {
             SignatureSeed::MlDsa44(seed) => seed,
             SignatureSeed::MlDsa65(seed) => seed,
             SignatureSeed::MlDsa87(seed) => seed,
+            SignatureSeed::Mayo2(seed) => seed,
         }
     }
 }
@@ -209,6 +233,12 @@ pub enum SignatureScheme {
     MlDsa65,
     /// ML-DSA 87 post-quantum signature scheme.
     MlDsa87,
+    /// MAYO-2 post-quantum signature scheme.
+    ///
+    /// HHD derivation rule for the MAYO family: MAYO-1/2 truncate the 32-byte
+    /// SLIP-0010 child key to its first 24 bytes, MAYO-3 uses all 32 bytes,
+    /// and MAYO-5 is not supported in HHD. Only MAYO-2 is currently implemented.
+    Mayo2,
 }
 
 impl SignatureScheme {
@@ -275,7 +305,8 @@ impl SignatureScheme {
             | SignatureScheme::Falcon512
             | SignatureScheme::MlDsa44
             | SignatureScheme::MlDsa65
-            | SignatureScheme::MlDsa87 => Ok(BIP44_HARDENED_BASE_PATH),
+            | SignatureScheme::MlDsa87
+            | SignatureScheme::Mayo2 => Ok(BIP44_HARDENED_BASE_PATH),
         }
     }
 
@@ -291,6 +322,7 @@ impl SignatureScheme {
             SignatureScheme::MlDsa44 => ML_DSA_44_KEY_GENERATION_SEED_SIZE,
             SignatureScheme::MlDsa65 => ML_DSA_65_KEY_GENERATION_SEED_SIZE,
             SignatureScheme::MlDsa87 => ML_DSA_87_KEY_GENERATION_SEED_SIZE,
+            SignatureScheme::Mayo2 => MAYO_2_KEY_GENERATION_SEED_SIZE,
         }
     }
 
@@ -305,6 +337,7 @@ impl SignatureScheme {
             SignatureScheme::MlDsa44 => ML_DSA_44_ROOT_SEED_SIZE,
             SignatureScheme::MlDsa65 => ML_DSA_65_ROOT_SEED_SIZE,
             SignatureScheme::MlDsa87 => ML_DSA_87_ROOT_SEED_SIZE,
+            SignatureScheme::Mayo2 => MAYO_2_ROOT_SEED_SIZE,
         }
     }
 
@@ -338,6 +371,7 @@ impl SignatureScheme {
             SignatureScheme::MlDsa44 => ML_DSA_44_DOMAIN_SEPARATOR,
             SignatureScheme::MlDsa65 => ML_DSA_65_DOMAIN_SEPARATOR,
             SignatureScheme::MlDsa87 => ML_DSA_87_DOMAIN_SEPARATOR,
+            SignatureScheme::Mayo2 => MAYO_2_DOMAIN_SEPARATOR,
         }
     }
 
@@ -352,6 +386,7 @@ impl SignatureScheme {
             SignatureScheme::MlDsa44 => ML_DSA_44_SIGNING_KEY_SIZE,
             SignatureScheme::MlDsa65 => ML_DSA_65_SIGNING_KEY_SIZE,
             SignatureScheme::MlDsa87 => ML_DSA_87_SIGNING_KEY_SIZE,
+            SignatureScheme::Mayo2 => MAYO_2_SIGNING_KEY_SIZE,
         }
     }
 
@@ -366,6 +401,7 @@ impl SignatureScheme {
             SignatureScheme::MlDsa44 => ML_DSA_44_VERIFYING_KEY_SIZE,
             SignatureScheme::MlDsa65 => ML_DSA_65_VERIFYING_KEY_SIZE,
             SignatureScheme::MlDsa87 => ML_DSA_87_VERIFYING_KEY_SIZE,
+            SignatureScheme::Mayo2 => MAYO_2_VERIFYING_KEY_SIZE,
         }
     }
 
@@ -380,6 +416,7 @@ impl SignatureScheme {
             SignatureScheme::MlDsa44 => ML_DSA_44_SIGNATURE_SIZE,
             SignatureScheme::MlDsa65 => ML_DSA_65_SIGNATURE_SIZE,
             SignatureScheme::MlDsa87 => ML_DSA_87_SIGNATURE_SIZE,
+            SignatureScheme::Mayo2 => MAYO_2_SIGNATURE_SIZE,
         }
     }
 }
