@@ -18,12 +18,16 @@ pub mod error;
 #[cfg(feature = "falcon")]
 pub mod falcon;
 #[cfg(feature = "hhd")]
+// The module implements deprecated compatibility APIs; downstream uses still warn.
+#[allow(deprecated)]
 pub mod hhd;
 #[cfg(any(feature = "mceliece", feature = "ml-kem"))]
 pub mod kem;
 #[cfg(feature = "mayo")]
 pub mod mayo;
 #[cfg(feature = "ml-dsa")]
+// The module implements deprecated compatibility APIs; downstream uses still warn.
+#[allow(deprecated)]
 pub mod ml_dsa;
 #[cfg(feature = "slh-dsa")]
 pub mod slh_dsa;

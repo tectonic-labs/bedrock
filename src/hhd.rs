@@ -173,7 +173,7 @@ use keys::EcdsaSecp256k1;
 #[cfg(feature = "falcon")]
 use keys::FnDsa512;
 #[cfg(feature = "ml-dsa")]
-use keys::{MlDsa65, MlDsa87};
+use keys::{MlDsa44, MlDsa65, MlDsa87};
 use std::{collections::HashMap, fmt};
 
 /// A Hybrid Hierarchical Deterministic (HD) Wallet derived from a single BIP-39 mnemonic.
@@ -481,6 +481,27 @@ impl HHDWallet {
     }
 
     #[cfg(feature = "ml-dsa")]
+    /// Derives an ML-DSA-44 keypair at the given address index.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`WalletError::InvalidScheme`] if ML-DSA-44 is not configured in this wallet,
+    /// or [`WalletError::KeyError`] if key derivation fails.
+    #[deprecated(since = "0.3.0", note = "use derive_mldsa65_keypair")]
+    pub fn derive_mldsa44_keypair(
+        &self,
+        address_index: u32,
+    ) -> Result<(MlDsaSigningKey, MlDsaVerificationKey), WalletError> {
+        let signature_seed = self
+            .master_seeds
+            .get(&SignatureScheme::MlDsa44)
+            .ok_or(WalletError::InvalidScheme)?;
+        let seed_bytes = signature_seed.as_seed().as_bytes();
+
+        MlDsa44::derive_from_seed(seed_bytes, address_index).map_err(WalletError::KeyError)
+    }
+
+    #[cfg(feature = "ml-dsa")]
     /// Derives a ML-DSA-65 keypair at the given address index.
     ///
     /// This method derives a ML-DSA-65 keypair using the scheme-specific seed and the provided
@@ -653,6 +674,10 @@ mod tests {
     #[rstest]
     #[cfg_attr(
         all(feature = "ml-dsa", feature = "sign", feature = "vrfy"),
+        case::mldsa44(SignatureScheme::MlDsa44)
+    )]
+    #[cfg_attr(
+        all(feature = "ml-dsa", feature = "sign", feature = "vrfy"),
         case::mldsa65(SignatureScheme::MlDsa65)
     )]
     #[cfg_attr(
@@ -666,16 +691,19 @@ mod tests {
         let message = b"Hello, world!";
 
         let (sk, vk) = match scheme {
+            SignatureScheme::MlDsa44 => wallet.derive_mldsa44_keypair(0).unwrap(),
             SignatureScheme::MlDsa65 => wallet.derive_mldsa65_keypair(0).unwrap(),
             SignatureScheme::MlDsa87 => wallet.derive_mldsa87_keypair(0).unwrap(),
             _ => panic!("Invalid scheme"),
         };
         let signature = match scheme {
+            SignatureScheme::MlDsa44 => MlDsaScheme::Dsa44.sign(message, &sk).unwrap(),
             SignatureScheme::MlDsa65 => MlDsaScheme::Dsa65.sign(message, &sk).unwrap(),
             SignatureScheme::MlDsa87 => MlDsaScheme::Dsa87.sign(message, &sk).unwrap(),
             _ => panic!("Invalid scheme"),
         };
         let res = match scheme {
+            SignatureScheme::MlDsa44 => MlDsaScheme::Dsa44.verify(message, &signature, &vk),
             SignatureScheme::MlDsa65 => MlDsaScheme::Dsa65.verify(message, &signature, &vk),
             SignatureScheme::MlDsa87 => MlDsaScheme::Dsa87.verify(message, &signature, &vk),
             _ => panic!("Invalid scheme"),
