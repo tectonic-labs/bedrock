@@ -89,6 +89,9 @@ impl Bip85 {
     /// - ML-DSA 44: `4`
     /// - ML-DSA 65: `5`
     /// - ML-DSA 87: `6`
+    /// - MAYO-1: `7`
+    /// - MAYO-2: `8`
+    /// - MAYO-3: `9`
     ///
     /// Note: reserving index 3 for Falcon1024 support.
     ///
@@ -118,6 +121,9 @@ impl Bip85 {
             SignatureScheme::MlDsa44 => 4,
             SignatureScheme::MlDsa65 => 5,
             SignatureScheme::MlDsa87 => 6,
+            SignatureScheme::Mayo1 => 7,
+            SignatureScheme::Mayo2 => 8,
+            SignatureScheme::Mayo3 => 9,
         }
     }
 
@@ -363,6 +369,9 @@ impl Bip85 {
             SignatureScheme::MlDsa44 => SignatureSeed::MlDsa44(Seed::new(child_seed)),
             SignatureScheme::MlDsa65 => SignatureSeed::MlDsa65(Seed::new(child_seed)),
             SignatureScheme::MlDsa87 => SignatureSeed::MlDsa87(Seed::new(child_seed)),
+            SignatureScheme::Mayo1 => SignatureSeed::Mayo1(Seed::new(child_seed)),
+            SignatureScheme::Mayo2 => SignatureSeed::Mayo2(Seed::new(child_seed)),
+            SignatureScheme::Mayo3 => SignatureSeed::Mayo3(Seed::new(child_seed)),
         };
 
         // Zeroize the child entropy
@@ -406,6 +415,9 @@ mod tests {
     #[case(SignatureScheme::Falcon512, "m/83696968'/83286642'/2'")]
     #[case(SignatureScheme::MlDsa65, "m/83696968'/83286642'/5'")]
     #[case(SignatureScheme::MlDsa87, "m/83696968'/83286642'/6'")]
+    #[case(SignatureScheme::Mayo1, "m/83696968'/83286642'/7'")]
+    #[case(SignatureScheme::Mayo2, "m/83696968'/83286642'/8'")]
+    #[case(SignatureScheme::Mayo3, "m/83696968'/83286642'/9'")]
     fn test_bip85_paths(#[case] scheme: SignatureScheme, #[case] expected: &str) {
         assert_eq!(Bip85::derivation_path_from_scheme(scheme), expected);
     }
@@ -415,6 +427,9 @@ mod tests {
     #[case(SignatureScheme::Falcon512, "m/83696968'/83286642'/2'")]
     #[case(SignatureScheme::MlDsa65, "m/83696968'/83286642'/5'")]
     #[case(SignatureScheme::MlDsa87, "m/83696968'/83286642'/6'")]
+    #[case(SignatureScheme::Mayo1, "m/83696968'/83286642'/7'")]
+    #[case(SignatureScheme::Mayo2, "m/83696968'/83286642'/8'")]
+    #[case(SignatureScheme::Mayo3, "m/83696968'/83286642'/9'")]
     fn test_bip85_paths_parsed(#[case] scheme: SignatureScheme, #[case] expected: &str) {
         let path =
             Bip85::derivation_path_from_scheme_parsed(scheme).expect("should parse valid path");

@@ -41,6 +41,11 @@ Multivariate "oil and vinegar" signatures with compact public keys, via the `may
 - **MAYO-3** (NIST Level 3)
 - **MAYO-5** (NIST Level 5)
 
+HD wallet (HHD) key derivation is supported for MAYO-1, MAYO-2, and MAYO-3. The 32-byte
+SLIP-0010 child key is truncated to the parameter set's keygen seed size (24 bytes for
+MAYO-1/2, 32 bytes for MAYO-3). MAYO-5 is not offered in HHD because its 40-byte seed
+would require expanding, rather than stripping, the child key.
+
 ### ML-KEM (Key Encapsulation)
 
 Two security levels following NIST standards:
