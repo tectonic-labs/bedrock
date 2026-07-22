@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Added
+
+- HD wallet (HHD) key derivation for MAYO-1, MAYO-2, and MAYO-3. Adds the
+  `SignatureScheme::Mayo1/Mayo2/Mayo3` and `SignatureSeed::Mayo1/Mayo2/Mayo3` variants,
+  the `HHDWallet::derive_mayo1_keypair` / `derive_mayo2_keypair` / `derive_mayo3_keypair`
+  methods, and BIP-85 child indices `7'`/`8'`/`9'`. The 32-byte SLIP-0010 child key is
+  truncated (never expanded) to each parameter set's keygen seed size — 24 bytes for
+  MAYO-1/2, 32 bytes for MAYO-3. MAYO-5 is intentionally not supported in HHD because its
+  40-byte seed cannot be sourced from a 32-byte SLIP-0010 child key without expansion.
+
 ### Removed
 
 - **BREAKING:** Removed ML-KEM-512 (NIST Level 1), now considered too weak to offer.
