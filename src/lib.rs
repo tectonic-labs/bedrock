@@ -4,16 +4,25 @@
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 
 #[cfg(any(
+    feature = "bird-of-prey",
     feature = "falcon",
+    feature = "frodo",
+    feature = "hqc",
     feature = "ml-dsa",
     feature = "slh-dsa",
     feature = "mceliece",
     feature = "ml-kem",
-    feature = "mayo"
+    feature = "mayo",
+    feature = "sntrup",
+    feature = "xmss"
 ))]
 #[macro_use]
 mod macros;
 
+#[cfg(feature = "bird-of-prey")]
+pub mod bird_of_prey;
+#[cfg(feature = "bird-of-prey")]
+pub mod det_rng;
 pub mod error;
 #[cfg(feature = "falcon")]
 pub mod falcon;
@@ -21,7 +30,13 @@ pub mod falcon;
 // The module implements deprecated compatibility APIs; downstream uses still warn.
 #[allow(deprecated)]
 pub mod hhd;
-#[cfg(any(feature = "mceliece", feature = "ml-kem"))]
+#[cfg(any(
+    feature = "frodo",
+    feature = "hqc",
+    feature = "mceliece",
+    feature = "ml-kem",
+    feature = "sntrup"
+))]
 pub mod kem;
 #[cfg(feature = "mayo")]
 pub mod mayo;
@@ -31,6 +46,8 @@ pub mod mayo;
 pub mod ml_dsa;
 #[cfg(feature = "slh-dsa")]
 pub mod slh_dsa;
+#[cfg(feature = "xmss")]
+pub mod xmss;
 #[cfg(feature = "xwing")]
 pub mod xwing;
 
