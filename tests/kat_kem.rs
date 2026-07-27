@@ -17,7 +17,16 @@
 //!    scheme dispatched to another parameter set's backend, which is the failure mode
 //!    a round-trip is structurally blind to.
 
-#![cfg(all(feature = "kgen", feature = "encp", feature = "decp"))]
+// Gated on the three KEM families this file actually has vectors for, not merely on the
+// key-generation features. `kem` itself is compiled only when a KEM family is enabled,
+// and no KEM family is in `default` — so gating on `kgen`/`encp`/`decp` alone (all of
+// which ARE default) compiles this file against a module that does not exist.
+#![cfg(all(
+    feature = "kgen",
+    feature = "encp",
+    feature = "decp",
+    any(feature = "hqc", feature = "sntrup", feature = "frodo")
+))]
 
 use tectonic_bedrock::error::Error;
 use tectonic_bedrock::kem::{KemCiphertext, KemDecapsulationKey, KemScheme};

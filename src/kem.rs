@@ -123,6 +123,14 @@ scheme_impl_pure!(
     /// Streamlined NTRU Prime 653 (NIST Level 1) — lowest margin of the family
     Sntrup653 => "sntrup653" ; 9 ; 32,
     @cfg(feature = "sntrup")
+    #[cfg_attr(
+        all(
+            not(feature = "ml-kem"),
+            not(feature = "mceliece"),
+            not(feature = "hqc")
+        ),
+        default
+    )]
     /// Streamlined NTRU Prime 761 (NIST Level 2) — the parameter set OpenSSH uses
     Sntrup761 => "sntrup761" ; 10 ; 32,
     @cfg(feature = "sntrup")
@@ -141,6 +149,15 @@ scheme_impl_pure!(
     // and refuse `keypair_from_seed` outright — they are deliberately excluded from
     // seed-derived and HD-wallet key generation.
     @cfg(feature = "frodo")
+    #[cfg_attr(
+        all(
+            not(feature = "ml-kem"),
+            not(feature = "mceliece"),
+            not(feature = "hqc"),
+            not(feature = "sntrup")
+        ),
+        default
+    )]
     /// FrodoKEM-640-AES (NIST Level 1)
     FrodoKem640Aes => "FrodoKEM-640-AES" ; 15 ; 0,
     @cfg(feature = "frodo")
@@ -580,7 +597,10 @@ impl KemScheme {
     }
 
     /// Pack raw ciphertext / shared-secret bytes into bedrock's byte-backed types.
-    #[cfg(all(feature = "encp", any(feature = "hqc", feature = "sntrup")))]
+    #[cfg(all(
+        feature = "encp",
+        any(feature = "hqc", feature = "sntrup", feature = "frodo")
+    ))]
     fn pack_encapsulation(&self, ct: Vec<u8>, ss: Vec<u8>) -> (KemCiphertext, KemSharedSecret) {
         (
             InnerKem {
@@ -1008,7 +1028,11 @@ mod tests {
     #[test]
     fn every_cross_scheme_pair_is_rejected() {
         let schemes = all_schemes();
-        assert!(schemes.len() > 1, "need at least two schemes to cross");
+        if schemes.len() < 2 {
+            // Only one KEM family is compiled in, so there is no cross-scheme pair to
+            // test. Nothing to assert rather than a failure.
+            return;
+        }
 
         let material: Vec<_> = schemes
             .iter()
@@ -1177,6 +1201,7 @@ mod tests {
         ));
     }
 
+    #[cfg(any(feature = "hqc", feature = "sntrup", feature = "frodo"))]
     /// Encapsulation and decapsulation agree on the shared secret.
     ///
     /// This is an end-to-end property of the KEM, not a restatement of the wrapper's
@@ -1208,6 +1233,7 @@ mod tests {
         assert!(!ss_sender.to_raw_bytes().is_empty());
     }
 
+    #[cfg(any(feature = "hqc", feature = "sntrup"))]
     /// Seeded key generation is deterministic, and distinct seeds give distinct keys.
     #[cfg(feature = "kgen")]
     #[rstest]
@@ -1233,6 +1259,7 @@ mod tests {
         assert_ne!(ek1.to_raw_bytes(), ek3.to_raw_bytes());
     }
 
+    #[cfg(any(feature = "hqc", feature = "sntrup"))]
     /// A seed of the wrong length is rejected rather than silently truncated or padded.
     #[cfg(feature = "kgen")]
     #[rstest]
@@ -1285,6 +1312,7 @@ mod tests {
         ));
     }
 
+    #[cfg(any(feature = "hqc", feature = "sntrup", feature = "frodo"))]
     /// Raw-byte encodings round-trip, and a truncated encoding is refused.
     #[cfg(feature = "kgen")]
     #[rstest]
@@ -1312,6 +1340,7 @@ mod tests {
         );
     }
 
+    #[cfg(any(feature = "hqc", feature = "sntrup", feature = "frodo"))]
     /// The scheme enum survives both serde representations and its wire byte is stable.
     #[rstest]
     #[cfg_attr(feature = "hqc", case::hqc128(KemScheme::Hqc128, "HQC-128", 6))]
@@ -1399,6 +1428,9 @@ mod tests {
         round_trip_all_formats(&ss);
     }
 
+    // Cases here cover only ML-KEM and Classic McEliece, so the test is compiled
+    // only when one of those is enabled — otherwise rstest sees zero cases.
+    #[cfg(any(feature = "ml-kem", feature = "mceliece"))]
     #[cfg(all(feature = "kgen", feature = "encp", feature = "decp"))]
     #[rstest]
     #[cfg_attr(feature = "ml-kem", case::mlkem768(KemScheme::MlKem768))]
@@ -1416,6 +1448,9 @@ mod tests {
         assert_ne!(ss, ss2);
     }
 
+    // Cases here cover only ML-KEM and Classic McEliece, so the test is compiled
+    // only when one of those is enabled — otherwise rstest sees zero cases.
+    #[cfg(any(feature = "ml-kem", feature = "mceliece"))]
     #[cfg(feature = "kgen")]
     #[rstest]
     #[cfg_attr(feature = "ml-kem", case::mlkem768(KemScheme::MlKem768, 64))]
@@ -1436,6 +1471,9 @@ mod tests {
         assert_eq!(dk1.as_ref(), dk2.as_ref());
     }
 
+    // Cases here cover only ML-KEM and Classic McEliece, so the test is compiled
+    // only when one of those is enabled — otherwise rstest sees zero cases.
+    #[cfg(any(feature = "ml-kem", feature = "mceliece"))]
     #[cfg(feature = "kgen")]
     #[rstest]
     #[cfg_attr(
