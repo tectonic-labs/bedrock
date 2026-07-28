@@ -131,3 +131,9 @@ harness = false
 name = "xwing"
 path = "benches/xwing.rs"
 required-features = ["mceliece", "ml-kem", "xwing"]
+
+[[bench]]
+harness = false
+name = "falcon"
+path = "benches/falcon.rs"
+required-features = ["eth_falcon", "falcon", "kgen", "sign", "vrfy"]
