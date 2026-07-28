@@ -238,7 +238,7 @@ mod tests {
         .parse()
         .unwrap();
         let child_xprv: Slip10XPrvKey<SigningKey> =
-            Slip10::derive_from_path(&TEST_MAYO_SEED_64, &derivation_path, scheme).unwrap();
+            Slip10::derive_from_path(TEST_MAYO_SEED_64, &derivation_path, scheme).unwrap();
         let child_key = child_xprv.private_key_bytes();
         assert_eq!(
             child_key.len(),

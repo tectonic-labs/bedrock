@@ -13,6 +13,11 @@ Bedrock provides post-quantum cryptographic primitives including digital signatu
 - **Classic McEliece**: Code-based Key Encapsulation Mechanism
 - **ETHFALCON**: Ethereum-compatible Falcon variant with Keccak-256 XOF
 - **X-Wing**: Hybrid KEM combining X25519 with ML-KEM or Classic McEliece
+- **HQC (FIPS 207)**: Code-based Key-Encapsulation Mechanism over quasi-cyclic codes
+- **Streamlined NTRU Prime**: Lattice-based KEM avoiding ring structure, all six sizes
+- **FrodoKEM**: Conservative plain-LWE Key-Encapsulation Mechanism
+- **XMSS (RFC 8391 / SP 800-208)**: Stateful hash-based signatures
+- **Bird-of-Prey-2**: Hybrid signatures combining Ed25519 with ML-DSA or FN-DSA
 
 ## Supported Algorithms
 
@@ -64,6 +69,92 @@ Hybrid KEM combining X25519 with post-quantum KEMs:
 - **X25519-ML-KEM-768** (X25519 + ML-KEM-768) - Default
 - **X25519-ML-KEM-1024** (X25519 + ML-KEM-1024)
 - **X25519-ClassicMcEliece348864** (X25519 + Classic McEliece)
+
+### HQC (Key Encapsulation)
+
+Code-based KEM standardized as **FIPS 207**, using quasi-cyclic codes with a concatenated
+Reed-Solomon / Reed-Muller construction under a Fujisaki-Okamoto transform. The code-based
+counterpart to ML-KEM: larger ciphertexts in exchange for a security assumption that does
+not rest on structured lattices. Enabled by the `hqc` feature.
+
+- **HQC-128** (NIST Level 1)
+- **HQC-192** (NIST Level 3) - Default when `hqc` is the only KEM enabled
+- **HQC-256** (NIST Level 5)
+
+Seed-derived key generation is supported (32-byte seed). Decapsulation is pinned to the
+official NIST KAT vectors in `tests/kat_kem.rs`.
+
+### Streamlined NTRU Prime (Key Encapsulation)
+
+Lattice-based KEM designed to avoid the ring structure that ring-LWE schemes rely on, via
+the `sntrup` feature. All six parameter sets are offered:
+
+- **sntrup653** (NIST Level 1) - lowest margin in the family
+- **sntrup761** (NIST Level 2) - the set OpenSSH deploys in `sntrup761x25519-sha512`
+- **sntrup857** (NIST Level 3)
+- **sntrup953** (NIST Level 4)
+- **sntrup1013** (NIST Level 5)
+- **sntrup1277** (NIST Level 5)
+
+Every set generates keys deterministically from a 32-byte seed, so all six support
+seed-derived generation.
+
+### FrodoKEM (Key Encapsulation)
+
+Conservative KEM built on plain LWE with no ring or module structure, via the `frodo`
+feature. Six parameter sets:
+
+- **FrodoKEM-640-AES** / **FrodoKEM-640-SHAKE** (NIST Level 1)
+- **FrodoKEM-976-AES** / **FrodoKEM-976-SHAKE** (NIST Level 3)
+- **FrodoKEM-1344-AES** / **FrodoKEM-1344-SHAKE** (NIST Level 5)
+
+The AES and SHAKE variants of a given `n` differ only in how the matrix **A** is derived,
+and are byte-identical in every key, ciphertext and shared-secret length. They are
+therefore distinguished exclusively by the scheme stored alongside the key material —
+never by encoding length.
+
+**FrodoKEM does not support seed-derived key generation.** Its key seed is 64, 88 or 112
+bytes depending on parameter set, above the 32-byte ceiling a single SLIP-0010 child key
+can supply without expansion. `keypair_from_seed` returns
+`Error::DeterministicKeygenUnsupported` for any input, including an empty seed. Use
+`KemScheme::supports_seeded_keygen()` to test for this rather than inspecting `seed_size`,
+which is zero for these schemes and would otherwise be ambiguous.
+
+### XMSS (Stateful Hash-Based Signatures)
+
+Hash-based signatures per **RFC 8391** and **SP 800-208**, via the `xmss` feature. Twelve
+parameter sets: SHA2 and SHAKE256, each at tree heights 10, 16 and 20, each at 256- and
+512-bit output.
+
+**XMSS is stateful.** Every signature consumes one one-time-signature leaf, and releasing
+two signatures under the same leaf index reveals the secret key. Because bedrock performs
+no I/O, state persistence is the caller's responsibility: implement the `XmssStateStore`
+trait. The signer commits advanced state through the store *before* releasing a signature,
+so a failed commit yields no signature. Exhausting the tree returns
+`Error::XmssKeyExhausted` rather than wrapping around.
+
+### Bird-of-Prey-2 (Hybrid Signatures)
+
+Strong-unforgeability-preserving hybrid signatures combining Ed25519 — treated as a
+Fiat-Shamir identification scheme with unique responses — with a post-quantum signature,
+following eprint 2025/1844 and §4 of `draft-prabel-cfrg-suf-hybrid-sigs`. Enabled by the
+`bird-of-prey` feature.
+
+- **Ed25519-ML-DSA-65**
+- **Ed25519-FN-DSA-512**
+
+The Ed25519 commitment `R` is recovered at verification rather than transmitted, so the
+classical half of the signature is a single 32-byte scalar instead of a full 64-byte EdDSA
+signature. The classical component is serialized first in both keys and signatures.
+
+Because the combiner hashes the post-quantum signature into its Fiat-Shamir challenge, that
+signature must be a deterministic function of key and message — otherwise a repeated
+message would pair a fixed classical nonce with two different challenges and leak the
+classical secret key. The FN-DSA branch is therefore driven by an RFC 6979 HMAC-SHA-512
+DRBG (`det_rng`); the ML-DSA branch uses bedrock's already-deterministic signer directly.
+
+No cross-implementation test vectors exist for BoP-2 yet, so byte-level interoperability
+with other implementations is not claimed.
 
 ### Excluded Schemes
 
