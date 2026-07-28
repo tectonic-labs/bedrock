@@ -54,6 +54,20 @@ pub mod xwing;
 #[cfg(all(feature = "xwing", not(any(feature = "ml-kem", feature = "mceliece"))))]
 compiler_error!("Can't enable `xwing` w/o picking a specific kem to use. Please enable `ml-kem` or `mceliece` also.");
 
+#[cfg(any(
+    feature = "bird-of-prey",
+    feature = "frodo",
+    feature = "hqc",
+    feature = "ml-dsa",
+    feature = "mayo",
+    feature = "slh-dsa",
+    feature = "sntrup",
+    feature = "xmss"
+))]
+pub(crate) fn os_rng() -> rand_core_010::UnwrapErr<getrandom_v04::SysRng> {
+    rand_core_010::UnwrapErr(getrandom_v04::SysRng)
+}
+
 pub(crate) fn serialize_hex_or_bin<S>(bytes: &Vec<u8>, s: S) -> Result<S::Ok, S::Error>
 where
     S: serde::Serializer,

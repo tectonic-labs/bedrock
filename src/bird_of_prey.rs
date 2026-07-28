@@ -24,7 +24,7 @@
 use crate::det_rng::DetRng;
 use crate::error::{Error, Result};
 use crate::ml_dsa::{MlDsaScheme, MlDsaSignature, MlDsaSigningKey, MlDsaVerificationKey};
-use crate::{deserialize_hex_or_bin, serialize_hex_or_bin};
+use crate::{deserialize_hex_or_bin, os_rng, serialize_hex_or_bin};
 use curve25519_dalek::edwards::CompressedEdwardsY;
 use curve25519_dalek::scalar::Scalar;
 use curve25519_dalek::EdwardsPoint;
@@ -228,72 +228,82 @@ fn derive_seed(domain: &[u8], master: &[u8]) -> [u8; SEED_LEN] {
     seed
 }
 
-fn pq_sizes(scheme: BirdOfPreyScheme) -> (usize, usize, usize) {
-    match scheme {
-        BirdOfPreyScheme::Ed25519MlDsa65 => (ML_DSA_65_PK_LEN, ML_DSA_65_SK_LEN, ML_DSA_65_SIG_LEN),
-        BirdOfPreyScheme::Ed25519FnDsa512 => (
-            vrfy_key_size(FN_DSA_LOGN),
-            sign_key_size(FN_DSA_LOGN),
-            signature_size(FN_DSA_LOGN),
-        ),
+impl BirdOfPreyScheme {
+    fn ensure_scheme(self, actual: Self) -> Result<()> {
+        if actual == self {
+            Ok(())
+        } else {
+            Err(Error::SchemeMismatch {
+                expected: self.to_string(),
+                actual: actual.to_string(),
+            })
+        }
     }
-}
 
-fn label(scheme: BirdOfPreyScheme) -> &'static [u8] {
-    match scheme {
-        BirdOfPreyScheme::Ed25519MlDsa65 => LABEL_MLDSA65,
-        BirdOfPreyScheme::Ed25519FnDsa512 => LABEL_FNDSA512,
+    fn pq_sizes(self) -> (usize, usize, usize) {
+        match self {
+            Self::Ed25519MlDsa65 => (ML_DSA_65_PK_LEN, ML_DSA_65_SK_LEN, ML_DSA_65_SIG_LEN),
+            Self::Ed25519FnDsa512 => (
+                vrfy_key_size(FN_DSA_LOGN),
+                sign_key_size(FN_DSA_LOGN),
+                signature_size(FN_DSA_LOGN),
+            ),
+        }
+    }
+
+    fn label(self) -> &'static [u8] {
+        match self {
+            Self::Ed25519MlDsa65 => LABEL_MLDSA65,
+            Self::Ed25519FnDsa512 => LABEL_FNDSA512,
+        }
     }
 }
 
 #[cfg(feature = "kgen")]
-fn os_rng() -> rand_core_010::UnwrapErr<getrandom_v04::SysRng> {
-    rand_core_010::UnwrapErr(getrandom_v04::SysRng)
-}
+impl BirdOfPreyScheme {
+    fn keypair_from_seed_inner(
+        self,
+        seed: &[u8],
+    ) -> Result<(BirdOfPreyVerificationKey, BirdOfPreySigningKey)> {
+        if seed.len() != SEED_LEN {
+            return Err(Error::InvalidSeedLength(seed.len()));
+        }
 
-#[cfg(feature = "kgen")]
-fn keypair_from_seed_inner(
-    scheme: BirdOfPreyScheme,
-    seed: &[u8],
-) -> Result<(BirdOfPreyVerificationKey, BirdOfPreySigningKey)> {
-    if seed.len() != SEED_LEN {
-        return Err(Error::InvalidSeedLength(seed.len()));
+        let ed_seed = derive_seed(ED_SEED_DOMAIN, seed);
+        let pq_seed = derive_seed(PQ_SEED_DOMAIN, seed);
+        let (s_clamped, _) = ed25519_expand(&ed_seed);
+        let a = EdwardsPoint::mul_base(&ed_scalar(s_clamped));
+        let pk_ed = a.compress().to_bytes();
+
+        let (pk_pq, sk_pq) = match self {
+            Self::Ed25519MlDsa65 => {
+                let (vk, sk) = MlDsaScheme::Dsa65.keypair_from_seed(&pq_seed)?;
+                (vk.to_raw_bytes(), sk.to_raw_bytes())
+            }
+            Self::Ed25519FnDsa512 => {
+                let mut generator = KeyPairGeneratorStandard::default();
+                let mut sk = vec![0u8; sign_key_size(FN_DSA_LOGN)];
+                let mut vk = vec![0u8; vrfy_key_size(FN_DSA_LOGN)];
+                generator.keygen_from_seed(FN_DSA_LOGN, &pq_seed, &mut sk, &mut vk);
+                (vk, sk)
+            }
+        };
+
+        let mut public_key = Vec::with_capacity(ED_PK_LEN + pk_pq.len());
+        public_key.extend_from_slice(&pk_ed);
+        public_key.extend_from_slice(&pk_pq);
+
+        let mut secret_key = Vec::with_capacity(SEED_LEN + 4 + pk_pq.len() + sk_pq.len());
+        secret_key.extend_from_slice(&ed_seed);
+        secret_key.extend_from_slice(&(pk_pq.len() as u32).to_le_bytes());
+        secret_key.extend_from_slice(&pk_pq);
+        secret_key.extend_from_slice(&sk_pq);
+
+        Ok((
+            BirdOfPreyVerificationKey::from_raw_bytes(self, &public_key)?,
+            BirdOfPreySigningKey::from_raw_bytes(self, &secret_key)?,
+        ))
     }
-
-    let ed_seed = derive_seed(ED_SEED_DOMAIN, seed);
-    let pq_seed = derive_seed(PQ_SEED_DOMAIN, seed);
-    let (s_clamped, _) = ed25519_expand(&ed_seed);
-    let a = EdwardsPoint::mul_base(&ed_scalar(s_clamped));
-    let pk_ed = a.compress().to_bytes();
-
-    let (pk_pq, sk_pq) = match scheme {
-        BirdOfPreyScheme::Ed25519MlDsa65 => {
-            let (vk, sk) = MlDsaScheme::Dsa65.keypair_from_seed(&pq_seed)?;
-            (vk.to_raw_bytes(), sk.to_raw_bytes())
-        }
-        BirdOfPreyScheme::Ed25519FnDsa512 => {
-            let mut generator = KeyPairGeneratorStandard::default();
-            let mut sk = vec![0u8; sign_key_size(FN_DSA_LOGN)];
-            let mut vk = vec![0u8; vrfy_key_size(FN_DSA_LOGN)];
-            generator.keygen_from_seed(FN_DSA_LOGN, &pq_seed, &mut sk, &mut vk);
-            (vk, sk)
-        }
-    };
-
-    let mut public_key = Vec::with_capacity(ED_PK_LEN + pk_pq.len());
-    public_key.extend_from_slice(&pk_ed);
-    public_key.extend_from_slice(&pk_pq);
-
-    let mut secret_key = Vec::with_capacity(SEED_LEN + 4 + pk_pq.len() + sk_pq.len());
-    secret_key.extend_from_slice(&ed_seed);
-    secret_key.extend_from_slice(&(pk_pq.len() as u32).to_le_bytes());
-    secret_key.extend_from_slice(&pk_pq);
-    secret_key.extend_from_slice(&sk_pq);
-
-    Ok((
-        BirdOfPreyVerificationKey::from_raw_bytes(scheme, &public_key)?,
-        BirdOfPreySigningKey::from_raw_bytes(scheme, &secret_key)?,
-    ))
 }
 
 #[cfg(feature = "sign")]
@@ -356,53 +366,55 @@ fn sign_with_fndsa(sk: &[u8], message: &[u8]) -> Result<Vec<u8>> {
 }
 
 #[cfg(feature = "vrfy")]
-fn verify_inner(scheme: BirdOfPreyScheme, pk: &[u8], message: &[u8], sig: &[u8]) -> Result<()> {
-    if pk.len() < ED_PK_LEN || sig.len() < RSP_LEN {
-        return Err(Error::BirdOfPreyError(
-            "hybrid public key or signature too short".to_string(),
-        ));
-    }
-
-    let pk_ed = &pk[..ED_PK_LEN];
-    let pk_pq = &pk[ED_PK_LEN..];
-    let rsp_bytes: [u8; RSP_LEN] = sig[..RSP_LEN]
-        .try_into()
-        .map_err(|_| Error::BirdOfPreyError("invalid response length".to_string()))?;
-    let s2 = &sig[RSP_LEN..];
-
-    let rsp = Option::<Scalar>::from(Scalar::from_canonical_bytes(rsp_bytes))
-        .ok_or_else(|| Error::BirdOfPreyError("non-canonical response scalar".to_string()))?;
-    let a = CompressedEdwardsY::from_slice(pk_ed)
-        .map_err(|_| Error::BirdOfPreyError("invalid Ed25519 public key".to_string()))?
-        .decompress()
-        .ok_or_else(|| Error::BirdOfPreyError("invalid Ed25519 public key".to_string()))?;
-
-    let chl = Scalar::from_bytes_mod_order_wide(&sha512(&[TAG2, s2]));
-    let com = EdwardsPoint::vartime_double_scalar_mul_basepoint(&(-chl), &a, &rsp)
-        .compress()
-        .to_bytes();
-
-    let mprime = message_rep(label(scheme), pk_ed, pk_pq, message);
-    let mpp = sha512(&[TAG1, &mprime, &com]);
-
-    match scheme {
-        BirdOfPreyScheme::Ed25519MlDsa65 => {
-            let pq_key = MlDsaVerificationKey::from_raw_bytes(MlDsaScheme::Dsa65, pk_pq)?;
-            let pq_sig = MlDsaSignature::from_raw_bytes(MlDsaScheme::Dsa65, s2)?;
-            MlDsaScheme::Dsa65.verify(&mpp, &pq_sig, &pq_key)
+impl BirdOfPreyScheme {
+    fn verify_inner(self, pk: &[u8], message: &[u8], sig: &[u8]) -> Result<()> {
+        if pk.len() < ED_PK_LEN || sig.len() < RSP_LEN {
+            return Err(Error::BirdOfPreyError(
+                "hybrid public key or signature too short".to_string(),
+            ));
         }
-        BirdOfPreyScheme::Ed25519FnDsa512 => {
-            let verifying_key = VerifyingKeyStandard::decode(pk_pq).ok_or_else(|| {
-                Error::BirdOfPreyError("failed to decode FN-DSA verification key".to_string())
-            })?;
-            // This inner PQ signature is only used inside the combiner, never through
-            // FalconScheme::verify, so HASH_ID_RAW is required for keystone byte-identity.
-            if verifying_key.verify(s2, &DOMAIN_NONE, &HASH_ID_RAW, &mpp) {
-                Ok(())
-            } else {
-                Err(Error::BirdOfPreyError(
-                    "FN-DSA verification failed".to_string(),
-                ))
+
+        let pk_ed = &pk[..ED_PK_LEN];
+        let pk_pq = &pk[ED_PK_LEN..];
+        let rsp_bytes: [u8; RSP_LEN] = sig[..RSP_LEN]
+            .try_into()
+            .map_err(|_| Error::BirdOfPreyError("invalid response length".to_string()))?;
+        let s2 = &sig[RSP_LEN..];
+
+        let rsp = Option::<Scalar>::from(Scalar::from_canonical_bytes(rsp_bytes))
+            .ok_or_else(|| Error::BirdOfPreyError("non-canonical response scalar".to_string()))?;
+        let a = CompressedEdwardsY::from_slice(pk_ed)
+            .map_err(|_| Error::BirdOfPreyError("invalid Ed25519 public key".to_string()))?
+            .decompress()
+            .ok_or_else(|| Error::BirdOfPreyError("invalid Ed25519 public key".to_string()))?;
+
+        let chl = Scalar::from_bytes_mod_order_wide(&sha512(&[TAG2, s2]));
+        let com = EdwardsPoint::vartime_double_scalar_mul_basepoint(&(-chl), &a, &rsp)
+            .compress()
+            .to_bytes();
+
+        let mprime = message_rep(self.label(), pk_ed, pk_pq, message);
+        let mpp = sha512(&[TAG1, &mprime, &com]);
+
+        match self {
+            Self::Ed25519MlDsa65 => {
+                let pq_key = MlDsaVerificationKey::from_raw_bytes(MlDsaScheme::Dsa65, pk_pq)?;
+                let pq_sig = MlDsaSignature::from_raw_bytes(MlDsaScheme::Dsa65, s2)?;
+                MlDsaScheme::Dsa65.verify(&mpp, &pq_sig, &pq_key)
+            }
+            Self::Ed25519FnDsa512 => {
+                let verifying_key = VerifyingKeyStandard::decode(pk_pq).ok_or_else(|| {
+                    Error::BirdOfPreyError("failed to decode FN-DSA verification key".to_string())
+                })?;
+                // This inner PQ signature is only used inside the combiner, never through
+                // FalconScheme::verify, so HASH_ID_RAW is required for keystone byte-identity.
+                if verifying_key.verify(s2, &DOMAIN_NONE, &HASH_ID_RAW, &mpp) {
+                    Ok(())
+                } else {
+                    Err(Error::BirdOfPreyError(
+                        "FN-DSA verification failed".to_string(),
+                    ))
+                }
             }
         }
     }
@@ -411,7 +423,7 @@ fn verify_inner(scheme: BirdOfPreyScheme, pk: &[u8], message: &[u8], sig: &[u8])
 impl BirdOfPreyScheme {
     /// Validate the raw bytes of a Bird-of-Prey verification key for this scheme.
     fn validate_verification_key_bytes(&self, bytes: &[u8]) -> Result<()> {
-        let (pq_pk_len, _, _) = pq_sizes(*self);
+        let (pq_pk_len, _, _) = self.pq_sizes();
         let expected = ED_PK_LEN + pq_pk_len;
         if bytes.len() == expected {
             Ok(())
@@ -422,7 +434,7 @@ impl BirdOfPreyScheme {
 
     /// Validate the raw bytes of a Bird-of-Prey signing key for this scheme.
     fn validate_signing_key_bytes(&self, bytes: &[u8]) -> Result<()> {
-        let (pq_pk_len, pq_sk_len, _) = pq_sizes(*self);
+        let (pq_pk_len, pq_sk_len, _) = self.pq_sizes();
         let expected = SEED_LEN + 4 + pq_pk_len + pq_sk_len;
         if bytes.len() == expected {
             Ok(())
@@ -433,7 +445,7 @@ impl BirdOfPreyScheme {
 
     /// Validate the raw bytes of a Bird-of-Prey signature for this scheme.
     fn validate_signature_bytes(&self, bytes: &[u8]) -> Result<()> {
-        let (_, _, pq_sig_len) = pq_sizes(*self);
+        let (_, _, pq_sig_len) = self.pq_sizes();
         let expected = RSP_LEN + pq_sig_len;
         if bytes.len() == expected {
             Ok(())
@@ -457,7 +469,7 @@ impl BirdOfPreyScheme {
         &self,
         seed: &[u8],
     ) -> Result<(BirdOfPreyVerificationKey, BirdOfPreySigningKey)> {
-        keypair_from_seed_inner(*self, seed)
+        self.keypair_from_seed_inner(seed)
     }
 
     /// Sign a message with a Bird-of-Prey signing key for this scheme.
@@ -467,12 +479,7 @@ impl BirdOfPreyScheme {
         message: &[u8],
         signing_key: &BirdOfPreySigningKey,
     ) -> Result<BirdOfPreySignature> {
-        if signing_key.0.scheme != *self {
-            return Err(Error::SchemeMismatch {
-                expected: self.to_string(),
-                actual: signing_key.0.scheme.to_string(),
-            });
-        }
+        self.ensure_scheme(signing_key.0.scheme)?;
 
         let signature = match self {
             BirdOfPreyScheme::Ed25519MlDsa65 => sign_with_mldsa(&signing_key.0.value, message)?,
@@ -489,25 +496,10 @@ impl BirdOfPreyScheme {
         signature: &BirdOfPreySignature,
         verification_key: &BirdOfPreyVerificationKey,
     ) -> Result<()> {
-        if verification_key.0.scheme != *self {
-            return Err(Error::SchemeMismatch {
-                expected: self.to_string(),
-                actual: verification_key.0.scheme.to_string(),
-            });
-        }
-        if signature.0.scheme != *self {
-            return Err(Error::SchemeMismatch {
-                expected: self.to_string(),
-                actual: signature.0.scheme.to_string(),
-            });
-        }
+        self.ensure_scheme(verification_key.0.scheme)?;
+        self.ensure_scheme(signature.0.scheme)?;
 
-        verify_inner(
-            *self,
-            &verification_key.0.value,
-            message,
-            &signature.0.value,
-        )
+        self.verify_inner(&verification_key.0.value, message, &signature.0.value)
     }
 }
 
@@ -523,7 +515,7 @@ mod tests {
     }
 
     fn expected_sig_len(scheme: BirdOfPreyScheme) -> usize {
-        let (_, _, pq_sig_len) = pq_sizes(scheme);
+        let (_, _, pq_sig_len) = scheme.pq_sizes();
         RSP_LEN + pq_sig_len
     }
 
@@ -711,7 +703,7 @@ mod tests {
     #[case(BirdOfPreyScheme::Ed25519MlDsa65)]
     #[case(BirdOfPreyScheme::Ed25519FnDsa512)]
     fn from_raw_bytes_rejects_wrong_lengths(#[case] scheme: BirdOfPreyScheme) {
-        let (pq_pk_len, pq_sk_len, pq_sig_len) = pq_sizes(scheme);
+        let (pq_pk_len, pq_sk_len, pq_sig_len) = scheme.pq_sizes();
 
         assert!(matches!(
             BirdOfPreyVerificationKey::from_raw_bytes(

@@ -20,14 +20,10 @@ use core::fmt;
 
 use serde::{Deserialize, Serialize};
 
-use crate::{deserialize_hex_or_bin, error::*, serialize_hex_or_bin};
+use crate::{deserialize_hex_or_bin, error::*, os_rng, serialize_hex_or_bin};
 
 const OID_LEN: usize = 4;
 const INDEX_LEN: usize = 4;
-
-fn os_rng() -> rand_core_010::UnwrapErr<getrandom_v04::SysRng> {
-    rand_core_010::UnwrapErr(getrandom_v04::SysRng)
-}
 
 fn xmss_err<E: fmt::Display>(err: E) -> Error {
     Error::XmssError(err.to_string())
@@ -244,6 +240,49 @@ impl InnerXmss {
     }
 }
 
+macro_rules! impl_xmss_wrapper {
+    ($name:ident, $validate:ident, $raw_doc:literal, $from_doc:literal) => {
+        impl fmt::Debug for $name {
+            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                f.debug_struct(stringify!($name))
+                    .field("scheme", &self.0.scheme)
+                    .field("value", &"<redacted>")
+                    .finish()
+            }
+        }
+
+        impl AsRef<[u8]> for $name {
+            fn as_ref(&self) -> &[u8] {
+                &self.0.value
+            }
+        }
+
+        impl From<InnerXmss> for $name {
+            fn from(value: InnerXmss) -> Self {
+                Self(value)
+            }
+        }
+
+        impl $name {
+            /// Returns the scheme recorded alongside this value.
+            pub fn scheme(&self) -> XmssScheme {
+                self.0.scheme
+            }
+
+            #[doc = $raw_doc]
+            pub fn to_raw_bytes(&self) -> Vec<u8> {
+                self.0.value.clone()
+            }
+
+            #[doc = $from_doc]
+            pub fn from_raw_bytes(scheme: XmssScheme, bytes: &[u8]) -> Result<Self> {
+                scheme.$validate(bytes)?;
+                Ok(Self(InnerXmss::new(scheme, bytes.to_vec())))
+            }
+        }
+    };
+}
+
 /// Durable persistence contract for XMSS signing state.
 ///
 /// XMSS is stateful: every signature advances the secret leaf index, and
@@ -280,26 +319,12 @@ pub trait XmssStateStore {
 #[derive(Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub struct XmssSigningKey(pub(crate) InnerXmss);
 
-impl fmt::Debug for XmssSigningKey {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("XmssSigningKey")
-            .field("scheme", &self.0.scheme)
-            .field("value", &"<redacted>")
-            .finish()
-    }
-}
-
-impl AsRef<[u8]> for XmssSigningKey {
-    fn as_ref(&self) -> &[u8] {
-        &self.0.value
-    }
-}
-
-impl From<InnerXmss> for XmssSigningKey {
-    fn from(value: InnerXmss) -> Self {
-        Self(value)
-    }
-}
+impl_xmss_wrapper!(
+    XmssSigningKey,
+    validate_signing_key,
+    "Returns a copy of the raw serialized signing state.",
+    "Reconstructs a signing key from serialized bytes for a specific scheme. Callers must reject stale or rewound state because it can cause one-time leaf reuse."
+);
 
 #[cfg(feature = "zeroize")]
 impl zeroize::Zeroize for XmssSigningKey {
@@ -321,30 +346,6 @@ impl Drop for XmssSigningKey {
     }
 }
 
-impl XmssSigningKey {
-    /// Returns the scheme recorded alongside this signing state.
-    pub fn scheme(&self) -> XmssScheme {
-        self.0.scheme
-    }
-
-    /// Returns a copy of the raw serialized signing state.
-    ///
-    /// Exporting state must be handled carefully: reintroducing stale state can
-    /// rewind the leaf index and reveal the secret key through reuse.
-    pub fn to_raw_bytes(&self) -> Vec<u8> {
-        self.0.value.clone()
-    }
-
-    /// Reconstructs a signing key from serialized bytes for a specific scheme.
-    ///
-    /// The bytes must encode the full XMSS signing state for that scheme. A
-    /// stale or rewound state can reveal the secret key through leaf reuse.
-    pub fn from_raw_bytes(scheme: XmssScheme, bytes: &[u8]) -> Result<Self> {
-        scheme.validate_signing_key(bytes)?;
-        Ok(Self(InnerXmss::new(scheme, bytes.to_vec())))
-    }
-}
-
 /// Serialized XMSS verification key.
 ///
 /// Verification keys are scheme-bound. Mismatching the stored scheme is always
@@ -353,44 +354,12 @@ impl XmssSigningKey {
 #[derive(Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub struct XmssVerificationKey(pub(crate) InnerXmss);
 
-impl fmt::Debug for XmssVerificationKey {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("XmssVerificationKey")
-            .field("scheme", &self.0.scheme)
-            .field("value", &"<redacted>")
-            .finish()
-    }
-}
-
-impl AsRef<[u8]> for XmssVerificationKey {
-    fn as_ref(&self) -> &[u8] {
-        &self.0.value
-    }
-}
-
-impl From<InnerXmss> for XmssVerificationKey {
-    fn from(value: InnerXmss) -> Self {
-        Self(value)
-    }
-}
-
-impl XmssVerificationKey {
-    /// Returns the scheme recorded alongside this verification key.
-    pub fn scheme(&self) -> XmssScheme {
-        self.0.scheme
-    }
-
-    /// Returns a copy of the raw serialized verification key bytes.
-    pub fn to_raw_bytes(&self) -> Vec<u8> {
-        self.0.value.clone()
-    }
-
-    /// Reconstructs a verification key from serialized bytes for a scheme.
-    pub fn from_raw_bytes(scheme: XmssScheme, bytes: &[u8]) -> Result<Self> {
-        scheme.validate_verification_key(bytes)?;
-        Ok(Self(InnerXmss::new(scheme, bytes.to_vec())))
-    }
-}
+impl_xmss_wrapper!(
+    XmssVerificationKey,
+    validate_verification_key,
+    "Returns a copy of the raw serialized verification key bytes.",
+    "Reconstructs a verification key from serialized bytes for a scheme."
+);
 
 /// Serialized detached XMSS signature.
 ///
@@ -401,44 +370,12 @@ impl XmssVerificationKey {
 #[derive(Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub struct XmssSignature(pub(crate) InnerXmss);
 
-impl fmt::Debug for XmssSignature {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("XmssSignature")
-            .field("scheme", &self.0.scheme)
-            .field("value", &"<redacted>")
-            .finish()
-    }
-}
-
-impl AsRef<[u8]> for XmssSignature {
-    fn as_ref(&self) -> &[u8] {
-        &self.0.value
-    }
-}
-
-impl From<InnerXmss> for XmssSignature {
-    fn from(value: InnerXmss) -> Self {
-        Self(value)
-    }
-}
-
-impl XmssSignature {
-    /// Returns the scheme recorded alongside this signature.
-    pub fn scheme(&self) -> XmssScheme {
-        self.0.scheme
-    }
-
-    /// Returns a copy of the raw detached signature bytes.
-    pub fn to_raw_bytes(&self) -> Vec<u8> {
-        self.0.value.clone()
-    }
-
-    /// Reconstructs a detached signature from serialized bytes for a scheme.
-    pub fn from_raw_bytes(scheme: XmssScheme, bytes: &[u8]) -> Result<Self> {
-        scheme.validate_signature(bytes)?;
-        Ok(Self(InnerXmss::new(scheme, bytes.to_vec())))
-    }
-}
+impl_xmss_wrapper!(
+    XmssSignature,
+    validate_signature,
+    "Returns a copy of the raw detached signature bytes.",
+    "Reconstructs a detached signature from serialized bytes for a scheme."
+);
 
 impl XmssScheme {
     fn validate_signing_key(&self, bytes: &[u8]) -> Result<()> {
@@ -453,37 +390,15 @@ impl XmssScheme {
         with_xmss_params!(*self, |P| { validate_signature_bytes::<P>(bytes) })
     }
 
-    fn ensure_signing_scheme(&self, key: &XmssSigningKey) -> Result<()> {
-        if key.0.scheme != *self {
-            return Err(Error::SchemeMismatch {
+    fn ensure_scheme(self, actual: Self) -> Result<()> {
+        if actual == self {
+            Ok(())
+        } else {
+            Err(Error::SchemeMismatch {
                 expected: self.to_string(),
-                actual: key.0.scheme.to_string(),
-            });
+                actual: actual.to_string(),
+            })
         }
-
-        Ok(())
-    }
-
-    fn ensure_verification_scheme(&self, key: &XmssVerificationKey) -> Result<()> {
-        if key.0.scheme != *self {
-            return Err(Error::SchemeMismatch {
-                expected: self.to_string(),
-                actual: key.0.scheme.to_string(),
-            });
-        }
-
-        Ok(())
-    }
-
-    fn ensure_signature_scheme(&self, signature: &XmssSignature) -> Result<()> {
-        if signature.0.scheme != *self {
-            return Err(Error::SchemeMismatch {
-                expected: self.to_string(),
-                actual: signature.0.scheme.to_string(),
-            });
-        }
-
-        Ok(())
     }
 
     /// Returns the XMSS Merkle tree height `h`.
@@ -508,7 +423,7 @@ impl XmssScheme {
     /// an error instead of defaulting to leaf `0`, because silent rewind risks
     /// leaf reuse and secret-key compromise.
     pub fn current_index(&self, key: &XmssSigningKey) -> Result<u64> {
-        self.ensure_signing_scheme(key)?;
+        self.ensure_scheme(key.0.scheme)?;
         read_index_bytes(&key.0.value).map(u64::from)
     }
 
@@ -608,10 +523,10 @@ impl XmssScheme {
         signing_key: &mut XmssSigningKey,
         store: &mut S,
     ) -> Result<XmssSignature> {
-        self.ensure_signing_scheme(signing_key)?;
+        self.ensure_scheme(signing_key.0.scheme)?;
 
         if self.remaining(signing_key)? == 0 {
-            return Err(Error::XmssKeyExhausted(self.max_signatures()));
+            return Err(Error::XmssKeyExhausted(LeavesCount(self.max_signatures())));
         }
 
         with_xmss_params!(*self, |P| {
@@ -639,8 +554,8 @@ impl XmssScheme {
         signature: &XmssSignature,
         verification_key: &XmssVerificationKey,
     ) -> Result<()> {
-        self.ensure_signature_scheme(signature)?;
-        self.ensure_verification_scheme(verification_key)?;
+        self.ensure_scheme(signature.0.scheme)?;
+        self.ensure_scheme(verification_key.0.scheme)?;
 
         with_xmss_params!(*self, |P| {
             let signature = xmss::DetachedSignature::<P>::try_from(signature.0.value.as_slice())
@@ -862,7 +777,7 @@ mod tests {
             .sign(message, &mut signing_key, &mut store)
             .unwrap_err();
         match err {
-            Error::XmssKeyExhausted(limit) => assert_eq!(limit, scheme.max_signatures()),
+            Error::XmssKeyExhausted(limit) => assert_eq!(limit.0, scheme.max_signatures()),
             other => panic!("unexpected error: {other:?}"),
         }
     }

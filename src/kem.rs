@@ -2,6 +2,8 @@
 //! ClassicMcEliece348864
 //! ML-KEM are supported
 
+#[cfg(any(feature = "frodo", feature = "hqc", feature = "sntrup"))]
+use crate::os_rng;
 use crate::{deserialize_hex_or_bin, error::*, serialize_hex_or_bin};
 use serde::{Deserialize, Serialize};
 
@@ -330,32 +332,25 @@ macro_rules! with_hqc_params {
     }};
 }
 
-/// The rand-0.10-family OS RNG, matching the convention in `ml_dsa.rs`, `mayo.rs` and `slh_dsa.rs`.
-#[cfg(any(feature = "hqc", feature = "sntrup", feature = "frodo"))]
-fn os_rng_010() -> rand_core_010::UnwrapErr<getrandom_v04::SysRng> {
-    rand_core_010::UnwrapErr(getrandom_v04::SysRng)
-}
-
-/// Map a FrodoKEM `KemScheme` variant onto the upstream crate's runtime algorithm.
-///
-/// The upstream `Algorithm` carries itself inside every key and ciphertext and rejects
-/// mismatched pairings with `AlgorithmMismatch`, which is what makes the AES and SHAKE
-/// variants distinguishable at all — at equal `n` they have identical encoding lengths,
-/// so no length check could ever tell them apart.
-#[cfg(feature = "frodo")]
-fn frodo_algorithm(scheme: KemScheme) -> Result<frodo_kem_rs::Algorithm> {
-    Ok(match scheme {
-        KemScheme::FrodoKem640Aes => frodo_kem_rs::Algorithm::FrodoKem640Aes,
-        KemScheme::FrodoKem640Shake => frodo_kem_rs::Algorithm::FrodoKem640Shake,
-        KemScheme::FrodoKem976Aes => frodo_kem_rs::Algorithm::FrodoKem976Aes,
-        KemScheme::FrodoKem976Shake => frodo_kem_rs::Algorithm::FrodoKem976Shake,
-        KemScheme::FrodoKem1344Aes => frodo_kem_rs::Algorithm::FrodoKem1344Aes,
-        KemScheme::FrodoKem1344Shake => frodo_kem_rs::Algorithm::FrodoKem1344Shake,
-        _ => return Err(Error::FrodoError("not a FrodoKEM scheme".to_string())),
-    })
-}
-
 impl KemScheme {
+    /// Map this scheme onto the upstream FrodoKEM runtime algorithm.
+    ///
+    /// The upstream `Algorithm` carries itself inside every key and ciphertext and
+    /// rejects mismatched pairings. At equal `n`, the AES and SHAKE variants have
+    /// identical encoding lengths, so length checks cannot distinguish them.
+    #[cfg(feature = "frodo")]
+    fn frodo_algorithm(self) -> Result<frodo_kem_rs::Algorithm> {
+        Ok(match self {
+            Self::FrodoKem640Aes => frodo_kem_rs::Algorithm::FrodoKem640Aes,
+            Self::FrodoKem640Shake => frodo_kem_rs::Algorithm::FrodoKem640Shake,
+            Self::FrodoKem976Aes => frodo_kem_rs::Algorithm::FrodoKem976Aes,
+            Self::FrodoKem976Shake => frodo_kem_rs::Algorithm::FrodoKem976Shake,
+            Self::FrodoKem1344Aes => frodo_kem_rs::Algorithm::FrodoKem1344Aes,
+            Self::FrodoKem1344Shake => frodo_kem_rs::Algorithm::FrodoKem1344Shake,
+            _ => return Err(Error::FrodoError("not a FrodoKEM scheme".to_string())),
+        })
+    }
+
     #[cfg(feature = "kgen")]
     /// Generate a new Key-Encapsulation encapsulating / decapsulating key pair
     pub fn keypair(&self) -> Result<(KemEncapsulationKey, KemDecapsulationKey)> {
@@ -377,20 +372,20 @@ impl KemScheme {
             #[cfg(feature = "hqc")]
             KemScheme::Hqc128 | KemScheme::Hqc192 | KemScheme::Hqc256 => {
                 with_hqc_params!(*self, |P| {
-                    let mut rng = os_rng_010();
+                    let mut rng = os_rng();
                     let (ek, dk) = hqc_kem::HqcKem::<P>::generate_key(&mut rng);
                     Ok(self.pack_keypair(ek.as_ref().to_vec(), dk.as_ref().to_vec()))
                 })
             }
             #[cfg(feature = "sntrup")]
             sntrup_schemes!() => with_sntrup_params!(*self, |P| {
-                let mut rng = os_rng_010();
+                let mut rng = os_rng();
                 let (ek, dk) = sntrup::SntrupKem::<P>::generate_key(&mut rng);
                 Ok(self.pack_keypair(ek.as_ref().to_vec(), dk.as_ref().to_vec()))
             }),
             #[cfg(feature = "frodo")]
             frodo_schemes!() => {
-                let (ek, dk) = frodo_algorithm(*self)?.generate_keypair(os_rng_010());
+                let (ek, dk) = self.frodo_algorithm()?.generate_keypair(os_rng());
                 Ok(self.pack_keypair(ek.value().to_vec(), dk.value().to_vec()))
             }
         }
@@ -511,10 +506,10 @@ impl KemScheme {
         &self,
         encapsulation_key: &KemEncapsulationKey,
     ) -> Result<(KemCiphertext, KemSharedSecret)> {
+        self.ensure_scheme(encapsulation_key.0.scheme)?;
         match self {
             #[cfg(feature = "ml-kem")]
             KemScheme::MlKem768 | KemScheme::MlKem1024 => {
-                self.ensure_scheme(encapsulation_key.0.scheme)?;
                 use ml_kem::{Encapsulate, TryKeyInit};
                 with_ml_kem_params!(*self, |P| {
                     let ek = ml_kem::EncapsulationKey::<P>::new_from_slice(
@@ -538,7 +533,6 @@ impl KemScheme {
             }
             #[cfg(feature = "mceliece")]
             KemScheme::ClassicMcEliece348864 => {
-                self.ensure_scheme(encapsulation_key.0.scheme)?;
                 let ek = mceliece_public_key(encapsulation_key.0.value.as_slice())?;
                 let mut rng = rand_core::OsRng;
                 let (ct, ss) = encapsulate_boxed(&ek, &mut rng);
@@ -557,39 +551,36 @@ impl KemScheme {
             }
             #[cfg(feature = "hqc")]
             KemScheme::Hqc128 | KemScheme::Hqc192 | KemScheme::Hqc256 => {
-                self.ensure_scheme(encapsulation_key.0.scheme)?;
                 with_hqc_params!(*self, |P| {
                     let ek = hqc_kem::EncapsulationKey::<P>::try_from(
                         encapsulation_key.0.value.as_slice(),
                     )
                     .map_err(|_| Error::HqcError("an invalid encapsulation key".to_string()))?;
-                    let mut rng = os_rng_010();
+                    let mut rng = os_rng();
                     let (ct, ss) = ek.encapsulate(&mut rng);
                     Ok(self.pack_encapsulation(ct.as_ref().to_vec(), ss.as_ref().to_vec()))
                 })
             }
             #[cfg(feature = "sntrup")]
             sntrup_schemes!() => {
-                self.ensure_scheme(encapsulation_key.0.scheme)?;
                 with_sntrup_params!(*self, |P| {
                     let ek = sntrup::EncapsulationKey::<P>::try_from(
                         encapsulation_key.0.value.as_slice(),
                     )
                     .map_err(|_| Error::SntrupError("an invalid encapsulation key".to_string()))?;
-                    let mut rng = os_rng_010();
+                    let mut rng = os_rng();
                     let (ct, ss) = ek.encapsulate(&mut rng);
                     Ok(self.pack_encapsulation(ct.as_ref().to_vec(), ss.as_ref().to_vec()))
                 })
             }
             #[cfg(feature = "frodo")]
             frodo_schemes!() => {
-                self.ensure_scheme(encapsulation_key.0.scheme)?;
-                let alg = frodo_algorithm(*self)?;
+                let alg = self.frodo_algorithm()?;
                 let ek = alg
                     .encryption_key_from_bytes(encapsulation_key.0.value.as_slice())
                     .map_err(|e| Error::FrodoError(e.to_string()))?;
                 let (ct, ss) = alg
-                    .encapsulate_with_rng(&ek, os_rng_010())
+                    .encapsulate_with_rng(&ek, os_rng())
                     .map_err(|e| Error::FrodoError(e.to_string()))?;
                 Ok(self.pack_encapsulation(ct.value().to_vec(), ss.value().to_vec()))
             }
@@ -623,11 +614,11 @@ impl KemScheme {
         ciphertext: &KemCiphertext,
         decapsulation_key: &KemDecapsulationKey,
     ) -> Result<KemSharedSecret> {
+        self.ensure_scheme(ciphertext.0.scheme)?;
+        self.ensure_scheme(decapsulation_key.0.scheme)?;
         match self {
             #[cfg(feature = "ml-kem")]
             KemScheme::MlKem768 | KemScheme::MlKem1024 => {
-                self.ensure_scheme(decapsulation_key.0.scheme)?;
-                self.ensure_scheme(ciphertext.0.scheme)?;
                 use ml_kem::{Decapsulate, KeyInit};
                 with_ml_kem_params!(*self, |P| {
                     let dk = ml_kem::DecapsulationKey::<P>::new_from_slice(
@@ -646,8 +637,6 @@ impl KemScheme {
             }
             #[cfg(feature = "mceliece")]
             KemScheme::ClassicMcEliece348864 => {
-                self.ensure_scheme(ciphertext.0.scheme)?;
-                self.ensure_scheme(decapsulation_key.0.scheme)?;
                 let ct = mceliece_ciphertext(ciphertext.0.value.as_slice())?;
                 let sk = mceliece_secret_key(decapsulation_key.0.value.as_slice())?;
                 let ss = decapsulate_boxed(&ct, &sk);
@@ -659,8 +648,6 @@ impl KemScheme {
             }
             #[cfg(feature = "hqc")]
             KemScheme::Hqc128 | KemScheme::Hqc192 | KemScheme::Hqc256 => {
-                self.ensure_scheme(decapsulation_key.0.scheme)?;
-                self.ensure_scheme(ciphertext.0.scheme)?;
                 with_hqc_params!(*self, |P| {
                     let dk = hqc_kem::DecapsulationKey::<P>::try_from(
                         decapsulation_key.0.value.as_slice(),
@@ -678,8 +665,6 @@ impl KemScheme {
             }
             #[cfg(feature = "sntrup")]
             sntrup_schemes!() => {
-                self.ensure_scheme(decapsulation_key.0.scheme)?;
-                self.ensure_scheme(ciphertext.0.scheme)?;
                 with_sntrup_params!(*self, |P| {
                     let dk = sntrup::DecapsulationKey::<P>::try_from(
                         decapsulation_key.0.value.as_slice(),
@@ -697,9 +682,7 @@ impl KemScheme {
             }
             #[cfg(feature = "frodo")]
             frodo_schemes!() => {
-                self.ensure_scheme(decapsulation_key.0.scheme)?;
-                self.ensure_scheme(ciphertext.0.scheme)?;
-                let alg = frodo_algorithm(*self)?;
+                let alg = self.frodo_algorithm()?;
                 let dk = alg
                     .decryption_key_from_bytes(decapsulation_key.0.value.as_slice())
                     .map_err(|e| Error::FrodoError(e.to_string()))?;
@@ -752,7 +735,7 @@ impl KemScheme {
             }),
             #[cfg(feature = "frodo")]
             frodo_schemes!() => {
-                frodo_algorithm(*self)?
+                self.frodo_algorithm()?
                     .encryption_key_from_bytes(bytes)
                     .map_err(|e| Error::FrodoError(e.to_string()))?;
                 Ok(())
@@ -794,7 +777,7 @@ impl KemScheme {
             }),
             #[cfg(feature = "frodo")]
             frodo_schemes!() => {
-                frodo_algorithm(*self)?
+                self.frodo_algorithm()?
                     .decryption_key_from_bytes(bytes)
                     .map_err(|e| Error::FrodoError(e.to_string()))?;
                 Ok(())
@@ -834,7 +817,7 @@ impl KemScheme {
             }),
             #[cfg(feature = "frodo")]
             frodo_schemes!() => {
-                frodo_algorithm(*self)?
+                self.frodo_algorithm()?
                     .ciphertext_from_bytes(bytes)
                     .map_err(|e| Error::FrodoError(e.to_string()))?;
                 Ok(())
@@ -881,7 +864,7 @@ impl KemScheme {
             }
             #[cfg(feature = "frodo")]
             frodo_schemes!() => {
-                frodo_algorithm(*self)?
+                self.frodo_algorithm()?
                     .shared_secret_from_bytes(bytes)
                     .map_err(|e| Error::FrodoError(e.to_string()))?;
                 Ok(())

@@ -2,6 +2,16 @@
 
 use thiserror::Error as ThisError;
 
+/// Number of one-time-signature leaves in an XMSS key.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct LeavesCount(pub u64);
+
+impl core::fmt::Display for LeavesCount {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        self.0.fmt(f)
+    }
+}
+
 /// Error type for the library
 #[derive(ThisError, Debug)]
 pub enum Error {
@@ -35,7 +45,7 @@ pub enum Error {
     /// The XMSS one-time-signature leaves for this key are exhausted; no further
     /// signatures may be produced without revealing the secret key.
     #[error("XMSS key exhausted: all {0} one-time-signature leaves have been consumed")]
-    XmssKeyExhausted(u64),
+    XmssKeyExhausted(LeavesCount),
     /// Bird-of-Prey hybrid signature error
     #[error("Bird-of-Prey error: {0}")]
     BirdOfPreyError(String),

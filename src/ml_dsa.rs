@@ -1,12 +1,9 @@
 //! ML-DSA key and signature methods
 
+#[cfg(feature = "kgen")]
+use crate::os_rng;
 use crate::{deserialize_hex_or_bin, error::*, serialize_hex_or_bin};
 use serde::{Deserialize, Serialize};
-
-#[cfg(feature = "kgen")]
-fn os_rng() -> rand_core_010::UnwrapErr<getrandom_v04::SysRng> {
-    rand_core_010::UnwrapErr(getrandom_v04::SysRng)
-}
 
 macro_rules! impl_ml_dsa_struct {
     ($name:ident, $validate:ident, $expect:expr) => {
