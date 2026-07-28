@@ -303,7 +303,7 @@ mod tests {
         let slip10_private_bytes = slip10_root.private_key_bytes();
 
         assert_eq!(
-            bip32_private_bytes.as_ref(),
+            bip32_private_bytes.as_slice(),
             slip10_private_bytes.as_slice(),
             "Root private keys should match between BIP-32 and SLIP-0010"
         );
@@ -311,7 +311,7 @@ mod tests {
         // 4. Compare chain codes
         assert_eq!(
             bip32_root.attrs().chain_code,
-            slip10_root.attrs.chain_code.as_ref(),
+            slip10_root.attrs.chain_code.as_slice(),
             "Root chain codes should match"
         );
 
@@ -320,7 +320,7 @@ mod tests {
         let slip10_public = slip10_root.private_key.public_key();
 
         assert_eq!(
-            bip32_public.to_bytes().as_ref(),
+            bip32_public.to_bytes().as_slice(),
             slip10_public.to_bytes().as_slice(),
             "Root public keys should match"
         );
@@ -372,7 +372,7 @@ mod tests {
         let slip10_private_bytes = slip10_key.private_key_bytes();
 
         assert_eq!(
-            bip32_private_bytes.as_ref(),
+            bip32_private_bytes.as_slice(),
             slip10_private_bytes.as_slice(),
             "Private keys should match between BIP-32 and SLIP-0010 for path: {}",
             path_str
@@ -381,7 +381,7 @@ mod tests {
         // 4. Compare chain codes
         assert_eq!(
             bip32_key.attrs().chain_code,
-            slip10_key.attrs.chain_code.as_ref(),
+            slip10_key.attrs.chain_code.as_slice(),
             "Chain codes should match for path: {}",
             path_str
         );
@@ -391,7 +391,7 @@ mod tests {
         let slip10_public = slip10_key.private_key.public_key();
 
         assert_eq!(
-            bip32_public.to_bytes().as_ref(),
+            bip32_public.to_bytes().as_slice(),
             slip10_public.to_bytes().as_slice(),
             "Public keys should match for path: {}",
             path_str

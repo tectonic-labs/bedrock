@@ -55,30 +55,74 @@ pub const FALCON512_SIGNATURE_SIZE: usize = 666;
 
 /// Size in bytes of the seed required for ML-DSA key generation (32 bytes = 256 bits).
 /// Original standard (pag. 33): 𝜉 ∈ 𝔹^32 for KeyGen_internal(𝜉).
+#[deprecated(since = "0.3.0", note = "use ML_DSA_65_KEY_GENERATION_SEED_SIZE")]
 pub const ML_DSA_44_KEY_GENERATION_SEED_SIZE: usize = 32;
 pub const ML_DSA_65_KEY_GENERATION_SEED_SIZE: usize = 32;
 pub const ML_DSA_87_KEY_GENERATION_SEED_SIZE: usize = 32;
 /// Size in bytes of the root seed for ML-DSA HD key derivation (64 bytes = 512 bits).
+#[deprecated(since = "0.3.0", note = "use ML_DSA_65_ROOT_SEED_SIZE")]
 pub const ML_DSA_44_ROOT_SEED_SIZE: usize = 64;
 pub const ML_DSA_65_ROOT_SEED_SIZE: usize = 64;
 pub const ML_DSA_87_ROOT_SEED_SIZE: usize = 64;
 /// Domain separator string used for ML-DSA 44 in BIP-32 key derivation.
+#[deprecated(since = "0.3.0", note = "use ML_DSA_65_DOMAIN_SEPARATOR")]
 pub const ML_DSA_44_DOMAIN_SEPARATOR: &[u8] = b"ML-DSA-44 seed";
+/// Domain separator string used for ML-DSA in BIP-32 key derivation.
 pub const ML_DSA_65_DOMAIN_SEPARATOR: &[u8] = b"ML-DSA-65 seed";
 pub const ML_DSA_87_DOMAIN_SEPARATOR: &[u8] = b"ML-DSA-87 seed";
 /// Numbers taken from the original ml-dsa standard: https://nvlpubs.nist.gov/nistpubs/fips/nist.fips.204.pdf
-/// Size in bytes of a ML-DSA 44/65/87 signing key (private key)
+/// Size in bytes of an ML-DSA 44 signing key (private key).
+#[deprecated(since = "0.3.0", note = "use ML_DSA_65_SIGNING_KEY_SIZE")]
 pub const ML_DSA_44_SIGNING_KEY_SIZE: usize = 2560;
+/// Size in bytes of a ML-DSA 65/87 signing key (private key)
 pub const ML_DSA_65_SIGNING_KEY_SIZE: usize = 4032;
 pub const ML_DSA_87_SIGNING_KEY_SIZE: usize = 4896;
-/// Size in bytes of a ML-DSA 44/65/87 verifying key (public key)
+/// Size in bytes of an ML-DSA 44 verifying key (public key).
+#[deprecated(since = "0.3.0", note = "use ML_DSA_65_VERIFYING_KEY_SIZE")]
 pub const ML_DSA_44_VERIFYING_KEY_SIZE: usize = 1312;
+/// Size in bytes of a ML-DSA 65/87 verifying key (public key)
 pub const ML_DSA_65_VERIFYING_KEY_SIZE: usize = 1952;
 pub const ML_DSA_87_VERIFYING_KEY_SIZE: usize = 2592;
-/// Size in bytes of a ML-DSA 44 signature.
+/// Size in bytes of an ML-DSA 44 signature.
+#[deprecated(since = "0.3.0", note = "use ML_DSA_65_SIGNATURE_SIZE")]
 pub const ML_DSA_44_SIGNATURE_SIZE: usize = 2420;
+/// Size in bytes of a ML-DSA 65/87 signature.
 pub const ML_DSA_65_SIGNATURE_SIZE: usize = 3309;
 pub const ML_DSA_87_SIGNATURE_SIZE: usize = 4627;
+
+/// Size in bytes of the seed required for MAYO key generation.
+///
+/// A SLIP-0010 child key is always 32 bytes, while MAYO keygen seeds are 24 bytes
+/// (MAYO-1/2), 32 bytes (MAYO-3), and 40 bytes (MAYO-5). The HHD derivation rule for the
+/// MAYO family only strips bits, never expands them: MAYO-1/2 truncate the 32-byte
+/// SLIP-0010 child key to its first 24 bytes, MAYO-3 uses all 32 bytes directly, and
+/// MAYO-5 is deliberately not supported in HHD (its 40-byte seed cannot be sourced from a
+/// 32-byte SLIP-0010 child key without expansion). SLIP-0010 output is computationally
+/// indistinguishable from uniform, so any prefix is itself uniform and truncation
+/// preserves the full seed security targeted by the parameter set.
+pub const MAYO_1_KEY_GENERATION_SEED_SIZE: usize = 24;
+pub const MAYO_2_KEY_GENERATION_SEED_SIZE: usize = 24;
+pub const MAYO_3_KEY_GENERATION_SEED_SIZE: usize = 32;
+/// Size in bytes of the root seed for MAYO HD key derivation (64 bytes = 512 bits).
+pub const MAYO_1_ROOT_SEED_SIZE: usize = 64;
+pub const MAYO_2_ROOT_SEED_SIZE: usize = 64;
+pub const MAYO_3_ROOT_SEED_SIZE: usize = 64;
+/// Domain separator strings used for MAYO in SLIP-0010 key derivation.
+pub const MAYO_1_DOMAIN_SEPARATOR: &[u8] = b"MAYO-1 seed";
+pub const MAYO_2_DOMAIN_SEPARATOR: &[u8] = b"MAYO-2 seed";
+pub const MAYO_3_DOMAIN_SEPARATOR: &[u8] = b"MAYO-3 seed";
+/// Size in bytes of a MAYO signing key (private key): the compact secret-key seed.
+pub const MAYO_1_SIGNING_KEY_SIZE: usize = 24;
+pub const MAYO_2_SIGNING_KEY_SIZE: usize = 24;
+pub const MAYO_3_SIGNING_KEY_SIZE: usize = 32;
+/// Size in bytes of a MAYO verifying key (public key).
+pub const MAYO_1_VERIFYING_KEY_SIZE: usize = 1420;
+pub const MAYO_2_VERIFYING_KEY_SIZE: usize = 4368;
+pub const MAYO_3_VERIFYING_KEY_SIZE: usize = 2986;
+/// Size in bytes of a MAYO signature.
+pub const MAYO_1_SIGNATURE_SIZE: usize = 454;
+pub const MAYO_2_SIGNATURE_SIZE: usize = 216;
+pub const MAYO_3_SIGNATURE_SIZE: usize = 681;
 
 /// BIP-44 non-hardened base derivation path
 pub const BIP44_NON_HARDENED_BASE_PATH: &str = "m/44'/60'/0'/0";
@@ -115,11 +159,18 @@ pub enum SignatureSeed {
     /// Falcon-512 signature scheme seed.
     Falcon512(Seed),
     /// ML-DSA 44 signature scheme seed.
+    #[deprecated(since = "0.3.0", note = "use MlDsa65")]
     MlDsa44(Seed),
     /// ML-DSA 65 signature scheme seed.
     MlDsa65(Seed),
     /// ML-DSA 87 signature scheme seed.
     MlDsa87(Seed),
+    /// MAYO-1 signature scheme seed.
+    Mayo1(Seed),
+    /// MAYO-2 signature scheme seed.
+    Mayo2(Seed),
+    /// MAYO-3 signature scheme seed.
+    Mayo3(Seed),
 }
 
 impl fmt::Debug for SignatureSeed {
@@ -130,6 +181,9 @@ impl fmt::Debug for SignatureSeed {
             SignatureSeed::MlDsa44(_) => "MlDsa44",
             SignatureSeed::MlDsa65(_) => "MlDsa65",
             SignatureSeed::MlDsa87(_) => "MlDsa87",
+            SignatureSeed::Mayo1(_) => "Mayo1",
+            SignatureSeed::Mayo2(_) => "Mayo2",
+            SignatureSeed::Mayo3(_) => "Mayo3",
         };
 
         let seed_bytes = self.as_seed().as_bytes().to_vec();
@@ -172,6 +226,9 @@ impl SignatureSeed {
             SignatureSeed::MlDsa44(seed) => seed,
             SignatureSeed::MlDsa65(seed) => seed,
             SignatureSeed::MlDsa87(seed) => seed,
+            SignatureSeed::Mayo1(seed) => seed,
+            SignatureSeed::Mayo2(seed) => seed,
+            SignatureSeed::Mayo3(seed) => seed,
         }
     }
 }
@@ -204,11 +261,27 @@ pub enum SignatureScheme {
     /// Falcon-512 post-quantum signature scheme.
     Falcon512,
     /// ML-DSA 44 post-quantum signature scheme.
+    #[deprecated(since = "0.3.0", note = "use MlDsa65")]
     MlDsa44,
     /// ML-DSA 65 post-quantum signature scheme.
     MlDsa65,
     /// ML-DSA 87 post-quantum signature scheme.
     MlDsa87,
+    /// MAYO-1 post-quantum signature scheme.
+    ///
+    /// HHD derivation only strips bits, never expands: MAYO-1 truncates the 32-byte
+    /// SLIP-0010 child key to its first 24 bytes.
+    Mayo1,
+    /// MAYO-2 post-quantum signature scheme.
+    ///
+    /// HHD derivation only strips bits, never expands: MAYO-2 truncates the 32-byte
+    /// SLIP-0010 child key to its first 24 bytes.
+    Mayo2,
+    /// MAYO-3 post-quantum signature scheme.
+    ///
+    /// HHD derivation uses all 32 bytes of the SLIP-0010 child key directly. MAYO-5 is not
+    /// offered in HHD because its 40-byte seed would require expansion.
+    Mayo3,
 }
 
 impl SignatureScheme {
@@ -275,7 +348,10 @@ impl SignatureScheme {
             | SignatureScheme::Falcon512
             | SignatureScheme::MlDsa44
             | SignatureScheme::MlDsa65
-            | SignatureScheme::MlDsa87 => Ok(BIP44_HARDENED_BASE_PATH),
+            | SignatureScheme::MlDsa87
+            | SignatureScheme::Mayo1
+            | SignatureScheme::Mayo2
+            | SignatureScheme::Mayo3 => Ok(BIP44_HARDENED_BASE_PATH),
         }
     }
 
@@ -291,6 +367,9 @@ impl SignatureScheme {
             SignatureScheme::MlDsa44 => ML_DSA_44_KEY_GENERATION_SEED_SIZE,
             SignatureScheme::MlDsa65 => ML_DSA_65_KEY_GENERATION_SEED_SIZE,
             SignatureScheme::MlDsa87 => ML_DSA_87_KEY_GENERATION_SEED_SIZE,
+            SignatureScheme::Mayo1 => MAYO_1_KEY_GENERATION_SEED_SIZE,
+            SignatureScheme::Mayo2 => MAYO_2_KEY_GENERATION_SEED_SIZE,
+            SignatureScheme::Mayo3 => MAYO_3_KEY_GENERATION_SEED_SIZE,
         }
     }
 
@@ -305,6 +384,9 @@ impl SignatureScheme {
             SignatureScheme::MlDsa44 => ML_DSA_44_ROOT_SEED_SIZE,
             SignatureScheme::MlDsa65 => ML_DSA_65_ROOT_SEED_SIZE,
             SignatureScheme::MlDsa87 => ML_DSA_87_ROOT_SEED_SIZE,
+            SignatureScheme::Mayo1 => MAYO_1_ROOT_SEED_SIZE,
+            SignatureScheme::Mayo2 => MAYO_2_ROOT_SEED_SIZE,
+            SignatureScheme::Mayo3 => MAYO_3_ROOT_SEED_SIZE,
         }
     }
 
@@ -338,6 +420,9 @@ impl SignatureScheme {
             SignatureScheme::MlDsa44 => ML_DSA_44_DOMAIN_SEPARATOR,
             SignatureScheme::MlDsa65 => ML_DSA_65_DOMAIN_SEPARATOR,
             SignatureScheme::MlDsa87 => ML_DSA_87_DOMAIN_SEPARATOR,
+            SignatureScheme::Mayo1 => MAYO_1_DOMAIN_SEPARATOR,
+            SignatureScheme::Mayo2 => MAYO_2_DOMAIN_SEPARATOR,
+            SignatureScheme::Mayo3 => MAYO_3_DOMAIN_SEPARATOR,
         }
     }
 
@@ -352,6 +437,9 @@ impl SignatureScheme {
             SignatureScheme::MlDsa44 => ML_DSA_44_SIGNING_KEY_SIZE,
             SignatureScheme::MlDsa65 => ML_DSA_65_SIGNING_KEY_SIZE,
             SignatureScheme::MlDsa87 => ML_DSA_87_SIGNING_KEY_SIZE,
+            SignatureScheme::Mayo1 => MAYO_1_SIGNING_KEY_SIZE,
+            SignatureScheme::Mayo2 => MAYO_2_SIGNING_KEY_SIZE,
+            SignatureScheme::Mayo3 => MAYO_3_SIGNING_KEY_SIZE,
         }
     }
 
@@ -366,6 +454,9 @@ impl SignatureScheme {
             SignatureScheme::MlDsa44 => ML_DSA_44_VERIFYING_KEY_SIZE,
             SignatureScheme::MlDsa65 => ML_DSA_65_VERIFYING_KEY_SIZE,
             SignatureScheme::MlDsa87 => ML_DSA_87_VERIFYING_KEY_SIZE,
+            SignatureScheme::Mayo1 => MAYO_1_VERIFYING_KEY_SIZE,
+            SignatureScheme::Mayo2 => MAYO_2_VERIFYING_KEY_SIZE,
+            SignatureScheme::Mayo3 => MAYO_3_VERIFYING_KEY_SIZE,
         }
     }
 
@@ -380,6 +471,9 @@ impl SignatureScheme {
             SignatureScheme::MlDsa44 => ML_DSA_44_SIGNATURE_SIZE,
             SignatureScheme::MlDsa65 => ML_DSA_65_SIGNATURE_SIZE,
             SignatureScheme::MlDsa87 => ML_DSA_87_SIGNATURE_SIZE,
+            SignatureScheme::Mayo1 => MAYO_1_SIGNATURE_SIZE,
+            SignatureScheme::Mayo2 => MAYO_2_SIGNATURE_SIZE,
+            SignatureScheme::Mayo3 => MAYO_3_SIGNATURE_SIZE,
         }
     }
 }

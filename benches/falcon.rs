@@ -1,5 +1,10 @@
-#[allow(missing_docs)]
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+//! Criterion benchmarks for Falcon-512 and ETHFALCON signing and verification.
+
+#![allow(clippy::unwrap_used)]
+
+use std::hint::black_box;
+
+use criterion::{criterion_group, criterion_main, Criterion};
 
 use tectonic_bedrock::falcon::FalconScheme;
 

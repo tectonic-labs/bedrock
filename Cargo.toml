@@ -13,22 +13,29 @@ repository = "https://github.com/tectonic-labs/bedrock"
 version = "0.3.0"
 
 [features]
-default = ["eth_falcon", "falcon", "mceliece", "ml-dsa", "ml-kem", "slh-dsa", "decp", "encp", "kgen", "sign", "vrfy", "hhd", "xwing"]
+default = ["eth_falcon", "falcon", "ml-dsa", "slh-dsa", "mayo", "decp", "encp", "kgen", "sign", "vrfy", "hhd"]
+bird-of-prey = ["dep:curve25519-dalek", "falcon", "hmac", "ml-dsa", "sha2", "zeroize", "kgen", "sign", "vrfy"]
 eth_falcon = ["falcon", "rand_chacha", "rand_core", "fn-dsa-comm/eth_falcon", "fn-dsa-sign?/eth_falcon", "fn-dsa-vrfy?/eth_falcon", "zeroize"]
-hhd = ["zeroize", "bip32", "hmac", "sha2", "tiny-bip39", "rand_core"]
-falcon = ["oqs/falcon"]
-slh-dsa = ["oqs/slh_dsa"]
-mceliece = ["oqs/classic_mceliece"]
-ml-dsa = ["oqs/ml_dsa"]
-ml-kem = ["oqs/ml_kem"]
-kgen = ["fn-dsa-comm", "fn-dsa-kgen", "rand_core?/getrandom"]
+frodo = ["dep:frodo-kem-rs", "rand_core_010", "getrandom_v04"]
+hhd = ["zeroize", "bip32", "hmac", "sha2", "tiny-bip39", "rand_core", "kgen"]
+hqc = ["dep:hqc-kem", "rand_core_010", "getrandom_v04"]
+falcon = ["fn-dsa-comm"]
+slh-dsa = ["dep:slh-dsa", "rand_core_010", "getrandom_v04"]
+ml-dsa = ["dep:ml-dsa", "rand_core_010", "getrandom_v04"]
+mayo = ["dep:pq-mayo", "dep:signature", "rand_core_010", "getrandom_v04"]
+mceliece = ["dep:classic-mceliece-rust", "rand_core", "rand_core/getrandom", "rand_chacha", "zeroize"]
+ml-kem = ["dep:ml-kem"]
+sntrup = ["dep:sntrup", "rand_core_010", "getrandom_v04"]
+xmss = ["dep:xmss", "rand_core_010", "getrandom_v04", "zeroize"]
+kgen = ["fn-dsa-comm", "fn-dsa-kgen", "rand_core", "rand_core/getrandom"]
 encp = []
 decp = []
-sign = ["fn-dsa-comm", "fn-dsa-sign"]
+sign = ["fn-dsa-comm", "fn-dsa-sign", "rand_core", "rand_core/getrandom"]
 vrfy = ["fn-dsa-comm", "fn-dsa-vrfy"]
 xwing = ["rand_core", "sha3", "x25519-dalek"]
 
 [dependencies]
+curve25519-dalek = { version = "4", default-features = false, features = ["alloc", "zeroize"], optional = true }
 hex = "0.4"
 rand_chacha = { version = "0.3", optional = true }
 rand_core = { version = "0.6", features = ["std"], optional = true }
@@ -44,12 +51,24 @@ hmac = { version = "0.12.1", optional = true }
 sha2 = { version = "0.10.9", optional = true }
 tiny-bip39 = { version = "2.0.0", optional = true }
 
-[dependencies.oqs]
-package = "tectonic-oqs"
-version = "0.11.2"
+frodo-kem-rs = { version = "0.9", default-features = false, features = ["frodo"], optional = true }
+hqc-kem = { version = "=0.1.0-rc.0", default-features = false, features = ["alloc", "dcap", "ecap", "kgen"], optional = true }
+ml-kem = { version = "0.3.2", default-features = false, features = ["alloc", "zeroize", "getrandom"], optional = true }
+sntrup = { version = "0.3", default-features = false, features = ["dcap", "ecap", "kgen"], optional = true }
+xmss = { version = "0.1.0-pre.0", optional = true }
+ml-dsa = { version = "=0.1.0-rc.9", default-features = false, features = ["alloc", "rand_core", "zeroize"], optional = true }
+slh-dsa = { version = "=0.2.0-rc.5", features = ["zeroize"], optional = true }
+pq-mayo = { version = "0.5.0", optional = true }
+signature = { version = "3", optional = true }
+rand_core_010 = { package = "rand_core", version = "0.10", optional = true }
+getrandom_v04 = { package = "getrandom", version = "0.4", features = ["sys_rng"], optional = true }
+
+[dependencies.classic-mceliece-rust]
+version = "3.1.0"
 default-features = false
 features = [
-    "serde",
+    "mceliece348864",
+    "alloc",
     "zeroize",
 ]
 optional = true
@@ -79,6 +98,7 @@ package = "tectonic-fn-dsa"
 version = "0.3.0"
 
 [dev-dependencies]
+ciborium = "0.2.2"
 criterion = "0.8"
 hex = { version = "0.4", features = ["serde"] }
 falcon-rust = "0.1.2"
@@ -87,7 +107,8 @@ rand = "0.8"
 rand_chacha = "0.3"
 rstest = "0.26"
 serde_json = "1.0"
-bedrock = { package = "tectonic-bedrock", path = "." }
+toml = "0.8"
+yaml_serde = "0.10"
 
 [lints.rust]
 missing_docs = "warn"
@@ -115,4 +136,4 @@ required-features = ["mceliece", "ml-kem", "xwing"]
 harness = false
 name = "falcon"
 path = "benches/falcon.rs"
-required-features = ["falcon"]
+required-features = ["eth_falcon", "falcon", "kgen", "sign", "vrfy"]

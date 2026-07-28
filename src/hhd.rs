@@ -7,7 +7,7 @@
 //! It enables seamless coexistence of both classical ([ECDSA secp256k1](https://en.bitcoin.it/wiki/Secp256k1)) and
 //! post-quantum ([Falcon-512](https://falcon-sign.info/)) signature schemes within a unified wallet structure.
 //! The post-quantum Falcon-512 primitive leverages [Tectonic's Bedrock repository](https://github.com/tectonic-labs/bedrock),
-//! which is based on the [OQS C implementation](https://github.com/open-quantum-safe/liboqs).
+//! which implements FN-DSA (Falcon) in pure Rust via the [`fn-dsa`](https://crates.io/crates/fn-dsa) crates.
 //!
 //! ## Features
 //!
@@ -166,12 +166,16 @@ pub use slip10::Slip10Error;
 
 #[cfg(feature = "falcon")]
 use crate::falcon::{FalconSigningKey, FalconVerificationKey};
+#[cfg(feature = "mayo")]
+use crate::mayo::{MayoSigningKey, MayoVerificationKey};
 #[cfg(feature = "ml-dsa")]
 use crate::ml_dsa::{MlDsaSigningKey, MlDsaVerificationKey};
 use bip32::secp256k1::ecdsa::{SigningKey, VerifyingKey};
 use keys::EcdsaSecp256k1;
 #[cfg(feature = "falcon")]
 use keys::FnDsa512;
+#[cfg(feature = "mayo")]
+use keys::{Mayo1, Mayo2, Mayo3};
 #[cfg(feature = "ml-dsa")]
 use keys::{MlDsa44, MlDsa65, MlDsa87};
 use std::{collections::HashMap, fmt};
@@ -481,44 +485,17 @@ impl HHDWallet {
     }
 
     #[cfg(feature = "ml-dsa")]
-    /// Derives a ML-DSA-44 keypair at the given address index.
-    ///
-    /// This method derives a ML-DSA-44 keypair using the scheme-specific seed and the provided
-    /// address index. The derivation path is `m/44'/60'/0'/0'/{address_index}'` (hardened path).
-    ///
-    /// # Arguments
-    ///
-    /// * `address_index` - The address index (non-negative integer)
-    ///
-    /// # Returns
-    ///
-    /// * `Ok(MlDsaSigningKey, MlDsaVerificationKey)` - The derived ML-DSA-44 keypair
-    /// * `Err(WalletError)` - If derivation fails
+    /// Derives an ML-DSA-44 keypair at the given address index.
     ///
     /// # Errors
     ///
-    /// Returns `WalletError` in the following cases:
-    /// - `InvalidScheme`: If ML-DSA-44 is not supported in this wallet
-    /// - `KeyError`: If key derivation fails
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// use tectonic_bedrock::hhd::{HHDWallet, SignatureScheme};
-    ///
-    /// let wallet = HHDWallet::new(vec![SignatureScheme::MlDsa44], None).unwrap();
-    ///
-    /// // Derive ML-DSA keypair at address index 0
-    /// let (mldsa_sk, mldsa_vk) = wallet.derive_mldsa44_keypair(0).unwrap();
-    ///
-    /// // Derive another keypair at address index 1
-    /// let (mldsa_sk2, mldsa_vk2) = wallet.derive_mldsa44_keypair(1).unwrap();
-    /// ```
+    /// Returns [`WalletError::InvalidScheme`] if ML-DSA-44 is not configured in this wallet,
+    /// or [`WalletError::KeyError`] if key derivation fails.
+    #[deprecated(since = "0.3.0", note = "use derive_mldsa65_keypair")]
     pub fn derive_mldsa44_keypair(
         &self,
         address_index: u32,
     ) -> Result<(MlDsaSigningKey, MlDsaVerificationKey), WalletError> {
-        // 1. Extract child seed for the ML-DSA 44 scheme
         let signature_seed = self
             .master_seeds
             .get(&SignatureScheme::MlDsa44)
@@ -623,6 +600,146 @@ impl HHDWallet {
 
         MlDsa87::derive_from_seed(seed_bytes, address_index).map_err(WalletError::KeyError)
     }
+
+    #[cfg(feature = "mayo")]
+    /// Derives a MAYO-1 keypair at the given address index.
+    ///
+    /// The derivation path is `m/44'/60'/0'/0'/{address_index}'` (hardened path). The
+    /// 32-byte SLIP-0010 child key is truncated to its first 24 bytes to match the MAYO-1
+    /// keygen seed size (SLIP-0010 output is uniform, so truncation preserves the 192-bit
+    /// seed security targeted by MAYO-1).
+    ///
+    /// # Arguments
+    ///
+    /// * `address_index` - The address index (non-negative integer)
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(MayoSigningKey, MayoVerificationKey)` - The derived MAYO-1 keypair
+    /// * `Err(WalletError)` - If derivation fails
+    ///
+    /// # Errors
+    ///
+    /// Returns `WalletError` in the following cases:
+    /// - `InvalidScheme`: If MAYO-1 is not supported in this wallet
+    /// - `KeyError`: If key derivation fails
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use tectonic_bedrock::hhd::{HHDWallet, SignatureScheme};
+    ///
+    /// let wallet = HHDWallet::new(vec![SignatureScheme::Mayo1], None).unwrap();
+    ///
+    /// // Derive MAYO-1 keypair at address index 0
+    /// let (mayo_sk, mayo_vk) = wallet.derive_mayo1_keypair(0).unwrap();
+    /// ```
+    pub fn derive_mayo1_keypair(
+        &self,
+        address_index: u32,
+    ) -> Result<(MayoSigningKey, MayoVerificationKey), WalletError> {
+        // 1. Extract child seed for the MAYO-1 scheme
+        let signature_seed = self
+            .master_seeds
+            .get(&SignatureScheme::Mayo1)
+            .ok_or(WalletError::InvalidScheme)?;
+        let seed_bytes = signature_seed.as_seed().as_bytes();
+
+        Mayo1::derive_from_seed(seed_bytes, address_index).map_err(WalletError::KeyError)
+    }
+
+    #[cfg(feature = "mayo")]
+    /// Derives a MAYO-2 keypair at the given address index.
+    ///
+    /// The derivation path is `m/44'/60'/0'/0'/{address_index}'` (hardened path). The
+    /// 32-byte SLIP-0010 child key is truncated to its first 24 bytes to match the MAYO-2
+    /// keygen seed size (SLIP-0010 output is uniform, so truncation preserves the 192-bit
+    /// seed security targeted by MAYO-2).
+    ///
+    /// # Arguments
+    ///
+    /// * `address_index` - The address index (non-negative integer)
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(MayoSigningKey, MayoVerificationKey)` - The derived MAYO-2 keypair
+    /// * `Err(WalletError)` - If derivation fails
+    ///
+    /// # Errors
+    ///
+    /// Returns `WalletError` in the following cases:
+    /// - `InvalidScheme`: If MAYO-2 is not supported in this wallet
+    /// - `KeyError`: If key derivation fails
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use tectonic_bedrock::hhd::{HHDWallet, SignatureScheme};
+    ///
+    /// let wallet = HHDWallet::new(vec![SignatureScheme::Mayo2], None).unwrap();
+    ///
+    /// // Derive MAYO-2 keypair at address index 0
+    /// let (mayo_sk, mayo_vk) = wallet.derive_mayo2_keypair(0).unwrap();
+    /// ```
+    pub fn derive_mayo2_keypair(
+        &self,
+        address_index: u32,
+    ) -> Result<(MayoSigningKey, MayoVerificationKey), WalletError> {
+        // 1. Extract child seed for the MAYO-2 scheme
+        let signature_seed = self
+            .master_seeds
+            .get(&SignatureScheme::Mayo2)
+            .ok_or(WalletError::InvalidScheme)?;
+        let seed_bytes = signature_seed.as_seed().as_bytes();
+
+        Mayo2::derive_from_seed(seed_bytes, address_index).map_err(WalletError::KeyError)
+    }
+
+    #[cfg(feature = "mayo")]
+    /// Derives a MAYO-3 keypair at the given address index.
+    ///
+    /// The derivation path is `m/44'/60'/0'/0'/{address_index}'` (hardened path). MAYO-3
+    /// uses all 32 bytes of the SLIP-0010 child key directly. MAYO-5 is not offered in HHD
+    /// because its 40-byte seed would require expansion.
+    ///
+    /// # Arguments
+    ///
+    /// * `address_index` - The address index (non-negative integer)
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(MayoSigningKey, MayoVerificationKey)` - The derived MAYO-3 keypair
+    /// * `Err(WalletError)` - If derivation fails
+    ///
+    /// # Errors
+    ///
+    /// Returns `WalletError` in the following cases:
+    /// - `InvalidScheme`: If MAYO-3 is not supported in this wallet
+    /// - `KeyError`: If key derivation fails
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use tectonic_bedrock::hhd::{HHDWallet, SignatureScheme};
+    ///
+    /// let wallet = HHDWallet::new(vec![SignatureScheme::Mayo3], None).unwrap();
+    ///
+    /// // Derive MAYO-3 keypair at address index 0
+    /// let (mayo_sk, mayo_vk) = wallet.derive_mayo3_keypair(0).unwrap();
+    /// ```
+    pub fn derive_mayo3_keypair(
+        &self,
+        address_index: u32,
+    ) -> Result<(MayoSigningKey, MayoVerificationKey), WalletError> {
+        // 1. Extract child seed for the MAYO-3 scheme
+        let signature_seed = self
+            .master_seeds
+            .get(&SignatureScheme::Mayo3)
+            .ok_or(WalletError::InvalidScheme)?;
+        let seed_bytes = signature_seed.as_seed().as_bytes();
+
+        Mayo3::derive_from_seed(seed_bytes, address_index).map_err(WalletError::KeyError)
+    }
 }
 
 /// Errors that can occur during wallet operations.
@@ -690,6 +807,8 @@ mod tests {
     use super::*;
     #[cfg(feature = "falcon")]
     use crate::falcon::FalconScheme;
+    #[cfg(feature = "mayo")]
+    use crate::mayo::MayoScheme;
     #[cfg(feature = "ml-dsa")]
     use crate::ml_dsa::MlDsaScheme;
     use bip32::secp256k1::ecdsa::{
@@ -746,6 +865,28 @@ mod tests {
         let (sk, vk) = wallet.derive_fn_dsa512_keypair(0).unwrap();
         let signature = FalconScheme::Dsa512.sign(message, &sk).unwrap();
         let res = FalconScheme::Dsa512.verify(message, &signature, &vk);
+        assert!(res.is_ok());
+    }
+
+    #[cfg(all(feature = "mayo", feature = "sign", feature = "vrfy"))]
+    #[rstest]
+    #[case::mayo1(SignatureScheme::Mayo1, MayoScheme::Mayo1)]
+    #[case::mayo2(SignatureScheme::Mayo2, MayoScheme::Mayo2)]
+    #[case::mayo3(SignatureScheme::Mayo3, MayoScheme::Mayo3)]
+    fn test_hhd_wallet_sign_verify_with_mayo(
+        #[case] scheme: SignatureScheme,
+        #[case] mayo_scheme: MayoScheme,
+    ) {
+        let wallet = HHDWallet::new(vec![scheme], None).unwrap();
+        let message = b"Hello, world!";
+        let (sk, vk) = match scheme {
+            SignatureScheme::Mayo1 => wallet.derive_mayo1_keypair(0).unwrap(),
+            SignatureScheme::Mayo2 => wallet.derive_mayo2_keypair(0).unwrap(),
+            SignatureScheme::Mayo3 => wallet.derive_mayo3_keypair(0).unwrap(),
+            _ => panic!("Invalid scheme"),
+        };
+        let signature = mayo_scheme.sign(message, &sk).unwrap();
+        let res = mayo_scheme.verify(message, &signature, &vk);
         assert!(res.is_ok());
     }
 

@@ -8,10 +8,16 @@ Bedrock provides post-quantum cryptographic primitives including digital signatu
 
 - **ML-DSA (FIPS 204)**: Module-Lattice-Based Digital Signature Algorithm
 - **Falcon/FN-DSA**: Fast Fourier Lattice-based Compact Signatures
+- **MAYO**: Multivariate oil-and-vinegar signatures with compact public keys
 - **ML-KEM (FIPS 203)**: Module-Lattice-Based Key-Encapsulation Mechanism
 - **Classic McEliece**: Code-based Key Encapsulation Mechanism
 - **ETHFALCON**: Ethereum-compatible Falcon variant with Keccak-256 XOF
 - **X-Wing**: Hybrid KEM combining X25519 with ML-KEM or Classic McEliece
+- **HQC (FIPS 207)**: Code-based Key-Encapsulation Mechanism over quasi-cyclic codes
+- **Streamlined NTRU Prime**: Lattice-based KEM avoiding ring structure, all six sizes
+- **FrodoKEM**: Conservative plain-LWE Key-Encapsulation Mechanism
+- **XMSS (RFC 8391 / SP 800-208)**: Stateful hash-based signatures
+- **Bird-of-Prey-2**: Hybrid signatures combining Ed25519 with ML-DSA or FN-DSA
 
 ## Supported Algorithms
 
@@ -19,8 +25,8 @@ Bedrock provides post-quantum cryptographic primitives including digital signatu
 
 Three security levels following NIST standards:
 
-- **ML-DSA-44** (NIST Level 2) - Default
-- **ML-DSA-65** (NIST Level 3)
+- **ML-DSA-44** (NIST Level 2) - Deprecated; use ML-DSA-65 or higher
+- **ML-DSA-65** (NIST Level 3) - Default
 - **ML-DSA-87** (NIST Level 5)
 
 ### Falcon/FN-DSA (Digital Signatures)
@@ -31,12 +37,25 @@ Two security levels plus Ethereum variant:
 - **FN-DSA-1024** (NIST Level 5)
 - **ETHFALCON** (Ethereum-compatible Falcon-512 with Keccak-256)
 
+### MAYO (Digital Signatures)
+
+Multivariate "oil and vinegar" signatures with compact public keys, via the `mayo` feature. Four NIST parameter sets:
+
+- **MAYO-1** (NIST Level 1) - Default
+- **MAYO-2** (NIST Level 1) - Smallest signatures
+- **MAYO-3** (NIST Level 3)
+- **MAYO-5** (NIST Level 5)
+
+HD wallet (HHD) key derivation is supported for MAYO-1, MAYO-2, and MAYO-3. The 32-byte
+SLIP-0010 child key is truncated to the parameter set's keygen seed size (24 bytes for
+MAYO-1/2, 32 bytes for MAYO-3). MAYO-5 is not offered in HHD because its 40-byte seed
+would require expanding, rather than stripping, the child key.
+
 ### ML-KEM (Key Encapsulation)
 
-Three security levels following NIST standards:
+Two security levels following NIST standards:
 
-- **ML-KEM-512** (NIST Level 1) - Default when `ml-kem` feature enabled
-- **ML-KEM-768** (NIST Level 3)
+- **ML-KEM-768** (NIST Level 3) - Default when `ml-kem` feature enabled
 - **ML-KEM-1024** (NIST Level 5)
 
 ### Classic McEliece (Key Encapsulation)
@@ -47,10 +66,127 @@ Three security levels following NIST standards:
 
 Hybrid KEM combining X25519 with post-quantum KEMs:
 
-- **X25519-ML-KEM-512** (X25519 + ML-KEM-512)
 - **X25519-ML-KEM-768** (X25519 + ML-KEM-768) - Default
 - **X25519-ML-KEM-1024** (X25519 + ML-KEM-1024)
 - **X25519-ClassicMcEliece348864** (X25519 + Classic McEliece)
+
+### HQC (Key Encapsulation)
+
+Code-based KEM standardized as **FIPS 207**, using quasi-cyclic codes with a concatenated
+Reed-Solomon / Reed-Muller construction under a Fujisaki-Okamoto transform. The code-based
+counterpart to ML-KEM: larger ciphertexts in exchange for a security assumption that does
+not rest on structured lattices. Enabled by the `hqc` feature.
+
+- **HQC-128** (NIST Level 1)
+- **HQC-192** (NIST Level 3) - Default when `hqc` is the only KEM enabled
+- **HQC-256** (NIST Level 5)
+
+Seed-derived key generation is supported (32-byte seed). Decapsulation is pinned to the
+official NIST KAT vectors in `tests/kat_kem.rs`.
+
+### Streamlined NTRU Prime (Key Encapsulation)
+
+Lattice-based KEM designed to avoid the ring structure that ring-LWE schemes rely on, via
+the `sntrup` feature. All six parameter sets are offered:
+
+- **sntrup653** (NIST Level 1) - lowest margin in the family
+- **sntrup761** (NIST Level 2) - the set OpenSSH deploys in `sntrup761x25519-sha512`
+- **sntrup857** (NIST Level 3)
+- **sntrup953** (NIST Level 4)
+- **sntrup1013** (NIST Level 5)
+- **sntrup1277** (NIST Level 5)
+
+Every set generates keys deterministically from a 32-byte seed, so all six support
+seed-derived generation.
+
+### FrodoKEM (Key Encapsulation)
+
+Conservative KEM built on plain LWE with no ring or module structure, via the `frodo`
+feature. Six parameter sets:
+
+- **FrodoKEM-640-AES** / **FrodoKEM-640-SHAKE** (NIST Level 1)
+- **FrodoKEM-976-AES** / **FrodoKEM-976-SHAKE** (NIST Level 3)
+- **FrodoKEM-1344-AES** / **FrodoKEM-1344-SHAKE** (NIST Level 5)
+
+The AES and SHAKE variants of a given `n` differ only in how the matrix **A** is derived,
+and are byte-identical in every key, ciphertext and shared-secret length. They are
+therefore distinguished exclusively by the scheme stored alongside the key material —
+never by encoding length.
+
+**FrodoKEM does not support seed-derived key generation.** Its key seed is 64, 88 or 112
+bytes depending on parameter set, above the 32-byte ceiling a single SLIP-0010 child key
+can supply without expansion. `keypair_from_seed` returns
+`Error::DeterministicKeygenUnsupported` for any input, including an empty seed. Use
+`KemScheme::supports_seeded_keygen()` to test for this rather than inspecting `seed_size`,
+which is zero for these schemes and would otherwise be ambiguous.
+
+### XMSS (Stateful Hash-Based Signatures)
+
+Hash-based signatures per **RFC 8391** and **SP 800-208**, via the `xmss` feature. Twelve
+parameter sets: SHA2 and SHAKE256, each at tree heights 10, 16 and 20, each at 256- and
+512-bit output.
+
+**XMSS is stateful.** Every signature consumes one one-time-signature leaf, and releasing
+two signatures under the same leaf index reveals the secret key. Because bedrock performs
+no I/O, state persistence is the caller's responsibility: implement the `XmssStateStore`
+trait. The signer commits advanced state through the store *before* releasing a signature,
+so a failed commit yields no signature. Exhausting the tree returns
+`Error::XmssKeyExhausted` rather than wrapping around.
+
+### Bird-of-Prey-2 (Hybrid Signatures)
+
+Strong-unforgeability-preserving hybrid signatures combining Ed25519 — treated as a
+Fiat-Shamir identification scheme with unique responses — with a post-quantum signature,
+following eprint 2025/1844 and §4 of `draft-prabel-cfrg-suf-hybrid-sigs`. Enabled by the
+`bird-of-prey` feature.
+
+- **Ed25519-ML-DSA-65**
+- **Ed25519-FN-DSA-512**
+
+The Ed25519 commitment `R` is recovered at verification rather than transmitted, so the
+classical half of the signature is a single 32-byte scalar instead of a full 64-byte EdDSA
+signature. The classical component is serialized first in both keys and signatures.
+
+Because the combiner hashes the post-quantum signature into its Fiat-Shamir challenge, that
+signature must be a deterministic function of key and message — otherwise a repeated
+message would pair a fixed classical nonce with two different challenges and leak the
+classical secret key. The FN-DSA branch is therefore driven by an RFC 6979 HMAC-SHA-512
+DRBG (`det_rng`); the ML-DSA branch uses bedrock's already-deterministic signer directly.
+
+No cross-implementation test vectors exist for BoP-2 yet, so byte-level interoperability
+with other implementations is not claimed.
+
+### Excluded Schemes
+
+The weakest ML-KEM parameter set is intentionally **not** offered. ML-DSA-44 remains
+available for compatibility, but is deprecated and should not be used for new deployments:
+
+| Scheme | NIST Level | Status | Notes |
+|--------|-----------|--------|-------|
+| **ML-KEM-512** | Level 1 | Removed | Use ML-KEM-768 (the new `KemScheme` default) or higher. |
+| **ML-DSA-44** | Level 2 | Deprecated | Available for compatibility; use ML-DSA-65 (the `MlDsaScheme` default) or higher. |
+| **X25519-ML-KEM-512** | — | Removed | Hybrid built on ML-KEM-512; use X25519-ML-KEM-768 or higher. |
+
+Removing the KEMs dropped the `KemScheme::MlKem512` and
+`XwingScheme::X25519MlKem512` variants. See the [CHANGELOG](./CHANGELOG.md) for the
+full breaking-change entry. ML-DSA-44's APIs remain available with deprecation warnings.
+
+The serde discriminants and BIP-85 child indices of the surviving schemes are unchanged,
+so existing serialized keys and derivation paths for the stronger schemes remain valid.
+
+**Deprecation path for existing data.** The wire discriminants (`1`) and name strings
+(`"ML-KEM-512"`, `"X25519-ML-KEM-512"`) of the removed schemes stay
+**reserved**: deserializing or parsing data produced by an older version of the library
+returns a specific `Error::DeprecatedScheme { scheme, replacement }` — naming the removed
+scheme and its recommended replacement — rather than a generic `InvalidScheme`. This gives
+anything that may already have used these schemes a clear, actionable migration error
+instead of a silent or confusing failure. The discriminants are never reassigned to other
+schemes.
+
+> **Note:** exclusion applies only to the weakest ML-KEM / ML-DSA lattice sets. Level 1
+> parameter sets from other families — FN-DSA-512, MAYO-1, MAYO-2, and
+> ClassicMcEliece-348864 — remain available, since their security margins and intended
+> use cases differ.
 
 ## API Reference
 
@@ -186,7 +322,7 @@ All key types, signatures, ciphertexts, and shared secrets implement `serde::Ser
 - **Binary formats** (postcard, bincode, etc.): Serialized as compact byte arrays
 
 Schemes implement the [`Display`] and [`FromStr`] traits for string parsing:
-- `to_string()` - Convert scheme to string representation (e.g., "ML-DSA-44")
+- `to_string()` - Convert scheme to string representation (e.g., "ML-DSA-65")
 - `from_str(s: &str) -> Result<Self>` or `parse()` - Parse scheme from string
 - Conversion to/from `u8` for compact storage
 
@@ -198,7 +334,7 @@ Schemes implement the [`Display`] and [`FromStr`] traits for string parsing:
 use bedrock::ml_dsa::MlDsaScheme;
 
 // Generate a keypair
-let scheme = MlDsaScheme::Dsa44;
+let scheme = MlDsaScheme::Dsa65;
 let (verification_key, signing_key) = scheme.keypair()?;
 
 // Sign a message
@@ -351,7 +487,7 @@ tectonic-bedrock = { version = "0.1", default-features = false, features = ["ml-
 
 All fallible operations return `Result<T, bedrock::error::Error>`. The `Error` enum includes:
 
-- `OqsError(String)` - Errors from the underlying OQS library
+- `McElieceError(String)` - Errors from the Classic McEliece KEM
 - `InvalidScheme(u8)` / `InvalidSchemeStr(String)` - Invalid scheme identifiers
 - `InvalidSeedLength(usize)` - Seed length out of valid range (32-64 bytes)
 - `InvalidLength(usize)` - Invalid data length
@@ -385,4 +521,4 @@ Unless you explicitly state otherwise, any contribution intentionally submitted 
 - [ML-KEM (FIPS 203)](https://csrc.nist.gov/pubs/fips/203/final)
 - [ETHFALCON Specification](https://github.com/zknoxhq/ETHFALCON)
 - [X-Wing (IETF Draft)](https://datatracker.ietf.org/doc/draft-connolly-cfrg-xwing-kem/)
-- [liboqs](https://github.com/open-quantum-safe/liboqs)
+- [classic-mceliece-rust](https://github.com/Colfenor/classic-mceliece-rust)
