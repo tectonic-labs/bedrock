@@ -1,48 +1,19 @@
 //! KEM methods
-//! ClassicMcEliece348864
+//! Classic McEliece
 //! ML-KEM are supported
 
-#[cfg(any(feature = "frodo", feature = "hqc", feature = "sntrup"))]
+#[cfg(any(
+    feature = "frodo",
+    feature = "hqc",
+    feature = "mceliece",
+    feature = "sntrup"
+))]
 use crate::os_rng;
 use crate::{deserialize_hex_or_bin, error::*, serialize_hex_or_bin};
 use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "mceliece")]
-use classic_mceliece_rust::{
-    decapsulate_boxed, encapsulate_boxed, keypair_boxed, Ciphertext, PublicKey, SecretKey,
-    CRYPTO_BYTES, CRYPTO_CIPHERTEXTBYTES, CRYPTO_PUBLICKEYBYTES, CRYPTO_SECRETKEYBYTES,
-};
-
-/// Reconstruct a Classic McEliece [`PublicKey`] from raw bytes, validating the length.
-#[cfg(feature = "mceliece")]
-fn mceliece_public_key(bytes: &[u8]) -> Result<PublicKey<'static>> {
-    let arr: Box<[u8; CRYPTO_PUBLICKEYBYTES]> = bytes
-        .to_vec()
-        .into_boxed_slice()
-        .try_into()
-        .map_err(|_| Error::McElieceError("an invalid encapsulation key".to_string()))?;
-    Ok(PublicKey::from(arr))
-}
-
-/// Reconstruct a Classic McEliece [`SecretKey`] from raw bytes, validating the length.
-#[cfg(feature = "mceliece")]
-fn mceliece_secret_key(bytes: &[u8]) -> Result<SecretKey<'static>> {
-    let arr: Box<[u8; CRYPTO_SECRETKEYBYTES]> = bytes
-        .to_vec()
-        .into_boxed_slice()
-        .try_into()
-        .map_err(|_| Error::McElieceError("an invalid decapsulation key".to_string()))?;
-    Ok(SecretKey::from(arr))
-}
-
-/// Reconstruct a Classic McEliece [`Ciphertext`] from raw bytes, validating the length.
-#[cfg(feature = "mceliece")]
-fn mceliece_ciphertext(bytes: &[u8]) -> Result<Ciphertext> {
-    let arr: [u8; CRYPTO_CIPHERTEXTBYTES] = bytes
-        .try_into()
-        .map_err(|_| Error::McElieceError("an invalid kem ciphertext".to_string()))?;
-    Ok(Ciphertext::from(arr))
-}
+use pq_mceliece::Algorithm as McElieceAlgorithm;
 
 macro_rules! impl_kem_struct {
     ($name:ident, $validate:ident) => {
@@ -108,9 +79,21 @@ scheme_impl_pure!(
     /// ML-KEM 1024 (NIST Level 5)
     MlKem1024 => "ML-KEM-1024" ; 3 ; 64,
     @cfg(feature = "mceliece")
-    #[cfg_attr(not(feature = "ml-kem"), default)]
-    /// Classic McEliece 348864 (NIST Level 1)
+    /// Classic McEliece 348864 (legacy NIST Level 1; not ISO standardized)
     ClassicMcEliece348864 => "ClassicMcEliece-348864" ; 4 ; 32,
+    @cfg(feature = "mceliece")
+    #[cfg_attr(not(feature = "ml-kem"), default)]
+    /// Classic McEliece 460896 (NIST Level 3)
+    ClassicMcEliece460896 => "ClassicMcEliece-460896" ; 21 ; 32,
+    @cfg(feature = "mceliece")
+    /// Classic McEliece 6688128 (NIST Level 5)
+    ClassicMcEliece6688128 => "ClassicMcEliece-6688128" ; 22 ; 32,
+    @cfg(feature = "mceliece")
+    /// Classic McEliece 6960119 (NIST Level 5)
+    ClassicMcEliece6960119 => "ClassicMcEliece-6960119" ; 23 ; 32,
+    @cfg(feature = "mceliece")
+    /// Classic McEliece 8192128 (NIST Level 5)
+    ClassicMcEliece8192128 => "ClassicMcEliece-8192128" ; 24 ; 32,
     @cfg(feature = "hqc")
     /// HQC-128 (NIST Level 1), per FIPS 207
     Hqc128 => "HQC-128" ; 6 ; 32,
@@ -185,6 +168,18 @@ scheme_impl_pure!(
 
 serde_impl!(KemScheme);
 
+/// Every Classic McEliece parameter size exposed by bedrock.
+#[cfg(feature = "mceliece")]
+macro_rules! mceliece_schemes {
+    () => {
+        KemScheme::ClassicMcEliece348864
+            | KemScheme::ClassicMcEliece460896
+            | KemScheme::ClassicMcEliece6688128
+            | KemScheme::ClassicMcEliece6960119
+            | KemScheme::ClassicMcEliece8192128
+    };
+}
+
 /// Dispatch a block generic over the concrete `ml_kem` parameter type `$P` for each ML-KEM scheme.
 ///
 /// Only the ML-KEM schemes are handled here; Classic McEliece is dispatched separately.
@@ -201,14 +196,14 @@ macro_rules! with_ml_kem_params {
                 $body
             }
             #[cfg(feature = "mceliece")]
-            KemScheme::ClassicMcEliece348864 => {
+            mceliece_schemes!() => {
                 return Err(Error::SchemeDispatch(
                     "Classic McEliece reached the ML-KEM dispatcher",
-                ))
+                ));
             }
             #[cfg(feature = "hqc")]
             KemScheme::Hqc128 | KemScheme::Hqc192 | KemScheme::Hqc256 => {
-                return Err(Error::SchemeDispatch("HQC reached the ML-KEM dispatcher"))
+                return Err(Error::SchemeDispatch("HQC reached the ML-KEM dispatcher"));
             }
             #[cfg(feature = "sntrup")]
             KemScheme::Sntrup653
@@ -219,7 +214,7 @@ macro_rules! with_ml_kem_params {
             | KemScheme::Sntrup1277 => {
                 return Err(Error::SchemeDispatch(
                     "sntrup reached the ML-KEM dispatcher",
-                ))
+                ));
             }
             #[cfg(feature = "frodo")]
             KemScheme::FrodoKem640Aes
@@ -230,7 +225,7 @@ macro_rules! with_ml_kem_params {
             | KemScheme::FrodoKem1344Shake => {
                 return Err(Error::SchemeDispatch(
                     "FrodoKEM reached the ML-KEM dispatcher",
-                ))
+                ));
             }
         }
     }};
@@ -297,7 +292,7 @@ macro_rules! with_sntrup_params {
             _ => {
                 return Err(Error::SchemeDispatch(
                     "non-sntrup scheme reached the sntrup dispatcher",
-                ))
+                ));
             }
         }
     }};
@@ -326,13 +321,36 @@ macro_rules! with_hqc_params {
             _ => {
                 return Err(Error::SchemeDispatch(
                     "non-HQC scheme reached the HQC dispatcher",
-                ))
+                ));
             }
         }
     }};
 }
 
 impl KemScheme {
+    /// Map this scheme onto the upstream Classic McEliece runtime algorithm.
+    #[cfg(feature = "mceliece")]
+    fn mceliece_algorithm(self) -> Result<McElieceAlgorithm> {
+        Ok(match self {
+            Self::ClassicMcEliece348864 => McElieceAlgorithm::McEliece348864,
+            Self::ClassicMcEliece460896 => McElieceAlgorithm::McEliece460896,
+            Self::ClassicMcEliece6688128 => McElieceAlgorithm::McEliece6688128,
+            Self::ClassicMcEliece6960119 => McElieceAlgorithm::McEliece6960119,
+            Self::ClassicMcEliece8192128 => McElieceAlgorithm::McEliece8192128,
+            #[cfg(any(
+                feature = "frodo",
+                feature = "hqc",
+                feature = "ml-kem",
+                feature = "sntrup"
+            ))]
+            _ => {
+                return Err(Error::McElieceError(
+                    "not a Classic McEliece scheme".to_string(),
+                ));
+            }
+        })
+    }
+
     /// Map this scheme onto the upstream FrodoKEM runtime algorithm.
     ///
     /// The upstream `Algorithm` carries itself inside every key and ciphertext and
@@ -364,10 +382,9 @@ impl KemScheme {
                 })
             }
             #[cfg(feature = "mceliece")]
-            KemScheme::ClassicMcEliece348864 => {
-                let mut rng = rand_core::OsRng;
-                let (pk, sk) = keypair_boxed(&mut rng);
-                Ok(self.pack_keypair(pk.as_array().to_vec(), sk.as_array().to_vec()))
+            mceliece_schemes!() => {
+                let (ek, dk) = self.mceliece_algorithm()?.generate_keypair(os_rng());
+                Ok(self.pack_keypair(ek.as_ref().to_vec(), dk.as_ref().to_vec()))
             }
             #[cfg(feature = "hqc")]
             KemScheme::Hqc128 | KemScheme::Hqc192 | KemScheme::Hqc256 => {
@@ -412,15 +429,12 @@ impl KemScheme {
                 })
             }
             #[cfg(feature = "mceliece")]
-            KemScheme::ClassicMcEliece348864 => {
-                use rand_core::SeedableRng;
-                // `seed.len()` is already validated to equal `seed_size()` (32) above.
-                let seed_arr: [u8; 32] = seed
-                    .try_into()
-                    .map_err(|_| Error::InvalidSeedLength(seed.len()))?;
-                let mut rng = rand_chacha::ChaCha20Rng::from_seed(seed_arr);
-                let (pk, sk) = keypair_boxed(&mut rng);
-                Ok(self.pack_keypair(pk.as_array().to_vec(), sk.as_array().to_vec()))
+            mceliece_schemes!() => {
+                let (ek, dk) = self
+                    .mceliece_algorithm()?
+                    .generate_keypair_from_seed(seed)
+                    .map_err(|e| Error::McElieceError(e.to_string()))?;
+                Ok(self.pack_keypair(ek.as_ref().to_vec(), dk.as_ref().to_vec()))
             }
             #[cfg(feature = "hqc")]
             KemScheme::Hqc128 | KemScheme::Hqc192 | KemScheme::Hqc256 => {
@@ -532,19 +546,23 @@ impl KemScheme {
                 })
             }
             #[cfg(feature = "mceliece")]
-            KemScheme::ClassicMcEliece348864 => {
-                let ek = mceliece_public_key(encapsulation_key.0.value.as_slice())?;
-                let mut rng = rand_core::OsRng;
-                let (ct, ss) = encapsulate_boxed(&ek, &mut rng);
+            mceliece_schemes!() => {
+                let alg = self.mceliece_algorithm()?;
+                let ek = alg
+                    .encapsulation_key_from_bytes(encapsulation_key.0.value.as_slice())
+                    .map_err(|e| Error::McElieceError(e.to_string()))?;
+                let (ct, ss) = alg
+                    .encapsulate(&ek, os_rng())
+                    .map_err(|e| Error::McElieceError(e.to_string()))?;
                 Ok((
                     InnerKem {
                         scheme: *self,
-                        value: ct.as_array().to_vec(),
+                        value: ct.as_ref().to_vec(),
                     }
                     .into(),
                     InnerKem {
                         scheme: *self,
-                        value: ss.as_array().to_vec(),
+                        value: ss.as_ref().to_vec(),
                     }
                     .into(),
                 ))
@@ -636,13 +654,20 @@ impl KemScheme {
                 })
             }
             #[cfg(feature = "mceliece")]
-            KemScheme::ClassicMcEliece348864 => {
-                let ct = mceliece_ciphertext(ciphertext.0.value.as_slice())?;
-                let sk = mceliece_secret_key(decapsulation_key.0.value.as_slice())?;
-                let ss = decapsulate_boxed(&ct, &sk);
+            mceliece_schemes!() => {
+                let alg = self.mceliece_algorithm()?;
+                let ct = alg
+                    .ciphertext_from_bytes(ciphertext.0.value.as_slice())
+                    .map_err(|e| Error::McElieceError(e.to_string()))?;
+                let dk = alg
+                    .decapsulation_key_from_bytes(decapsulation_key.0.value.as_slice())
+                    .map_err(|e| Error::McElieceError(e.to_string()))?;
+                let ss = alg
+                    .decapsulate(&dk, &ct)
+                    .map_err(|e| Error::McElieceError(e.to_string()))?;
                 Ok(InnerKem {
                     scheme: *self,
-                    value: ss.as_array().to_vec(),
+                    value: ss.as_ref().to_vec(),
                 }
                 .into())
             }
@@ -715,8 +740,10 @@ impl KemScheme {
                 })
             }
             #[cfg(feature = "mceliece")]
-            KemScheme::ClassicMcEliece348864 => {
-                let _ = mceliece_public_key(bytes)?;
+            mceliece_schemes!() => {
+                self.mceliece_algorithm()?
+                    .encapsulation_key_from_bytes(bytes)
+                    .map_err(|e| Error::McElieceError(e.to_string()))?;
                 Ok(())
             }
             #[cfg(feature = "hqc")]
@@ -757,8 +784,10 @@ impl KemScheme {
                 })
             }
             #[cfg(feature = "mceliece")]
-            KemScheme::ClassicMcEliece348864 => {
-                let _ = mceliece_secret_key(bytes)?;
+            mceliece_schemes!() => {
+                self.mceliece_algorithm()?
+                    .decapsulation_key_from_bytes(bytes)
+                    .map_err(|e| Error::McElieceError(e.to_string()))?;
                 Ok(())
             }
             #[cfg(feature = "hqc")]
@@ -797,8 +826,10 @@ impl KemScheme {
                 })
             }
             #[cfg(feature = "mceliece")]
-            KemScheme::ClassicMcEliece348864 => {
-                let _ = mceliece_ciphertext(bytes)?;
+            mceliece_schemes!() => {
+                self.mceliece_algorithm()?
+                    .ciphertext_from_bytes(bytes)
+                    .map_err(|e| Error::McElieceError(e.to_string()))?;
                 Ok(())
             }
             #[cfg(feature = "hqc")]
@@ -837,12 +868,11 @@ impl KemScheme {
                 }
             }
             #[cfg(feature = "mceliece")]
-            KemScheme::ClassicMcEliece348864 => {
-                if bytes.len() == CRYPTO_BYTES {
-                    Ok(())
-                } else {
-                    Err(Error::McElieceError("an invalid shared secret".to_string()))
-                }
+            mceliece_schemes!() => {
+                self.mceliece_algorithm()?
+                    .shared_secret_from_bytes(bytes)
+                    .map_err(|e| Error::McElieceError(e.to_string()))?;
+                Ok(())
             }
             #[cfg(feature = "hqc")]
             KemScheme::Hqc128 | KemScheme::Hqc192 | KemScheme::Hqc256 => {
@@ -967,6 +997,12 @@ mod tests {
         assert_eq!(value, &yaml_serde::from_str::<T>(&yaml).unwrap(), "yaml");
     }
 
+    /// A named field gives self-describing formats such as TOML a document-shaped root.
+    #[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
+    struct SchemeDocument {
+        scheme: KemScheme,
+    }
+
     /// Every `KemScheme` that is compiled in, for exhaustive cross-scheme testing.
     #[cfg(feature = "kgen")]
     fn all_schemes() -> Vec<KemScheme> {
@@ -975,7 +1011,13 @@ mod tests {
         #[cfg(feature = "ml-kem")]
         v.extend_from_slice(&[KemScheme::MlKem768, KemScheme::MlKem1024]);
         #[cfg(feature = "mceliece")]
-        v.push(KemScheme::ClassicMcEliece348864);
+        v.extend_from_slice(&[
+            KemScheme::ClassicMcEliece348864,
+            KemScheme::ClassicMcEliece460896,
+            KemScheme::ClassicMcEliece6688128,
+            KemScheme::ClassicMcEliece6960119,
+            KemScheme::ClassicMcEliece8192128,
+        ]);
         #[cfg(feature = "hqc")]
         v.extend_from_slice(&[KemScheme::Hqc128, KemScheme::Hqc192, KemScheme::Hqc256]);
         #[cfg(feature = "sntrup")]
@@ -1017,28 +1059,34 @@ mod tests {
             return;
         }
 
-        let material: Vec<_> = schemes
-            .iter()
-            .map(|s| {
-                let (ek, dk) = s.keypair().unwrap();
-                let (ct, _) = s.encapsulate(&ek).unwrap();
-                (*s, ek, dk, ct)
-            })
-            .collect();
-
         let mut checked = 0usize;
-        for (owner, ek, dk, ct) in &material {
+        for owner in &schemes {
+            // Scheme mismatch is required to be rejected before parsing the value. Sentinel
+            // bytes isolate that invariant and avoid generating megabyte-scale keys which no
+            // caller in this loop is allowed to inspect.
+            let ek = KemEncapsulationKey(InnerKem {
+                scheme: *owner,
+                value: Vec::new(),
+            });
+            let dk = KemDecapsulationKey(InnerKem {
+                scheme: *owner,
+                value: Vec::new(),
+            });
+            let ct = KemCiphertext(InnerKem {
+                scheme: *owner,
+                value: Vec::new(),
+            });
             for caller in &schemes {
                 if caller == owner {
                     continue;
                 }
                 assert!(
-                    matches!(caller.encapsulate(ek), Err(Error::SchemeMismatch { .. })),
+                    matches!(caller.encapsulate(&ek), Err(Error::SchemeMismatch { .. })),
                     "{caller} accepted an encapsulation key belonging to {owner}"
                 );
                 assert!(
                     matches!(
-                        caller.decapsulate(ct, dk),
+                        caller.decapsulate(&ct, &dk),
                         Err(Error::SchemeMismatch { .. })
                     ),
                     "{caller} accepted a ciphertext/key pair belonging to {owner}"
@@ -1184,7 +1232,12 @@ mod tests {
         ));
     }
 
-    #[cfg(any(feature = "hqc", feature = "sntrup", feature = "frodo"))]
+    #[cfg(any(
+        feature = "mceliece",
+        feature = "hqc",
+        feature = "sntrup",
+        feature = "frodo"
+    ))]
     /// Encapsulation and decapsulation agree on the shared secret.
     ///
     /// This is an end-to-end property of the KEM, not a restatement of the wrapper's
@@ -1193,6 +1246,7 @@ mod tests {
     /// from the ciphertext) and the test asserts they coincide.
     #[cfg(all(feature = "kgen", feature = "encp", feature = "decp"))]
     #[rstest]
+    #[cfg_attr(feature = "mceliece", case::mceliece(KemScheme::ClassicMcEliece348864))]
     #[cfg_attr(feature = "hqc", case::hqc128(KemScheme::Hqc128))]
     #[cfg_attr(feature = "hqc", case::hqc192(KemScheme::Hqc192))]
     #[cfg_attr(feature = "hqc", case::hqc256(KemScheme::Hqc256))]
@@ -1295,10 +1349,20 @@ mod tests {
         ));
     }
 
-    #[cfg(any(feature = "hqc", feature = "sntrup", feature = "frodo"))]
+    #[cfg(any(
+        feature = "mceliece",
+        feature = "hqc",
+        feature = "sntrup",
+        feature = "frodo"
+    ))]
     /// Raw-byte encodings round-trip, and a truncated encoding is refused.
     #[cfg(feature = "kgen")]
     #[rstest]
+    #[cfg_attr(feature = "mceliece", case::m460896(KemScheme::ClassicMcEliece460896))]
+    #[cfg_attr(
+        feature = "mceliece",
+        case::m8192128(KemScheme::ClassicMcEliece8192128)
+    )]
     #[cfg_attr(feature = "hqc", case::hqc128(KemScheme::Hqc128))]
     #[cfg_attr(feature = "hqc", case::hqc256(KemScheme::Hqc256))]
     #[cfg_attr(feature = "sntrup", case::sntrup653(KemScheme::Sntrup653))]
@@ -1307,14 +1371,68 @@ mod tests {
     #[cfg_attr(feature = "frodo", case::frodo976shake(KemScheme::FrodoKem976Shake))]
     #[cfg_attr(feature = "frodo", case::frodo1344aes(KemScheme::FrodoKem1344Aes))]
     fn raw_bytes_round_trip(#[case] scheme: KemScheme) {
-        let (ek, dk) = scheme.keypair().unwrap();
+        #[cfg(feature = "mceliece")]
+        let mceliece_bytes = matches!(scheme, mceliece_schemes!()).then(|| {
+            let params = scheme.mceliece_algorithm().unwrap().params();
+            (
+                vec![0; params.encapsulation_key_length],
+                vec![0; params.decapsulation_key_length],
+            )
+        });
+        #[cfg(not(feature = "mceliece"))]
+        let mceliece_bytes: Option<(Vec<u8>, Vec<u8>)> = None;
+        #[cfg(feature = "frodo")]
+        let frodo_bytes = matches!(scheme, frodo_schemes!()).then(|| {
+            let params = scheme.frodo_algorithm().unwrap().params();
+            (
+                vec![0; params.encryption_key_length],
+                vec![0; params.decryption_key_length],
+            )
+        });
+        #[cfg(not(feature = "frodo"))]
+        let frodo_bytes: Option<(Vec<u8>, Vec<u8>)> = None;
+        #[cfg(feature = "hqc")]
+        let hqc_bytes = match scheme {
+            KemScheme::Hqc128 => Some((
+                vec![0; hqc_kem::hqc128::PUBLIC_KEY_SIZE],
+                vec![0; hqc_kem::hqc128::SECRET_KEY_SIZE],
+            )),
+            KemScheme::Hqc256 => Some((
+                vec![0; hqc_kem::hqc256::PUBLIC_KEY_SIZE],
+                vec![0; hqc_kem::hqc256::SECRET_KEY_SIZE],
+            )),
+            _ => None,
+        };
+        #[cfg(not(feature = "hqc"))]
+        let hqc_bytes: Option<(Vec<u8>, Vec<u8>)> = None;
+        #[cfg(feature = "sntrup")]
+        let sntrup_bytes = match scheme {
+            KemScheme::Sntrup653 => Some((
+                vec![0; sntrup::sntrup653::PUBLIC_KEY_SIZE],
+                vec![0; sntrup::sntrup653::SECRET_KEY_SIZE],
+            )),
+            KemScheme::Sntrup1277 => Some((
+                vec![0; sntrup::sntrup1277::PUBLIC_KEY_SIZE],
+                vec![0; sntrup::sntrup1277::SECRET_KEY_SIZE],
+            )),
+            _ => None,
+        };
+        #[cfg(not(feature = "sntrup"))]
+        let sntrup_bytes: Option<(Vec<u8>, Vec<u8>)> = None;
 
-        let ek_bytes = ek.to_raw_bytes();
+        let (ek_bytes, dk_bytes) = mceliece_bytes
+            .or(frodo_bytes)
+            .or(hqc_bytes)
+            .or(sntrup_bytes)
+            .unwrap_or_else(|| {
+                let (ek, dk) = scheme.keypair().unwrap();
+                (ek.to_raw_bytes(), dk.to_raw_bytes())
+            });
+
         let ek2 = KemEncapsulationKey::from_raw_bytes(scheme, &ek_bytes).unwrap();
         assert_eq!(ek_bytes, ek2.to_raw_bytes());
         assert_eq!(scheme, ek2.scheme());
 
-        let dk_bytes = dk.to_raw_bytes();
         let dk2 = KemDecapsulationKey::from_raw_bytes(scheme, &dk_bytes).unwrap();
         assert_eq!(dk_bytes, dk2.to_raw_bytes());
 
@@ -1323,9 +1441,34 @@ mod tests {
         );
     }
 
-    #[cfg(any(feature = "hqc", feature = "sntrup", feature = "frodo"))]
+    #[cfg(any(
+        feature = "mceliece",
+        feature = "hqc",
+        feature = "sntrup",
+        feature = "frodo"
+    ))]
     /// The scheme enum survives both serde representations and its wire byte is stable.
     #[rstest]
+    #[cfg_attr(
+        feature = "mceliece",
+        case::m348864(KemScheme::ClassicMcEliece348864, "ClassicMcEliece-348864", 4)
+    )]
+    #[cfg_attr(
+        feature = "mceliece",
+        case::m460896(KemScheme::ClassicMcEliece460896, "ClassicMcEliece-460896", 21)
+    )]
+    #[cfg_attr(
+        feature = "mceliece",
+        case::m6688128(KemScheme::ClassicMcEliece6688128, "ClassicMcEliece-6688128", 22)
+    )]
+    #[cfg_attr(
+        feature = "mceliece",
+        case::m6960119(KemScheme::ClassicMcEliece6960119, "ClassicMcEliece-6960119", 23)
+    )]
+    #[cfg_attr(
+        feature = "mceliece",
+        case::m8192128(KemScheme::ClassicMcEliece8192128, "ClassicMcEliece-8192128", 24)
+    )]
     #[cfg_attr(feature = "hqc", case::hqc128(KemScheme::Hqc128, "HQC-128", 6))]
     #[cfg_attr(feature = "hqc", case::hqc192(KemScheme::Hqc192, "HQC-192", 7))]
     #[cfg_attr(feature = "hqc", case::hqc256(KemScheme::Hqc256, "HQC-256", 8))]
@@ -1378,6 +1521,7 @@ mod tests {
         case::f1344s(KemScheme::FrodoKem1344Shake, "FrodoKEM-1344-SHAKE", 20)
     )]
     fn scheme_wire_contract(#[case] scheme: KemScheme, #[case] display: &str, #[case] wire: u8) {
+        round_trip_all_formats(&SchemeDocument { scheme });
         assert_eq!(scheme.to_string(), display);
         assert_eq!(u8::from(scheme), wire);
         assert_eq!(KemScheme::try_from(wire).unwrap(), scheme);
@@ -1400,7 +1544,7 @@ mod tests {
     #[cfg_attr(feature = "frodo", case::frodo976shake(KemScheme::FrodoKem976Shake))]
     #[cfg_attr(feature = "ml-kem", case::mlkem768(KemScheme::MlKem768))]
     #[cfg_attr(feature = "ml-kem", case::mlkem1024(KemScheme::MlKem1024))]
-    #[cfg_attr(feature = "mceliece", case::mceliece(KemScheme::ClassicMcEliece348864))]
+    #[cfg_attr(feature = "mceliece", case::mceliece(KemScheme::ClassicMcEliece460896))]
     fn serdes(#[case] scheme: KemScheme) {
         let (ek, dk) = scheme.keypair().unwrap();
         let (ct, ss) = scheme.encapsulate(&ek).unwrap();
@@ -1418,7 +1562,7 @@ mod tests {
     #[rstest]
     #[cfg_attr(feature = "ml-kem", case::mlkem768(KemScheme::MlKem768))]
     #[cfg_attr(feature = "ml-kem", case::mlkem1024(KemScheme::MlKem1024))]
-    #[cfg_attr(feature = "mceliece", case::mceliece(KemScheme::ClassicMcEliece348864))]
+    #[cfg_attr(feature = "mceliece", case::mceliece(KemScheme::ClassicMcEliece460896))]
     fn flow(#[case] scheme: KemScheme) {
         let (ek, dk) = scheme.keypair().unwrap();
 
@@ -1440,7 +1584,7 @@ mod tests {
     #[cfg_attr(feature = "ml-kem", case::mlkem1024(KemScheme::MlKem1024, 64))]
     #[cfg_attr(
         feature = "mceliece",
-        case::mceliece(KemScheme::ClassicMcEliece348864, 32)
+        case::mceliece(KemScheme::ClassicMcEliece460896, 32)
     )]
     fn keypair_from_seed_valid(#[case] scheme: KemScheme, #[case] seed_len: usize) {
         let seed = vec![0xABu8; seed_len];
@@ -1461,11 +1605,11 @@ mod tests {
     #[rstest]
     #[cfg_attr(
         feature = "mceliece",
-        case::mceliece_too_long(KemScheme::ClassicMcEliece348864, 64)
+        case::mceliece_too_long(KemScheme::ClassicMcEliece460896, 64)
     )]
     #[cfg_attr(
         feature = "mceliece",
-        case::mceliece_too_short(KemScheme::ClassicMcEliece348864, 16)
+        case::mceliece_too_short(KemScheme::ClassicMcEliece460896, 16)
     )]
     #[cfg_attr(feature = "ml-kem", case::mlkem_too_short(KemScheme::MlKem768, 32))]
     #[cfg_attr(feature = "ml-kem", case::mlkem_too_long(KemScheme::MlKem768, 100))]

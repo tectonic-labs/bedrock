@@ -60,7 +60,14 @@ Two security levels following NIST standards:
 
 ### Classic McEliece (Key Encapsulation)
 
-- **ClassicMcEliece-348864** (NIST Level 1) - Default when only `mceliece` feature enabled
+- **ClassicMcEliece-348864** (legacy NIST Level 1; not part of ISO)
+- **ClassicMcEliece-460896** (NIST Level 3) - Default when only `mceliece` is enabled
+- **ClassicMcEliece-6688128** (NIST Level 5)
+- **ClassicMcEliece-6960119** (NIST Level 5)
+- **ClassicMcEliece-8192128** (NIST Level 5)
+
+The four larger sizes are ISO standardized; 348864 remains available for legacy
+interoperability. Every size supports deterministic key generation from a 32-byte seed.
 
 ### X-Wing (Hybrid Key Encapsulation)
 
@@ -183,10 +190,8 @@ anything that may already have used these schemes a clear, actionable migration 
 instead of a silent or confusing failure. The discriminants are never reassigned to other
 schemes.
 
-> **Note:** exclusion applies only to the weakest ML-KEM / ML-DSA lattice sets. Level 1
-> parameter sets from other families — FN-DSA-512, MAYO-1, MAYO-2, and
-> ClassicMcEliece-348864 — remain available, since their security margins and intended
-> use cases differ.
+> **Note:** ClassicMcEliece-348864 remains available for legacy interoperability; new
+> applications should select one of the ISO-standardized sizes.
 
 ## API Reference
 
@@ -413,7 +418,7 @@ assert_eq!(shared_secret_sender.as_ref(), shared_secret_receiver.as_ref());
 use bedrock::kem::KemScheme;
 
 // Use Classic McEliece for code-based KEM
-let scheme = KemScheme::ClassicMcEliece348864;
+let scheme = KemScheme::ClassicMcEliece6960119;
 let (ek, dk) = scheme.keypair()?;
 let (ct, ss) = scheme.encapsulate(&ek)?;
 let ss2 = scheme.decapsulate(&ct, &dk)?;
@@ -521,4 +526,4 @@ Unless you explicitly state otherwise, any contribution intentionally submitted 
 - [ML-KEM (FIPS 203)](https://csrc.nist.gov/pubs/fips/203/final)
 - [ETHFALCON Specification](https://github.com/zknoxhq/ETHFALCON)
 - [X-Wing (IETF Draft)](https://datatracker.ietf.org/doc/draft-connolly-cfrg-xwing-kem/)
-- [classic-mceliece-rust](https://github.com/Colfenor/classic-mceliece-rust)
+- [pq-mceliece](https://github.com/mikelodder7/pq-mceliece)
