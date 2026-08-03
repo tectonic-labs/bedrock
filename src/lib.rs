@@ -52,13 +52,16 @@ pub mod xmss;
 pub mod xwing;
 
 #[cfg(all(feature = "xwing", not(any(feature = "ml-kem", feature = "mceliece"))))]
-compiler_error!("Can't enable `xwing` w/o picking a specific kem to use. Please enable `ml-kem` or `mceliece` also.");
+compiler_error!(
+    "Can't enable `xwing` w/o picking a specific kem to use. Please enable `ml-kem` or `mceliece` also."
+);
 
 #[cfg(any(
     feature = "bird-of-prey",
     feature = "frodo",
     feature = "hqc",
     feature = "ml-dsa",
+    feature = "mceliece",
     feature = "mayo",
     feature = "slh-dsa",
     feature = "sntrup",

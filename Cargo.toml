@@ -23,7 +23,7 @@ falcon = ["fn-dsa-comm"]
 slh-dsa = ["dep:slh-dsa", "rand_core_010", "getrandom_v04"]
 ml-dsa = ["dep:ml-dsa", "rand_core_010", "getrandom_v04"]
 mayo = ["dep:pq-mayo", "dep:signature", "rand_core_010", "getrandom_v04"]
-mceliece = ["dep:classic-mceliece-rust", "rand_core", "rand_core/getrandom", "rand_chacha", "zeroize"]
+mceliece = ["dep:pq-mceliece", "rand_core_010", "getrandom_v04"]
 ml-kem = ["dep:ml-kem"]
 sntrup = ["dep:sntrup", "rand_core_010", "getrandom_v04"]
 xmss = ["dep:xmss", "rand_core_010", "getrandom_v04", "zeroize"]
@@ -63,13 +63,13 @@ signature = { version = "3", optional = true }
 rand_core_010 = { package = "rand_core", version = "0.10", optional = true }
 getrandom_v04 = { package = "getrandom", version = "0.4", features = ["sys_rng"], optional = true }
 
-[dependencies.classic-mceliece-rust]
-version = "3.1.0"
+[dependencies.pq-mceliece]
+version = "0.2.1"
 default-features = false
 features = [
+    "iso",
+    "kem",
     "mceliece348864",
-    "alloc",
-    "zeroize",
 ]
 optional = true
 
