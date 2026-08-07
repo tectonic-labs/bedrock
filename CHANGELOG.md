@@ -5,7 +5,7 @@ All notable changes to this crate will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## v0.3.0 - 2026-08-06
+## v0.4.0 - 2026-08-07
 
 ### Added
 
@@ -15,23 +15,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   then pass the complete 32-byte child key to `hqc-kem` as deterministic key-generation
   input. This release also adds the KEM-aware HHD wallet constructors and
   `derive_hqc128_keypair`, `derive_hqc192_keypair`, and `derive_hqc256_keypair`.
-- Hierarchical deterministic (HD) wallet key derivation for MAYO-1, MAYO-2, and MAYO-3.
-  This release adds the
-  `SignatureScheme::Mayo1/Mayo2/Mayo3` and `SignatureSeed::Mayo1/Mayo2/Mayo3` variants,
-  the `HHDWallet::derive_mayo1_keypair` / `derive_mayo2_keypair` / `derive_mayo3_keypair`
-  methods, and BIP-85 child indices `7'`/`8'`/`9'`. The 32-byte SLIP-0010 child key is
-  truncated (never expanded) to each parameter set's key-generation seed size—24 bytes for
-  MAYO-1/2, 32 bytes for MAYO-3. MAYO-5 is intentionally not supported in HHD because its
-  40-byte seed cannot be sourced from a 32-byte SLIP-0010 child key without expansion.
 
 ### Changed
 
+- Replaced the Classic McEliece backend with `pq-mceliece`, added the ISO-standardized
+  460896, 6688128, 6960119, and 8192128 parameter sets, and made 460896 the default when
+  Classic McEliece is the only enabled KEM family. ClassicMcEliece-348864 remains
+  available for legacy interoperability.
 - Kept all-feature CI within its five-minute budget by limiting expensive XMSS
   cryptographic behavior tests to `XMSS-SHA2_10_256` and reusing a fixed test-only
   key plus two safely cached signatures and serialized states. Full-tree key
   generation remains available as an ignored manual smoke test. Heights 16/20 and
   the remaining hash/width variants retain dispatch, size, serialization, name, and
   wire-contract coverage without building full Merkle trees.
+- Updated the transitive `keccak` dependency used by Falcon compatibility tests from
+  the yanked 0.1.5 release to 0.1.6.
+
+## v0.3.0 - 2026-07-28
+
+### Added
+
+- Hierarchical deterministic (HD) wallet key derivation for MAYO-1, MAYO-2, and MAYO-3.
+  This release adds the
+  `SignatureScheme::Mayo1/Mayo2/Mayo3` and `SignatureSeed::Mayo1/Mayo2/Mayo3` variants,
+  the `HHDWallet::derive_mayo1_keypair` / `derive_mayo2_keypair` / `derive_mayo3_keypair`
+  methods, and BIP-85 child indices `7'`/`8'`/`9'`. The 32-byte SLIP-0010 child key is
+  truncated (never expanded) to each parameter set's key-generation seed size—24 bytes for
+  MAYO-1 and MAYO-2; 32 bytes for MAYO-3. MAYO-5 is intentionally not supported in HHD
+  because its 40-byte seed cannot be sourced from a 32-byte SLIP-0010 child key without
+  expansion.
 
 ### Removed
 

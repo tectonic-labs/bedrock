@@ -5,7 +5,7 @@
 //! following the strong-unforgeability-preserving construction of "Bird of
 //! Prey" (ePrint 2025/1844) and Section 4 of `draft-prabel-cfrg-suf-hybrid-sigs`.
 //!
-//! The Ed25519 commitment `R` is recovered at verification
+//! The Ed25519 commitment `R` is recovered during verification
 //! (`R = rsp*B - chl*A`) rather than transmitted, so the classical part of the
 //! signature is a single 32-byte scalar instead of a full 64-byte EdDSA
 //! signature. The classical component is serialized first in both keys and
