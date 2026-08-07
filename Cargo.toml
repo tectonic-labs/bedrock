@@ -4,13 +4,14 @@ categories = ["cryptography"]
 description = "Tectonic's common cryptography library"
 documentation = "https://docs.rs/tectonic-bedrock"
 edition = "2021"
+exclude = ["CLAUDE.md"]
 homepage = "https://github.com/tectonic-labs/bedrock"
 keywords = ["post-quantum", "crypto", "signature", "kem"]
 license = "MIT OR Apache-2.0"
 name = "tectonic-bedrock"
 readme = "README.md"
 repository = "https://github.com/tectonic-labs/bedrock"
-version = "0.3.0"
+version = "0.4.0"
 
 [features]
 default = ["eth_falcon", "falcon", "ml-dsa", "slh-dsa", "mayo", "decp", "encp", "kgen", "sign", "vrfy", "hhd"]

@@ -1046,7 +1046,7 @@ mod tests {
     ///
     /// This is the test that a per-family check cannot replace. Length is not a
     /// discriminator anywhere: MAYO-1/2 once shared a 24-byte secret key, and FrodoKEM's
-    /// AES and SHAKE variants are byte-identical in every dimension at equal `n`. Worse,
+    /// AES and SHAKE variants have identical lengths in every dimension at equal `n`. Worse,
     /// a KEM that fails to reject simply returns a pseudorandom shared secret — no error,
     /// no panic, no failing round-trip test. Only an exhaustive pairing catches it.
     #[cfg(all(feature = "kgen", feature = "encp", feature = "decp"))]

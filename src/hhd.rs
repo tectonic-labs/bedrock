@@ -631,7 +631,7 @@ impl HHDWallet {
         &self,
         address_index: u32,
     ) -> Result<(MlDsaSigningKey, MlDsaVerificationKey), WalletError> {
-        // 1. Extract child seed for the ML-DSA 65 scheme
+        // 1. Extract the child seed for the ML-DSA-65 scheme.
         let signature_seed = self
             .master_seeds
             .get(&SignatureScheme::MlDsa65)
@@ -680,7 +680,7 @@ impl HHDWallet {
         &self,
         address_index: u32,
     ) -> Result<(MlDsaSigningKey, MlDsaVerificationKey), WalletError> {
-        // 1. Extract child seed for the ML-DSA 87 scheme
+        // 1. Extract the child seed for the ML-DSA-87 scheme.
         let signature_seed = self
             .master_seeds
             .get(&SignatureScheme::MlDsa87)

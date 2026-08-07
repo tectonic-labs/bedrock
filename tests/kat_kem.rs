@@ -144,8 +144,8 @@ mod sntrup_ietf_vectors {
 mod frodo_iso_vectors {
     use super::*;
 
-    /// Vector 0 from the FrodoKEM reference implementation's KAT files, the same
-    /// vectors the ISO/IEC 18033-2 Amd 2 conformance review is measured against.
+    /// Vector 0 from the FrodoKEM reference implementation's KAT files; the same vector
+    /// is used in the ISO/IEC 18033-2 Amd 2 conformance review.
     fn check(scheme: KemScheme, sk_hex: &str, ct_hex: &str, ss_hex: &str) {
         let dk = KemDecapsulationKey::from_raw_bytes(scheme, &hex_fixture(sk_hex))
             .expect("KAT secret key must parse");
