@@ -27,7 +27,6 @@ defaults:
   run:
     shell: bash
 
-
 jobs:
   fmt:
     runs-on: ubuntu-latest
@@ -35,8 +34,8 @@ jobs:
       - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@master
         with:
-            toolchain: stable
-            components: rustfmt
+          toolchain: stable
+          components: rustfmt
       - run: cargo fmt -- --check
 
   clippy:
@@ -45,8 +44,8 @@ jobs:
       - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@master
         with:
-            toolchain: stable
-            components: clippy
+          toolchain: stable
+          components: clippy
       - run: cargo clippy --all-features -- -D warnings
 
   doc:
@@ -55,7 +54,7 @@ jobs:
       - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@master
         with:
-            toolchain: stable
+          toolchain: stable
       - run: cargo doc --all-features
 
   # deps:
@@ -81,7 +80,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: nightly
-      - uses: cargo-bins/cargo-binstall@v1.17.7    
+      - uses: cargo-bins/cargo-binstall@v1.17.7
       - run: cargo binstall --no-confirm cargo-pants
       - run: cargo pants --loud --dev
 
@@ -91,7 +90,7 @@ jobs:
       - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@master
         with:
-            toolchain: stable
+          toolchain: stable
       - run: cargo build
 
   test:
@@ -100,5 +99,5 @@ jobs:
       - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@master
         with:
-            toolchain: stable
+          toolchain: stable
       - run: cargo test --release --no-fail-fast

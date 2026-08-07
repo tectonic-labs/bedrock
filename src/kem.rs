@@ -1,6 +1,6 @@
-//! KEM methods
-//! Classic McEliece
-//! ML-KEM are supported
+//! Key-encapsulation mechanism methods.
+//!
+//! Supports the KEM families enabled through Cargo features.
 
 #[cfg(any(
     feature = "frodo",
@@ -17,10 +17,9 @@ use pq_mceliece::Algorithm as McElieceAlgorithm;
 
 macro_rules! impl_kem_struct {
     ($name:ident, $validate:ident) => {
-
         #[derive(Clone, Serialize, Deserialize)]
         #[cfg_attr(test, derive(PartialEq, Eq))]
-        #[doc = concat!("A [`", stringify!($name), "`] for kems")]
+        #[doc = concat!("A byte-backed [`", stringify!($name), "`] value for a KEM.")]
         #[repr(transparent)]
         pub struct $name(pub(crate) InnerKem);
 
@@ -46,66 +45,67 @@ macro_rules! impl_kem_struct {
         }
 
         impl $name {
-            /// The [`KemScheme`] represented by this struct
+            /// Returns the [`KemScheme`] represented by this value.
             pub fn scheme(&self) -> KemScheme {
                 self.0.scheme
             }
 
-            #[doc = concat!("Convert [`", stringify!($name), "`] to its raw byte representation")]
+            #[doc = concat!("Converts [`", stringify!($name), "`] to its raw byte representation.")]
             pub fn to_raw_bytes(&self) -> Vec<u8> {
                 self.0.value.clone()
             }
 
-            #[doc = concat!("Convert [`", stringify!($name), "`] from its raw byte representation and scheme")]
+            #[doc = concat!("Constructs [`", stringify!($name), "`] from raw bytes and a scheme.")]
             pub fn from_raw_bytes(scheme: KemScheme, bytes: &[u8]) -> Result<Self> {
                 scheme.$validate(bytes)?;
                 Ok(InnerKem {
                     scheme,
                     value: bytes.to_vec(),
-                }.into())
+                }
+                .into())
             }
         }
     };
 }
 
 scheme_impl_pure!(
-    /// KEM schemes
+    /// KEM schemes.
     KemScheme,
     @cfg(feature = "ml-kem")
     #[cfg_attr(feature = "ml-kem", default)]
-    /// ML-KEM 768 (NIST Level 3)
+    /// ML-KEM 768 (NIST Level 3).
     MlKem768 => "ML-KEM-768" ; 2 ; 64,
     @cfg(feature = "ml-kem")
-    /// ML-KEM 1024 (NIST Level 5)
+    /// ML-KEM 1024 (NIST Level 5).
     MlKem1024 => "ML-KEM-1024" ; 3 ; 64,
     @cfg(feature = "mceliece")
-    /// Classic McEliece 348864 (legacy NIST Level 1; not ISO standardized)
+    /// Classic McEliece 348864 (legacy NIST Level 1; not ISO standardized).
     ClassicMcEliece348864 => "ClassicMcEliece-348864" ; 4 ; 32,
     @cfg(feature = "mceliece")
     #[cfg_attr(not(feature = "ml-kem"), default)]
-    /// Classic McEliece 460896 (NIST Level 3)
+    /// Classic McEliece 460896 (NIST Level 3).
     ClassicMcEliece460896 => "ClassicMcEliece-460896" ; 21 ; 32,
     @cfg(feature = "mceliece")
-    /// Classic McEliece 6688128 (NIST Level 5)
+    /// Classic McEliece 6688128 (NIST Level 5).
     ClassicMcEliece6688128 => "ClassicMcEliece-6688128" ; 22 ; 32,
     @cfg(feature = "mceliece")
-    /// Classic McEliece 6960119 (NIST Level 5)
+    /// Classic McEliece 6960119 (NIST Level 5).
     ClassicMcEliece6960119 => "ClassicMcEliece-6960119" ; 23 ; 32,
     @cfg(feature = "mceliece")
-    /// Classic McEliece 8192128 (NIST Level 5)
+    /// Classic McEliece 8192128 (NIST Level 5).
     ClassicMcEliece8192128 => "ClassicMcEliece-8192128" ; 24 ; 32,
     @cfg(feature = "hqc")
-    /// HQC-128 (NIST Level 1), per FIPS 207
+    /// HQC-128 (NIST Level 1), selected by NIST for standardization.
     Hqc128 => "HQC-128" ; 6 ; 32,
     @cfg(feature = "hqc")
     #[cfg_attr(all(not(feature = "ml-kem"), not(feature = "mceliece")), default)]
-    /// HQC-192 (NIST Level 3), per FIPS 207
+    /// HQC-192 (NIST Level 3), selected by NIST for standardization.
     Hqc192 => "HQC-192" ; 7 ; 32,
     @cfg(feature = "hqc")
-    /// HQC-256 (NIST Level 5), per FIPS 207
+    /// HQC-256 (NIST Level 5), selected by NIST for standardization.
     Hqc256 => "HQC-256" ; 8 ; 32,
     @cfg(feature = "sntrup")
-    /// Streamlined NTRU Prime 653 (NIST Level 1) — lowest margin of the family
+    /// Streamlined NTRU Prime 653 (NIST Level 1)—the family's lowest-margin set.
     Sntrup653 => "sntrup653" ; 9 ; 32,
     @cfg(feature = "sntrup")
     #[cfg_attr(
@@ -116,19 +116,19 @@ scheme_impl_pure!(
         ),
         default
     )]
-    /// Streamlined NTRU Prime 761 (NIST Level 2) — the parameter set OpenSSH uses
+    /// Streamlined NTRU Prime 761 (NIST Level 2)—the parameter set used by OpenSSH.
     Sntrup761 => "sntrup761" ; 10 ; 32,
     @cfg(feature = "sntrup")
-    /// Streamlined NTRU Prime 857 (NIST Level 3)
+    /// Streamlined NTRU Prime 857 (NIST Level 3).
     Sntrup857 => "sntrup857" ; 11 ; 32,
     @cfg(feature = "sntrup")
-    /// Streamlined NTRU Prime 953 (NIST Level 4)
+    /// Streamlined NTRU Prime 953 (NIST Level 4).
     Sntrup953 => "sntrup953" ; 12 ; 32,
     @cfg(feature = "sntrup")
-    /// Streamlined NTRU Prime 1013 (NIST Level 5)
+    /// Streamlined NTRU Prime 1013 (NIST Level 5).
     Sntrup1013 => "sntrup1013" ; 13 ; 32,
     @cfg(feature = "sntrup")
-    /// Streamlined NTRU Prime 1277 (NIST Level 5)
+    /// Streamlined NTRU Prime 1277 (NIST Level 5).
     Sntrup1277 => "sntrup1277" ; 14 ; 32,
     // FrodoKEM seeds are 48 bytes or more, so these schemes carry a `seed_size` of 0
     // and refuse `keypair_from_seed` outright — they are deliberately excluded from
@@ -143,22 +143,22 @@ scheme_impl_pure!(
         ),
         default
     )]
-    /// FrodoKEM-640-AES (NIST Level 1)
+    /// FrodoKEM-640-AES (NIST Level 1).
     FrodoKem640Aes => "FrodoKEM-640-AES" ; 15 ; 0,
     @cfg(feature = "frodo")
-    /// FrodoKEM-640-SHAKE (NIST Level 1)
+    /// FrodoKEM-640-SHAKE (NIST Level 1).
     FrodoKem640Shake => "FrodoKEM-640-SHAKE" ; 16 ; 0,
     @cfg(feature = "frodo")
-    /// FrodoKEM-976-AES (NIST Level 3)
+    /// FrodoKEM-976-AES (NIST Level 3).
     FrodoKem976Aes => "FrodoKEM-976-AES" ; 17 ; 0,
     @cfg(feature = "frodo")
-    /// FrodoKEM-976-SHAKE (NIST Level 3)
+    /// FrodoKEM-976-SHAKE (NIST Level 3).
     FrodoKem976Shake => "FrodoKEM-976-SHAKE" ; 18 ; 0,
     @cfg(feature = "frodo")
-    /// FrodoKEM-1344-AES (NIST Level 5)
+    /// FrodoKEM-1344-AES (NIST Level 5).
     FrodoKem1344Aes => "FrodoKEM-1344-AES" ; 19 ; 0,
     @cfg(feature = "frodo")
-    /// FrodoKEM-1344-SHAKE (NIST Level 5)
+    /// FrodoKEM-1344-SHAKE (NIST Level 5).
     FrodoKem1344Shake => "FrodoKEM-1344-SHAKE" ; 20 ; 0,
     // Deprecated: ML-KEM-512 (NIST Level 1) was removed for being too weak. Discriminant
     // 1 stays reserved so older serialized keys report a clear migration error.
@@ -168,7 +168,7 @@ scheme_impl_pure!(
 
 serde_impl!(KemScheme);
 
-/// Every Classic McEliece parameter size exposed by bedrock.
+/// Every Classic McEliece parameter size exposed by Bedrock.
 #[cfg(feature = "mceliece")]
 macro_rules! mceliece_schemes {
     () => {
@@ -259,7 +259,7 @@ macro_rules! frodo_schemes {
 
 /// Dispatch a block generic over the concrete `sntrup` parameter type `$P`.
 ///
-/// The `sntrup` crate parameterises every key, ciphertext and shared-secret type over
+/// The `sntrup` crate parameterizes every key, ciphertext, and shared-secret type over
 /// the parameter set, so each operation needs the concrete type threaded through.
 #[cfg(feature = "sntrup")]
 macro_rules! with_sntrup_params {
@@ -328,7 +328,7 @@ macro_rules! with_hqc_params {
 }
 
 impl KemScheme {
-    /// Map this scheme onto the upstream Classic McEliece runtime algorithm.
+    /// Maps this scheme onto the upstream Classic McEliece runtime algorithm.
     #[cfg(feature = "mceliece")]
     fn mceliece_algorithm(self) -> Result<McElieceAlgorithm> {
         Ok(match self {
@@ -351,7 +351,7 @@ impl KemScheme {
         })
     }
 
-    /// Map this scheme onto the upstream FrodoKEM runtime algorithm.
+    /// Maps this scheme onto the upstream FrodoKEM runtime algorithm.
     ///
     /// The upstream `Algorithm` carries itself inside every key and ciphertext and
     /// rejects mismatched pairings. At equal `n`, the AES and SHAKE variants have
@@ -370,7 +370,7 @@ impl KemScheme {
     }
 
     #[cfg(feature = "kgen")]
-    /// Generate a new Key-Encapsulation encapsulating / decapsulating key pair
+    /// Generates a new encapsulation and decapsulation keypair.
     pub fn keypair(&self) -> Result<(KemEncapsulationKey, KemDecapsulationKey)> {
         match self {
             #[cfg(feature = "ml-kem")]
@@ -409,7 +409,7 @@ impl KemScheme {
     }
 
     #[cfg(feature = "kgen")]
-    /// Generate a new Key-Encapsulation encapsulating / decapsulating key pair from a seed
+    /// Generates a new encapsulation and decapsulation keypair from a seed.
     pub fn keypair_from_seed(
         &self,
         seed: &[u8],
@@ -481,7 +481,7 @@ impl KemScheme {
         self.seed_size() != 0
     }
 
-    /// Reject a key, ciphertext or shared secret that belongs to a different scheme.
+    /// Rejects a key, ciphertext, or shared secret that belongs to a different scheme.
     ///
     /// Byte length is not a reliable discriminator between parameter sets, so every
     /// dispatch path binds to the value's own stored scheme rather than inferring it
@@ -498,7 +498,7 @@ impl KemScheme {
     }
 
     #[cfg(feature = "kgen")]
-    /// Pack raw encapsulation/decapsulation key bytes into bedrock's byte-backed key types.
+    /// Packs raw encapsulation and decapsulation key bytes into Bedrock's byte-backed key types.
     fn pack_keypair(&self, ek: Vec<u8>, dk: Vec<u8>) -> (KemEncapsulationKey, KemDecapsulationKey) {
         (
             InnerKem {
@@ -515,7 +515,7 @@ impl KemScheme {
     }
 
     #[cfg(feature = "encp")]
-    /// Encapsulate to the provided public key
+    /// Encapsulates to the provided public key.
     pub fn encapsulate(
         &self,
         encapsulation_key: &KemEncapsulationKey,
@@ -605,7 +605,7 @@ impl KemScheme {
         }
     }
 
-    /// Pack raw ciphertext / shared-secret bytes into bedrock's byte-backed types.
+    /// Packs raw ciphertext and shared-secret bytes into Bedrock's byte-backed types.
     #[cfg(all(
         feature = "encp",
         any(feature = "hqc", feature = "sntrup", feature = "frodo")
@@ -626,7 +626,7 @@ impl KemScheme {
     }
 
     #[cfg(feature = "decp")]
-    /// Decapsulate the provided ciphertext
+    /// Decapsulates the provided ciphertext.
     pub fn decapsulate(
         &self,
         ciphertext: &KemCiphertext,
@@ -726,7 +726,7 @@ impl KemScheme {
         }
     }
 
-    /// Validate an encapsulation (public) key encoding for this scheme.
+    /// Validates an encapsulation (public) key encoding for this scheme.
     fn validate_encapsulation_key(&self, bytes: &[u8]) -> Result<()> {
         match self {
             #[cfg(feature = "ml-kem")]
@@ -770,7 +770,7 @@ impl KemScheme {
         }
     }
 
-    /// Validate a decapsulation (secret) key encoding for this scheme.
+    /// Validates a decapsulation (secret) key encoding for this scheme.
     fn validate_decapsulation_key(&self, bytes: &[u8]) -> Result<()> {
         match self {
             #[cfg(feature = "ml-kem")]
@@ -814,7 +814,7 @@ impl KemScheme {
         }
     }
 
-    /// Validate a ciphertext encoding for this scheme.
+    /// Validates a ciphertext encoding for this scheme.
     fn validate_ciphertext(&self, bytes: &[u8]) -> Result<()> {
         match self {
             #[cfg(feature = "ml-kem")]
@@ -856,7 +856,7 @@ impl KemScheme {
         }
     }
 
-    /// Validate a shared secret encoding for this scheme.
+    /// Validates a shared-secret encoding for this scheme.
     fn validate_shared_secret(&self, bytes: &[u8]) -> Result<()> {
         match self {
             #[cfg(feature = "ml-kem")]

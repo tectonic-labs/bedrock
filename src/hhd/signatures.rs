@@ -1,25 +1,29 @@
 //! Signature scheme definitions and constants for the hybrid HD wallet.
 //!
 //! This module provides type definitions, constants, and utilities for working with
-//! different signature schemes in the hybrid wallet. It supports both classical
-//! (ECDSA secp256k1) and post-quantum (Falcon-512) signature schemes.
+//! different signature schemes in the hybrid wallet. It supports ECDSA secp256k1 and the
+//! Falcon-512, ML-DSA, and MAYO post-quantum signature schemes.
 //!
 //! # Supported Schemes
 //!
-//! - **ECDSA secp256k1**: Classical elliptic curve signatures for Bitcoin/Ethereum compatibility
-//! - **Falcon-512**: Post-quantum lattice-based signatures for future security
+//! - **ECDSA secp256k1**: Classical elliptic-curve signatures for Bitcoin and Ethereum
+//!   compatibility.
+//! - **Falcon-512**: Post-quantum lattice-based signatures.
+//! - **ML-DSA**: NIST-standardized post-quantum lattice-based signatures.
+//! - **MAYO**: Post-quantum multivariate signatures.
 //!
 //! # Key Concepts
 //!
-//! - **SignatureScheme**: Enum identifying a specific signature algorithm
-//! - **SignatureSeed**: Scheme-specific seed wrapper for HD key derivation
-//! - **Constants**: Scheme-specific sizes, paths, and domain separators
+//! - **SignatureScheme**: Enum identifying a specific signature algorithm.
+//! - **SignatureSeed**: Scheme-specific seed wrapper for HD key derivation.
+//! - **Constants**: Scheme-specific sizes, paths, and domain separators.
 //!
 //! # Derivation Paths
 //!
-//! Each scheme uses BIP-44 compatible paths:
-//! - **ECDSA**: Supports both hardened and non-hardened paths
-//! - **Falcon-512**: Uses hardened paths only (via SLIP-0010)
+//! Each scheme uses a BIP-44-compatible path:
+//!
+//! - **ECDSA**: Supports both hardened and non-hardened paths.
+//! - **Falcon-512, ML-DSA, and MAYO**: Use hardened paths through SLIP-0010.
 //!
 //! [BIP-44]: https://github.com/bitcoin/bips/blob/master/bip-0044.mediawiki
 //! [SLIP-0010]: https://github.com/satoshilabs/slips/blob/master/slip-0010.md
@@ -54,7 +58,7 @@ pub const FALCON512_VERIFYING_KEY_SIZE: usize = 897;
 pub const FALCON512_SIGNATURE_SIZE: usize = 666;
 
 /// Size in bytes of the seed required for ML-DSA key generation (32 bytes = 256 bits).
-/// Original standard (pag. 33): 𝜉 ∈ 𝔹^32 for KeyGen_internal(𝜉).
+/// FIPS 204 (page 33): 𝜉 ∈ 𝔹^32 for `KeyGen_internal(𝜉)`.
 #[deprecated(since = "0.3.0", note = "use ML_DSA_65_KEY_GENERATION_SEED_SIZE")]
 pub const ML_DSA_44_KEY_GENERATION_SEED_SIZE: usize = 32;
 pub const ML_DSA_65_KEY_GENERATION_SEED_SIZE: usize = 32;
@@ -70,31 +74,31 @@ pub const ML_DSA_44_DOMAIN_SEPARATOR: &[u8] = b"ML-DSA-44 seed";
 /// Domain separator string used for ML-DSA in BIP-32 key derivation.
 pub const ML_DSA_65_DOMAIN_SEPARATOR: &[u8] = b"ML-DSA-65 seed";
 pub const ML_DSA_87_DOMAIN_SEPARATOR: &[u8] = b"ML-DSA-87 seed";
-/// Numbers taken from the original ml-dsa standard: https://nvlpubs.nist.gov/nistpubs/fips/nist.fips.204.pdf
+/// Sizes from the ML-DSA standard: <https://nvlpubs.nist.gov/nistpubs/fips/nist.fips.204.pdf>.
 /// Size in bytes of an ML-DSA 44 signing key (private key).
 #[deprecated(since = "0.3.0", note = "use ML_DSA_65_SIGNING_KEY_SIZE")]
 pub const ML_DSA_44_SIGNING_KEY_SIZE: usize = 2560;
-/// Size in bytes of a ML-DSA 65/87 signing key (private key)
+/// Size in bytes of an ML-DSA 65/87 signing key (private key).
 pub const ML_DSA_65_SIGNING_KEY_SIZE: usize = 4032;
 pub const ML_DSA_87_SIGNING_KEY_SIZE: usize = 4896;
 /// Size in bytes of an ML-DSA 44 verifying key (public key).
 #[deprecated(since = "0.3.0", note = "use ML_DSA_65_VERIFYING_KEY_SIZE")]
 pub const ML_DSA_44_VERIFYING_KEY_SIZE: usize = 1312;
-/// Size in bytes of a ML-DSA 65/87 verifying key (public key)
+/// Size in bytes of an ML-DSA 65/87 verifying key (public key).
 pub const ML_DSA_65_VERIFYING_KEY_SIZE: usize = 1952;
 pub const ML_DSA_87_VERIFYING_KEY_SIZE: usize = 2592;
 /// Size in bytes of an ML-DSA 44 signature.
 #[deprecated(since = "0.3.0", note = "use ML_DSA_65_SIGNATURE_SIZE")]
 pub const ML_DSA_44_SIGNATURE_SIZE: usize = 2420;
-/// Size in bytes of a ML-DSA 65/87 signature.
+/// Size in bytes of an ML-DSA 65/87 signature.
 pub const ML_DSA_65_SIGNATURE_SIZE: usize = 3309;
 pub const ML_DSA_87_SIGNATURE_SIZE: usize = 4627;
 
 /// Size in bytes of the seed required for MAYO key generation.
 ///
-/// A SLIP-0010 child key is always 32 bytes, while MAYO keygen seeds are 24 bytes
+/// A SLIP-0010 child key is always 32 bytes, while MAYO key-generation seeds are 24 bytes
 /// (MAYO-1/2), 32 bytes (MAYO-3), and 40 bytes (MAYO-5). The HHD derivation rule for the
-/// MAYO family only strips bits, never expands them: MAYO-1/2 truncate the 32-byte
+/// MAYO family only truncates bits; it never expands them. MAYO-1/2 truncate the 32-byte
 /// SLIP-0010 child key to its first 24 bytes, MAYO-3 uses all 32 bytes directly, and
 /// MAYO-5 is deliberately not supported in HHD (its 40-byte seed cannot be sourced from a
 /// 32-byte SLIP-0010 child key without expansion). SLIP-0010 output is computationally
@@ -124,10 +128,10 @@ pub const MAYO_1_SIGNATURE_SIZE: usize = 454;
 pub const MAYO_2_SIGNATURE_SIZE: usize = 216;
 pub const MAYO_3_SIGNATURE_SIZE: usize = 681;
 
-/// BIP-44 non-hardened base derivation path
+/// BIP-44 non-hardened base derivation path.
 pub const BIP44_NON_HARDENED_BASE_PATH: &str = "m/44'/60'/0'/0";
 
-/// BIP-44 hardened base derivation path
+/// BIP-44 hardened base derivation path.
 pub const BIP44_HARDENED_BASE_PATH: &str = "m/44'/60'/0'/0'";
 
 /// A scheme-specific seed wrapper for hierarchical deterministic key derivation.
@@ -269,12 +273,12 @@ pub enum SignatureScheme {
     MlDsa87,
     /// MAYO-1 post-quantum signature scheme.
     ///
-    /// HHD derivation only strips bits, never expands: MAYO-1 truncates the 32-byte
+    /// HHD derivation only truncates bits; it never expands them. MAYO-1 truncates the 32-byte
     /// SLIP-0010 child key to its first 24 bytes.
     Mayo1,
     /// MAYO-2 post-quantum signature scheme.
     ///
-    /// HHD derivation only strips bits, never expands: MAYO-2 truncates the 32-byte
+    /// HHD derivation only truncates bits; it never expands them. MAYO-2 truncates the 32-byte
     /// SLIP-0010 child key to its first 24 bytes.
     Mayo2,
     /// MAYO-3 post-quantum signature scheme.
@@ -290,11 +294,11 @@ impl SignatureScheme {
     /// # Returns
     ///
     /// * `Ok(&'static str)` - The base derivation path string
-    /// * `Err(SignatureSchemeError::InvalidScheme)` - If the scheme doesn't support non-hardened paths
+    /// * `Err(SignatureSchemeError::InvalidScheme)` - If the scheme does not support non-hardened paths
     ///
     /// # Errors
     ///
-    /// Returns `SignatureSchemeError::InvalidScheme` for schemes that don't support
+    /// Returns `SignatureSchemeError::InvalidScheme` for schemes that do not support
     /// non-hardened paths (currently only ECDSA secp256k1 supports this).
     ///
     /// # Example
@@ -306,7 +310,7 @@ impl SignatureScheme {
     /// let path = ecdsa.bip44_non_hardened_base_path().unwrap();
     /// assert_eq!(path, "m/44'/60'/0'/0");
     ///
-    /// // Falcon doesn't support non-hardened paths
+    /// // Falcon does not support non-hardened paths.
     /// let falcon = SignatureScheme::Falcon512;
     /// assert!(falcon.bip44_non_hardened_base_path().is_err());
     /// ```
@@ -322,11 +326,11 @@ impl SignatureScheme {
     /// # Returns
     ///
     /// * `Ok(&'static str)` - The base derivation path string
-    /// * `Err(SignatureSchemeError::InvalidScheme)` - If the scheme doesn't support hardened paths
+    /// * `Err(SignatureSchemeError::InvalidScheme)` - If the scheme does not support hardened paths
     ///
     /// # Errors
     ///
-    /// Returns `SignatureSchemeError::InvalidScheme` for schemes that don't support
+    /// Returns `SignatureSchemeError::InvalidScheme` for schemes that do not support
     /// hardened paths (should not occur for currently supported schemes).
     ///
     /// # Example
@@ -358,7 +362,7 @@ impl SignatureScheme {
     /// Gets the seed size in bytes required for deterministic key generation.
     ///
     /// This returns the size of the seed needed when generating a keypair directly
-    /// from a seed (e.g., for Falcon-512 key generation). This is 32 bytes
+    /// from a seed (for example, for Falcon-512 key generation). This is 32 bytes
     /// (256 bits) for both schemes.
     pub fn key_generation_seed_size(&self) -> usize {
         match self {
@@ -392,7 +396,7 @@ impl SignatureScheme {
 
     /// Gets the domain separator bytes used for HD key derivation in this scheme.
     ///
-    /// The domain separator is used in the HMAC-SHA512 step when deriving the master
+    /// The domain separator is used in the HMAC-SHA-512 step when deriving the master
     /// extended private key from a seed. Different schemes use different separators:
     ///
     /// - **ECDSA secp256k1**: `b"Bitcoin seed"` (BIP-32 standard)

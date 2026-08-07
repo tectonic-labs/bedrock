@@ -1,14 +1,15 @@
-//! ETHFALCON (Falcon-512 with Keccak-256 XOF) - Post-quantum signatures compatible with Solidity
+//! ETHFALCON (Falcon-512 with a Keccak-256 XOF): post-quantum signatures compatible with
+//! Solidity.
 //! Implements the ETHFALCON variant as specified in the
 //! [ZKnox ETHFALCON repository](https://github.com/zknoxhq/ETHFALCON).
 
 use super::{FalconScheme, FalconSignature, FalconSigningKey, FalconVerificationKey, InnerFalcon};
 use crate::error::*;
 
-/// An NTT packed verifying key for the ETHFALCON signing scheme
+/// An NTT-packed verification key for the ETHFALCON signing scheme.
 pub type EthFalconVerifyingKey = [u8; fn_dsa_comm::eth_falcon::PUBKEY_NTT_PACKED_LENGTH];
 
-/// A solidity abi packed ETH FALCON signature
+/// A Solidity ABI-packed ETHFALCON signature.
 pub type EthFalconSignature = [u8; fn_dsa_comm::eth_falcon::SIGNATURE_ABI_PACKED_LENGTH];
 
 impl TryFrom<FalconVerificationKey> for EthFalconVerifyingKey {
@@ -22,7 +23,7 @@ impl TryFrom<FalconVerificationKey> for EthFalconVerifyingKey {
 impl TryFrom<&FalconVerificationKey> for EthFalconVerifyingKey {
     type Error = Error;
 
-    /// Convert Falcon public key to ETHFALCON Solidity format (abi.encodePacked, NTT form)
+    /// Converts a Falcon public key to ETHFALCON Solidity format (`abi.encodePacked`, NTT form).
     ///
     /// # Arguments
     /// * `pubkey` - Standard Falcon public key (897 bytes)
@@ -44,7 +45,7 @@ impl TryFrom<&FalconVerificationKey> for EthFalconVerifyingKey {
 impl TryFrom<FalconSignature> for EthFalconSignature {
     type Error = Error;
 
-    /// Convert Falcon signature to ETHFALCON Solidity format (abi.encodePacked)
+    /// Converts a Falcon signature to ETHFALCON Solidity format (`abi.encodePacked`).
     ///
     /// # Arguments
     /// * `signature` - Standard Falcon signature bytes
@@ -73,7 +74,7 @@ impl TryFrom<&FalconSignature> for EthFalconSignature {
 
 impl FalconScheme {
     #[cfg(feature = "sign")]
-    /// Sign a message
+    /// Signs a message.
     pub fn sign(&self, message: &[u8], signing_key: &FalconSigningKey) -> Result<FalconSignature> {
         match self {
             Self::Ethereum => {
@@ -98,7 +99,7 @@ impl FalconScheme {
     }
 
     #[cfg(feature = "vrfy")]
-    /// Verify a signature
+    /// Verifies a signature.
     pub fn verify(
         &self,
         message: &[u8],
@@ -131,12 +132,12 @@ impl FalconScheme {
 }
 
 impl FalconSigningKey {
-    /// Change the signing scheme to [`FalconScheme::Ethereum`] if allowed
+    /// Changes the signing scheme to [`FalconScheme::Ethereum`] if allowed.
     pub fn into_ethereum(self) -> Result<Self> {
         self.convert(FalconScheme::Dsa512, FalconScheme::Ethereum)
     }
 
-    /// Change the signing scheme to [`FalconScheme::Dsa512`] if allowed
+    /// Changes the signing scheme to [`FalconScheme::Dsa512`] if allowed.
     pub fn into_dsa512(self) -> Result<Self> {
         self.convert(FalconScheme::Ethereum, FalconScheme::Dsa512)
     }

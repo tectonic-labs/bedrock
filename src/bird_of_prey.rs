@@ -3,7 +3,7 @@
 //! Combines Ed25519, treated as a Fiat-Shamir identification scheme with
 //! unique responses, with a post-quantum signature (ML-DSA-65 or FN-DSA-512),
 //! following the strong-unforgeability-preserving construction of "Bird of
-//! Prey" (eprint 2025/1844), §4 of `draft-prabel-cfrg-suf-hybrid-sigs`.
+//! Prey" (ePrint 2025/1844) and Section 4 of `draft-prabel-cfrg-suf-hybrid-sigs`.
 //!
 //! The Ed25519 commitment `R` is recovered at verification
 //! (`R = rsp*B - chl*A`) rather than transmitted, so the classical part of the
@@ -11,14 +11,14 @@
 //! signature. The classical component is serialized first in both keys and
 //! signatures.
 //!
-//! Bedrock defines seeded hybrid key generation, which keystone does not:
+//! Bedrock defines seeded hybrid key generation, which Keystone does not:
 //! `ed_seed = SHA512("BoP2-seed-ed25519" || master)[..32]` and
 //! `pq_seed = SHA512("BoP2-seed-pq" || master)[..32]`. Unseeded key generation
 //! draws 32 random bytes and routes through the same path.
 //!
-//! The ML-DSA-65 branch intentionally uses bedrock's deterministic
+//! The ML-DSA-65 branch intentionally uses Bedrock's deterministic
 //! `MlDsaScheme::Dsa65.sign` directly and does not use the DRBG. The FN-DSA-512
-//! branch intentionally uses `HASH_ID_RAW` for byte-identity with keystone's
+//! branch intentionally uses `HASH_ID_RAW` for byte identity with Keystone's
 //! internal combiner signature format.
 
 use crate::det_rng::DetRng;
@@ -53,7 +53,7 @@ const DET_DOMAIN: &[u8] = b"keystone-fn-dsa-deterministic-v1";
 const ED_SEED_DOMAIN: &[u8] = b"BoP2-seed-ed25519";
 const PQ_SEED_DOMAIN: &[u8] = b"BoP2-seed-pq";
 
-// ML-DSA-65 fixed sizes from FIPS 204 as exposed by bedrock's ml_dsa wrapper.
+// ML-DSA-65 fixed sizes from FIPS 204, as exposed by Bedrock's `ml_dsa` wrapper.
 const ML_DSA_65_PK_LEN: usize = 1952;
 const ML_DSA_65_SK_LEN: usize = 4032;
 const ML_DSA_65_SIG_LEN: usize = 3309;
@@ -62,7 +62,7 @@ macro_rules! impl_bird_of_prey_struct {
     ($name:ident, $validate:ident) => {
         #[derive(Clone, Serialize, Deserialize)]
         #[cfg_attr(test, derive(PartialEq, Eq))]
-        #[doc = concat!("A [`", stringify!($name), "`] for the Bird-of-Prey-2 combiner.")]
+        #[doc = concat!("A byte-backed [`", stringify!($name), "`] value for the Bird-of-Prey-2 combiner.")]
         #[repr(transparent)]
         pub struct $name(pub(crate) InnerBirdOfPrey);
 
@@ -88,17 +88,17 @@ macro_rules! impl_bird_of_prey_struct {
         }
 
         impl $name {
-            /// The [`BirdOfPreyScheme`] represented by this struct.
+            /// Returns the [`BirdOfPreyScheme`] represented by this value.
             pub fn scheme(&self) -> BirdOfPreyScheme {
                 self.0.scheme
             }
 
-            /// Convert this value to its raw byte representation.
+            /// Converts this value to its raw byte representation.
             pub fn to_raw_bytes(&self) -> Vec<u8> {
                 self.0.value.clone()
             }
 
-            /// Convert raw bytes with an explicit scheme into this wrapper.
+            /// Constructs this wrapper from raw bytes and an explicit scheme.
             pub fn from_raw_bytes(scheme: BirdOfPreyScheme, bytes: &[u8]) -> Result<Self> {
                 scheme.$validate(bytes)?;
                 Ok(InnerBirdOfPrey {
@@ -319,7 +319,7 @@ fn sign_with_mldsa(sk: &[u8], message: &[u8]) -> Result<Vec<u8>> {
     let com = EdwardsPoint::mul_base(&r).compress().to_bytes();
     let mpp = sha512(&[TAG1, &mprime, &com]);
 
-    // ML-DSA signing here is already deterministic FIPS-204 with empty context,
+    // ML-DSA signing here is already deterministic under FIPS 204 with an empty context,
     // so the extra DRBG used by the FN-DSA path is unnecessary.
     let pq_signing_key = MlDsaSigningKey::from_raw_bytes(MlDsaScheme::Dsa65, sk_pq)?;
     let s2 = MlDsaScheme::Dsa65
@@ -353,7 +353,7 @@ fn sign_with_fndsa(sk: &[u8], message: &[u8]) -> Result<Vec<u8>> {
     let mut s2 = vec![0u8; signature_size(signing_key.get_logn())];
     let mut rng = DetRng::new(DET_DOMAIN, sk_pq, &mpp)?;
     // This inner PQ signature is only used inside the combiner, never through
-    // FalconScheme::verify, so HASH_ID_RAW is required for keystone byte-identity.
+    // FalconScheme::verify, so HASH_ID_RAW is required for byte identity with Keystone.
     signing_key.sign(&mut rng, &DOMAIN_NONE, &HASH_ID_RAW, &mpp, &mut s2);
 
     let chl = Scalar::from_bytes_mod_order_wide(&sha512(&[TAG2, &s2]));
@@ -407,7 +407,7 @@ impl BirdOfPreyScheme {
                     Error::BirdOfPreyError("failed to decode FN-DSA verification key".to_string())
                 })?;
                 // This inner PQ signature is only used inside the combiner, never through
-                // FalconScheme::verify, so HASH_ID_RAW is required for keystone byte-identity.
+                // FalconScheme::verify, so HASH_ID_RAW is required for byte identity with Keystone.
                 if verifying_key.verify(s2, &DOMAIN_NONE, &HASH_ID_RAW, &mpp) {
                     Ok(())
                 } else {
@@ -421,7 +421,7 @@ impl BirdOfPreyScheme {
 }
 
 impl BirdOfPreyScheme {
-    /// Validate the raw bytes of a Bird-of-Prey verification key for this scheme.
+    /// Validates the raw bytes of a Bird-of-Prey verification key for this scheme.
     fn validate_verification_key_bytes(&self, bytes: &[u8]) -> Result<()> {
         let (pq_pk_len, _, _) = self.pq_sizes();
         let expected = ED_PK_LEN + pq_pk_len;
@@ -432,7 +432,7 @@ impl BirdOfPreyScheme {
         }
     }
 
-    /// Validate the raw bytes of a Bird-of-Prey signing key for this scheme.
+    /// Validates the raw bytes of a Bird-of-Prey signing key for this scheme.
     fn validate_signing_key_bytes(&self, bytes: &[u8]) -> Result<()> {
         let (pq_pk_len, pq_sk_len, _) = self.pq_sizes();
         let expected = SEED_LEN + 4 + pq_pk_len + pq_sk_len;
@@ -443,7 +443,7 @@ impl BirdOfPreyScheme {
         }
     }
 
-    /// Validate the raw bytes of a Bird-of-Prey signature for this scheme.
+    /// Validates the raw bytes of a Bird-of-Prey signature for this scheme.
     fn validate_signature_bytes(&self, bytes: &[u8]) -> Result<()> {
         let (_, _, pq_sig_len) = self.pq_sizes();
         let expected = RSP_LEN + pq_sig_len;
@@ -454,7 +454,7 @@ impl BirdOfPreyScheme {
         }
     }
 
-    /// Generate a fresh Bird-of-Prey keypair for this scheme.
+    /// Generates a fresh Bird-of-Prey keypair for this scheme.
     #[cfg(feature = "kgen")]
     pub fn keypair(&self) -> Result<(BirdOfPreyVerificationKey, BirdOfPreySigningKey)> {
         let mut seed = [0u8; SEED_LEN];
@@ -463,7 +463,7 @@ impl BirdOfPreyScheme {
         self.keypair_from_seed(&seed)
     }
 
-    /// Generate a deterministic Bird-of-Prey keypair for this scheme from a 32-byte seed.
+    /// Generates a deterministic Bird-of-Prey keypair for this scheme from a 32-byte seed.
     #[cfg(feature = "kgen")]
     pub fn keypair_from_seed(
         &self,
@@ -472,7 +472,7 @@ impl BirdOfPreyScheme {
         self.keypair_from_seed_inner(seed)
     }
 
-    /// Sign a message with a Bird-of-Prey signing key for this scheme.
+    /// Signs a message with a Bird-of-Prey signing key for this scheme.
     #[cfg(feature = "sign")]
     pub fn sign(
         &self,
@@ -488,7 +488,7 @@ impl BirdOfPreyScheme {
         BirdOfPreySignature::from_raw_bytes(*self, &signature)
     }
 
-    /// Verify a Bird-of-Prey signature for this scheme.
+    /// Verifies a Bird-of-Prey signature for this scheme.
     #[cfg(feature = "vrfy")]
     pub fn verify(
         &self,

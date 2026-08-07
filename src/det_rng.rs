@@ -5,7 +5,7 @@
 //! instantiated with the signing key as the private input and the message as
 //! the data. HMAC keys the PRF with secret material; unlike a bare
 //! `H(secret || message)` prefix hash, it has no length-extension weakness and
-//! is the standardized deterministic-nonce construction. After instantiation
+//! is the standardized deterministic-nonce construction. After instantiation,
 //! the key `K` is fixed and each 64-byte output block is `V = HMAC_K(V)`, so
 //! the stream is unbounded.
 
@@ -155,7 +155,7 @@ mod tests {
     }
 
     /// A single large draw must equal the concatenation of smaller draws that
-    /// straddle the 64-byte block boundary, otherwise the refill bookkeeping is
+    /// straddle the 64-byte block boundary; otherwise, the refill bookkeeping is
     /// dropping or repeating bytes.
     #[test]
     fn draws_are_consistent_across_block_boundaries() {

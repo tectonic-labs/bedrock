@@ -2,54 +2,60 @@
 
 //! # Hybrid Hierarchical Deterministic (HD) Wallet Library
 //!
-//! This library provides a framework for managing hybrid hierarchical deterministic ([HD wallets](https://en.bitcoin.it/wiki/Deterministic_wallet))
-//! that support multiple signature schemes from a single [BIP-39 mnemonic seed phrase](https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki).
-//! It enables seamless coexistence of both classical ([ECDSA secp256k1](https://en.bitcoin.it/wiki/Secp256k1)) and
-//! post-quantum ([Falcon-512](https://falcon-sign.info/)) signature schemes within a unified wallet structure.
-//! The post-quantum Falcon-512 primitive leverages [Tectonic's Bedrock repository](https://github.com/tectonic-labs/bedrock),
-//! which implements FN-DSA (Falcon) in pure Rust via the [`fn-dsa`](https://crates.io/crates/fn-dsa) crates.
+//! This library provides a framework for managing hybrid
+//! [hierarchical deterministic (HD) wallets](https://en.bitcoin.it/wiki/Deterministic_wallet).
+//! A single
+//! [BIP-39 mnemonic](https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki)
+//! can supply independent hierarchies for conventional
+//! [ECDSA secp256k1](https://en.bitcoin.it/wiki/Secp256k1) keys, post-quantum signature
+//! keys, and HHD-enabled KEM keys. Bedrock implements Falcon/FN-DSA in pure Rust through
+//! the [`fn-dsa`](https://crates.io/crates/fn-dsa) crates.
 //!
 //! ## Features
 //!
-//! - **Multi-Scheme Support**: Derive keys for multiple signature schemes (ECDSA secp256k1, Falcon-512)
-//! - **Single Mnemonic**: Use one BIP-39 mnemonic to derive all scheme-specific seeds
-//! - **BIP-85 Derivation**: Scheme-specific seed derivation using BIP-85 standard
-//! - **BIP-32 & SLIP-0010**: Support for both BIP-32 (ECDSA) and SLIP-0010 (Falcon) HD key derivation
-//! - **Deterministic**: All keys are deterministically derived from the master seed
-//! - **Cryptographic Separation**: Each signature scheme uses independent derivation paths
+//! - **Multi-scheme support**: Derives signature and HQC KEM keys from one wallet.
+//! - **Single mnemonic**: Uses one BIP-39 mnemonic to derive all scheme-specific seeds.
+//! - **BIP-85 derivation**: Derives scheme-specific seeds according to BIP-85.
+//! - **BIP-32 and SLIP-0010**: Supports BIP-32 for ECDSA and SLIP-0010 for post-quantum
+//!   schemes.
+//! - **Deterministic derivation**: Derives every key from the master seed.
+//! - **Cryptographic separation**: Uses independent derivation paths for each scheme.
 //!
 //! ## Quick Start
 //!
 //! ### Creating and Using a Hybrid HD Wallet with ECDSA and Falcon
 //! ```ignore
-//! // Note: This example requires features: sign, vrfy, eth_falcon
+//! // This example requires the sign, vrfy, and falcon features.
 //! use tectonic_bedrock::hhd::{HHDWallet, SignatureScheme};
 //!
-//! // Create a new wallet with both ECDSA and Falcon support
+//! // Create a new wallet with ECDSA and Falcon support.
 //! let wallet = HHDWallet::new(
 //!     vec![SignatureScheme::EcdsaSecp256k1, SignatureScheme::Falcon512],
-//!     None, // Optional BIP-39 passphrase
+//!     None, // Optional BIP-39 passphrase.
 //! ).unwrap();
 //!
-//! // Derive a keypair for ECDSA at address index 0
+//! // Derive an ECDSA keypair at address index 0.
 //! let (ecdsa_sk, ecdsa_vk) = wallet.derive_ecdsa_secp256k1_keypair(
 //!     0,
 //! ).unwrap();
 //!
-//! // Sign and verify with ECDSA
-//! use tectonic_bedrock::hhd::ecdsa::{Signature, signature::{Verifier, Signer}};
+//! // Sign and verify with ECDSA.
+//! use tectonic_bedrock::hhd::ecdsa::{
+//!     signature::{Signer, Verifier},
+//!     Signature,
+//! };
 //!
 //! let message = b"Hello, world!";
 //! let ecdsa_signature: Signature = ecdsa_sk.sign(message);
 //! let verified = ecdsa_vk.verify(message, &ecdsa_signature);
 //! assert!(verified.is_ok());
 //!
-//! // Derive a keypair for Falcon at address index 0
+//! // Derive a Falcon keypair at address index 0.
 //! let (falcon_sk, falcon_vk) = wallet.derive_fn_dsa512_keypair(
 //!     0,
 //! ).unwrap();
 //!
-//! // Sign and verify with Falcon
+//! // Sign and verify with Falcon.
 //! use tectonic_bedrock::falcon::FalconScheme;
 //! let falcon_signature = FalconScheme::Dsa512.sign(message, &falcon_sk).unwrap();
 //! let falcon_verified = FalconScheme::Dsa512.verify(message, &falcon_signature, &falcon_vk);
@@ -58,58 +64,67 @@
 //!
 //! ### Importing a Wallet from an Existing Mnemonic Phrase
 //! ```no_run
-//! use tectonic_bedrock::hhd::{HHDWallet, SignatureScheme, Mnemonic};
+//! use tectonic_bedrock::hhd::{HHDWallet, Mnemonic, SignatureScheme};
 //!
 //! // Your BIP-39 phrase (for example, a 24-word phrase)
 //! let phrase = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about";
 //! let mnemonic = Mnemonic::from_phrase(phrase).unwrap();
 //!
-//! // You can optionally provide a BIP-39 passphrase
+//! // You can optionally provide a BIP-39 passphrase.
 //! let password = Some("my secret password");
 //!
-//! // Import the wallet with both ECDSA and Falcon enabled
+//! // Import the wallet with ECDSA and Falcon enabled.
 //! let wallet = HHDWallet::new_from_mnemonic(
 //!     mnemonic,
 //!     vec![SignatureScheme::EcdsaSecp256k1, SignatureScheme::Falcon512],
 //!     password,
 //! ).unwrap();
 //!
-//! // Now, use wallet.derive_ecdsa_secp256k1_keypair, wallet.derive_fn_dsa512_keypair, etc. as above.
+//! // The wallet can now derive ECDSA and Falcon keypairs.
 //! ```
 //!
 //! ## Architecture
 //!
-//!
-//! The hybrid HD wallet architecture enables multiple signature schemes to coexist within a single wallet structure while maintaining cryptographic separation.
+//! The hybrid HD wallet architecture supports multiple schemes in one wallet while
+//! maintaining cryptographic separation.
 //!
 //! ## Overview
 //!
 //! The wallet follows a hierarchical derivation model:
 //!
-//! 1. **Master Mnemonic** (BIP-39): A single 24-word mnemonic phrase serves as the root entropy source for the entire wallet
-//! 2. **Scheme-Specific Seeds** (BIP-85): Each signature scheme receives its own 64-byte seed derived from the master mnemonic
-//! 3. **Keypairs** (BIP-32/SLIP-0010): Individual keypairs are derived from scheme seeds using address indices
+//! 1. **Master mnemonic** (BIP-39): A 24-word mnemonic is the wallet's root entropy.
+//! 2. **Scheme-specific seeds** (BIP-85): Each configured signature scheme or KEM receives
+//!    its own 64-byte seed.
+//! 3. **Keypairs** (BIP-32/SLIP-0010): Address indices derive individual keypairs from the
+//!    scheme-specific seeds.
 //!
 //! This design ensures that:
-//! - All keys are deterministically derived from a single mnemonic, allowing them to be restored from the mnemonic alone
-//! - Different signature schemes use cryptographically independent seeds
+//!
+//! - Every key can be restored from the mnemonic alone.
+//! - Different schemes use cryptographically independent seeds.
 //!
 //! ## Derivation Paths
 //!
 //! ### BIP-85 Scheme Seed Derivation
 //!
-//! Each signature scheme gets its own unique seed through BIP-85 derivation from the master mnemonic. Two different paths are used for each signature type::
+//! Each scheme receives a unique seed through BIP-85 derivation from the master mnemonic:
 //!
 //! - **ECDSA secp256k1**: `m/83696968'/83286642'/1'`
 //! - **Falcon-512**: `m/83696968'/83286642'/2'`
+//! - **ML-DSA-44/65/87**: `m/83696968'/83286642'/4'`, `/5'`, and `/6'`
+//! - **MAYO-1/2/3**: `m/83696968'/83286642'/7'`, `/8'`, and `/9'`
+//! - **HQC-128/192/256**: `m/83696968'/83286642'/10'`, `/11'`, and `/12'`
 //!
-//! The base path `m/83696968'` is the standard BIP-85 path, `/83286642'` stands for Tectonic in a T9 keypad, and the final component (`1'` or `2'`) identifies the signature scheme. This ensures that even though both schemes share the same mnemonic, they operate on cryptographically independent seeds.
+//! The base path `m/83696968'` is the standard BIP-85 path, `/83286642'` spells
+//! "Tectonic" on a T9 keypad, and the final component identifies the scheme. Although the
+//! schemes share a mnemonic, they operate on cryptographically independent seeds.
 //!
 //! ### Key Derivation Paths
 //!
-//! Once a scheme-specific seed is obtained, individual keypairs are derived using address indices:
+//! After obtaining a scheme-specific seed, address indices derive individual keypairs.
 //!
 //! **ECDSA secp256k1** (BIP-32, BIP-44):
+//!
 //! - Domain separator: `Bitcoin seed`
 //! - Base path: `m/44'/60'/0'/0`
 //! - Full path: `m/44'/60'/0'/0/{address_index}`
@@ -117,6 +132,7 @@
 //! - Example for address index 0: `m/44'/60'/0'/0/0`
 //!
 //! **Falcon-512** (SLIP-0010, hardened):
+//!
 //! - Domain separator: `Falcon-512 seed`
 //! - Base path: `m/44'/60'/0'/0'`
 //! - Full path: `m/44'/60'/0'/0'/{address_index}'`
@@ -125,24 +141,25 @@
 //!
 //! ### Key Differences
 //!
-//! |      Signature       |   ECDSA secp256k1    |  Falcon-512          |
-//! |----------------------|----------------------|----------------------|
-//! | **BIP-85 Index**     | `1'`                 | `2'`                 |
-//! | **HD Standard**      | BIP-32               | SLIP-0010            |
-//! | **Domain Separator** | `Bitcoin seed`       | `Falcon-512 seed` |
-//! | **Address Index**    | Non-hardened         | Hardened             |
+//! | Scheme family | BIP-85 index | HD standard | Address index |
+//! |---------------|--------------|-------------|---------------|
+//! | ECDSA secp256k1 | `1'` | BIP-32 | Non-hardened |
+//! | Falcon-512 | `2'` | SLIP-0010 | Hardened |
+//! | ML-DSA-44/65/87 | `4'`/`5'`/`6'` | SLIP-0010 | Hardened |
+//! | MAYO-1/2/3 | `7'`/`8'`/`9'` | SLIP-0010 | Hardened |
+//! | HQC-128/192/256 | `10'`/`11'`/`12'` | SLIP-0010 | Hardened |
 //!
-//! For more detailed implementation information, see the [ARCHITECTURE.md](https://github.com/tectonic-labs/bedrock/blob/main/src/hhd/ARCHITECTURE.md) document.
+//! For detailed implementation information, see [ARCHITECTURE.md].
 //!
 //! ## Standards
 //!
 //! This library implements the following standards:
 //!
-//! - [BIP-39]: Mnemonic code for generating deterministic keys
-//! - [BIP-32]: Hierarchical Deterministic Wallets
-//! - [BIP-44]: Multi-Account Hierarchy for Deterministic Wallets
-//! - [BIP-85]: Deterministic Entropy From BIP32 Keychains
-//! - [SLIP-0010]: Universal private key derivation from master private key
+//! - [BIP-39]: Mnemonic code for generating deterministic keys.
+//! - [BIP-32]: Hierarchical deterministic wallets.
+//! - [BIP-44]: Multi-account hierarchy for deterministic wallets.
+//! - [BIP-85]: Deterministic entropy from BIP-32 keychains.
+//! - [SLIP-0010]: Universal private-key derivation from a master private key.
 //!
 //! [ARCHITECTURE.md]: https://github.com/tectonic-labs/bedrock/blob/main/src/hhd/ARCHITECTURE.md
 //! [BIP-39]: https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki
@@ -152,6 +169,8 @@
 //! [SLIP-0010]: https://github.com/satoshilabs/slips/blob/master/slip-0010.md
 
 mod bip85;
+#[cfg(feature = "hqc")]
+mod kems;
 mod keys;
 mod mnemonic;
 mod signatures;
@@ -159,6 +178,8 @@ mod slip10;
 
 pub use bip32::secp256k1::ecdsa;
 pub use bip85::{Bip85, Bip85Error};
+#[cfg(feature = "hqc")]
+pub use kems::{HhdKemSchemeError, KemSeed};
 pub use keys::KeyError;
 pub use mnemonic::{Mnemonic, MnemonicError};
 pub use signatures::{SignatureScheme, SignatureSchemeError, SignatureSeed};
@@ -166,11 +187,15 @@ pub use slip10::Slip10Error;
 
 #[cfg(feature = "falcon")]
 use crate::falcon::{FalconSigningKey, FalconVerificationKey};
+#[cfg(feature = "hqc")]
+use crate::kem::{KemDecapsulationKey, KemEncapsulationKey, KemScheme};
 #[cfg(feature = "mayo")]
 use crate::mayo::{MayoSigningKey, MayoVerificationKey};
 #[cfg(feature = "ml-dsa")]
 use crate::ml_dsa::{MlDsaSigningKey, MlDsaVerificationKey};
 use bip32::secp256k1::ecdsa::{SigningKey, VerifyingKey};
+#[cfg(feature = "hqc")]
+use keys::derive_hqc_keypair as derive_hqc_keypair_from_seed;
 use keys::EcdsaSecp256k1;
 #[cfg(feature = "falcon")]
 use keys::FnDsa512;
@@ -180,44 +205,44 @@ use keys::{Mayo1, Mayo2, Mayo3};
 use keys::{MlDsa44, MlDsa65, MlDsa87};
 use std::{collections::HashMap, fmt};
 
-/// A Hybrid Hierarchical Deterministic (HD) Wallet derived from a single BIP-39 mnemonic.
+/// A hybrid hierarchical deterministic (HD) wallet derived from one BIP-39 mnemonic.
 ///
-/// This wallet structure enables managing multiple signature schemes (e.g., ECDSA secp256k1
-/// and Falcon-512) from a single BIP-39 mnemonic phrase. Each signature scheme gets its own
+/// This wallet structure enables managing multiple signature schemes and HHD-enabled KEMs
+/// from a single BIP-39 mnemonic phrase. Each configured scheme gets its own
 /// scheme-specific seed derived using BIP-85, ensuring cryptographic seed separation while
 /// maintaining a unified wallet structure.
 ///
 /// # Key Concepts
 ///
-/// - **Master Mnemonic**: A single BIP-39 mnemonic phrase that serves as the root entropy
-/// - **Scheme-Specific Seeds**: Each signature scheme has its own derived seed (via BIP-85)
-/// - **Address Indexing**: Keys are derived from scheme seeds using hierarchical derivation paths
-/// - **Cryptographic Isolation**: Different schemes use different derived seeds
+/// - **Master mnemonic**: A BIP-39 mnemonic phrase that serves as the root entropy.
+/// - **Scheme-specific seeds**: Each configured signature or KEM has its own BIP-85 seed.
+/// - **Address indexing**: Hierarchical paths derive keys from scheme-specific seeds.
+/// - **Cryptographic isolation**: Different schemes use different derived seeds.
 ///
 /// # Derivation Flow
 ///
-/// 1. **Master Mnemonic** → BIP-39 seed conversion
-/// 2. **BIP-85 Derivation** → Scheme-specific seed for each signature scheme
-/// 3. **HD Key Derivation** → Keypairs at specific address indices
-///    - ECDSA: Uses BIP-32 with BIP-44 paths
-///    - Falcon: Uses SLIP-0010 with hardened paths
+/// 1. **Master mnemonic** → BIP-39 seed conversion.
+/// 2. **BIP-85 derivation** → Scheme-specific seed for each configured algorithm.
+/// 3. **HD key derivation** → Keypairs at specific address indices.
+///    - ECDSA uses BIP-32 with BIP-44 paths.
+///    - Falcon, ML-DSA, MAYO, and HQC use SLIP-0010 with hardened paths.
 ///
 /// # Example
 ///
 /// ```ignore
-/// // Note: This example requires features: falcon
+/// // This example requires the `falcon` feature.
 /// use tectonic_bedrock::hhd::{HHDWallet, SignatureScheme};
 ///
-/// // Create wallet with both schemes
+/// // Create a wallet with both schemes.
 /// let wallet = HHDWallet::new(
 ///     vec![SignatureScheme::EcdsaSecp256k1, SignatureScheme::Falcon512],
 ///     None,
 /// ).unwrap();
 ///
-/// // Get the mnemonic (backup this!)
+/// // Get the mnemonic and back it up.
 /// let mnemonic_phrase = wallet.mnemonic().to_phrase();
 ///
-/// // Derive keypairs for both schemes at the same address index
+/// // Derive keypairs for both schemes at the same address index.
 /// let (ecdsa_sk, ecdsa_vk) = wallet.derive_ecdsa_secp256k1_keypair(0).unwrap();
 /// let (falcon_sk, falcon_vk) = wallet.derive_fn_dsa512_keypair(0).unwrap();
 /// ```
@@ -225,16 +250,22 @@ pub struct HHDWallet {
     /// Root mnemonic phrase (BIP-39 compatible) used to derive all scheme-specific seeds.
     pub mnemonic: Mnemonic,
     /// Master seeds indexed by signature scheme, derived from the mnemonic using BIP-85.
-    /// All seeds are zeroized on drop according to bip32 crate implementation.
+    /// All seeds are zeroized on drop according to the `bip32` crate's implementation.
     pub master_seeds: HashMap<SignatureScheme, SignatureSeed>,
+    /// Master seeds for HHD-enabled KEMs, derived independently through BIP-85.
+    #[cfg(feature = "hqc")]
+    pub kem_master_seeds: HashMap<KemScheme, KemSeed>,
 }
 
 impl fmt::Debug for HHDWallet {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("HHDWallet")
+        let mut debug = f.debug_struct("HHDWallet");
+        debug
             .field("mnemonic", &"<redacted>")
-            .field("master_seeds", &self.master_seeds)
-            .finish()
+            .field("master_seeds", &self.master_seeds);
+        #[cfg(feature = "hqc")]
+        debug.field("kem_master_seeds", &self.kem_master_seeds);
+        debug.finish()
     }
 }
 
@@ -291,6 +322,8 @@ impl HHDWallet {
         Ok(HHDWallet {
             mnemonic,
             master_seeds,
+            #[cfg(feature = "hqc")]
+            kem_master_seeds: HashMap::new(),
         })
     }
 
@@ -308,7 +341,7 @@ impl HHDWallet {
     /// # Arguments
     ///
     /// * `schemes` - A vector of signature schemes to support in this wallet
-    /// * `password` - Optional BIP-39 passphrase (adds extra security layer)
+    /// * `password` - Optional BIP-39 passphrase (adds an extra security layer)
     ///
     /// # Returns
     ///
@@ -337,6 +370,52 @@ impl HHDWallet {
     pub fn new(schemes: Vec<SignatureScheme>, password: Option<&str>) -> Result<Self, WalletError> {
         let mnemonic = Mnemonic::new_random();
         Self::new_from_mnemonic(mnemonic, schemes, password)
+    }
+
+    /// Creates a wallet from a mnemonic with both signature and HQC KEM branches.
+    ///
+    /// Existing signature-only constructors remain unchanged. Use this constructor when
+    /// one or more HQC parameter sets should be available for hierarchical derivation.
+    /// Each KEM receives an independent BIP-85 root seed.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`WalletError`] if mnemonic processing, BIP-85 derivation, or KEM
+    /// validation fails. Currently HQC-128, HQC-192, and HQC-256 are the HHD-enabled
+    /// KEMs.
+    #[cfg(feature = "hqc")]
+    pub fn new_from_mnemonic_with_kem_schemes(
+        mnemonic: Mnemonic,
+        signature_schemes: Vec<SignatureScheme>,
+        kem_schemes: Vec<KemScheme>,
+        password: Option<&str>,
+    ) -> Result<Self, WalletError> {
+        let mut wallet = Self::new_from_mnemonic(mnemonic, signature_schemes, password)?;
+        for scheme in kem_schemes {
+            let child_seed =
+                Bip85::derive_kem_seed_from_mnemonic(&wallet.mnemonic, scheme, password)?;
+            wallet.kem_master_seeds.insert(scheme, child_seed);
+        }
+        Ok(wallet)
+    }
+
+    /// Creates a wallet with a random mnemonic and both signature and HQC KEM branches.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`WalletError`] if scheme-specific seed derivation fails.
+    #[cfg(feature = "hqc")]
+    pub fn new_with_kem_schemes(
+        signature_schemes: Vec<SignatureScheme>,
+        kem_schemes: Vec<KemScheme>,
+        password: Option<&str>,
+    ) -> Result<Self, WalletError> {
+        Self::new_from_mnemonic_with_kem_schemes(
+            Mnemonic::new_random(),
+            signature_schemes,
+            kem_schemes,
+            password,
+        )
     }
 
     /// Gets a reference to the wallet's mnemonic phrase.
@@ -389,10 +468,17 @@ impl HHDWallet {
         &self.master_seeds
     }
 
-    /// Derives a ECDSA secp256k1 keypair at the given address index.
+    /// Gets the KEM-specific BIP-85 root seeds configured in this wallet.
+    #[cfg(feature = "hqc")]
+    pub fn kem_master_seeds(&self) -> &HashMap<KemScheme, KemSeed> {
+        &self.kem_master_seeds
+    }
+
+    /// Derives an ECDSA secp256k1 keypair at the given address index.
     ///
-    /// This method derives a ECDSA secp256k1 keypair using the scheme-specific seed and the provided
-    /// address index. The derivation path is `m/44'/60'/0'/0/{address_index}` (BIP-44 path).
+    /// This method derives an ECDSA secp256k1 keypair using the scheme-specific seed and
+    /// the provided address index. The derivation path is
+    /// `m/44'/60'/0'/0/{address_index}` (BIP-44 path).
     ///
     /// # Arguments
     ///
@@ -416,7 +502,7 @@ impl HHDWallet {
     ///
     /// let wallet = HHDWallet::new(vec![SignatureScheme::EcdsaSecp256k1], None).unwrap();
     ///
-    /// // Derive ECDSA keypair at address index 0
+    /// // Derive an ECDSA keypair at address index 0.
     /// let (ecdsa_sk, ecdsa_vk) = wallet.derive_ecdsa_secp256k1_keypair(0).unwrap();
     ///
     /// // Derive another keypair at address index 1
@@ -439,8 +525,9 @@ impl HHDWallet {
     #[cfg(feature = "falcon")]
     /// Derives a Falcon-512 keypair at the given address index.
     ///
-    /// This method derives a Falcon-512 keypair using the scheme-specific seed and the provided
-    /// address index. The derivation path is `m/44'/60'/0'/0'/{address_index}'` (hardened path).
+    /// This method derives a Falcon-512 keypair using the scheme-specific seed and the
+    /// provided address index. The derivation path is
+    /// `m/44'/60'/0'/0'/{address_index}'` (hardened path).
     ///
     /// # Arguments
     ///
@@ -464,7 +551,7 @@ impl HHDWallet {
     ///
     /// let wallet = HHDWallet::new(vec![SignatureScheme::Falcon512], None).unwrap();
     ///
-    /// // Derive ECDSA keypair at address index 0
+    /// // Derive a Falcon keypair at address index 0.
     /// let (falcon_sk, falcon_vk) = wallet.derive_fn_dsa512_keypair(0).unwrap();
     ///
     /// // Derive another keypair at address index 1
@@ -506,10 +593,11 @@ impl HHDWallet {
     }
 
     #[cfg(feature = "ml-dsa")]
-    /// Derives a ML-DSA-65 keypair at the given address index.
+    /// Derives an ML-DSA-65 keypair at the given address index.
     ///
-    /// This method derives a ML-DSA-65 keypair using the scheme-specific seed and the provided
-    /// address index. The derivation path is `m/44'/60'/0'/0'/{address_index}'` (hardened path).
+    /// This method derives an ML-DSA-65 keypair using the scheme-specific seed and the
+    /// provided address index. The derivation path is
+    /// `m/44'/60'/0'/0'/{address_index}'` (hardened path).
     ///
     /// # Arguments
     ///
@@ -554,10 +642,11 @@ impl HHDWallet {
     }
 
     #[cfg(feature = "ml-dsa")]
-    /// Derives a ML-DSA-87 keypair at the given address index.
+    /// Derives an ML-DSA-87 keypair at the given address index.
     ///
-    /// This method derives a ML-DSA-87 keypair using the scheme-specific seed and the provided
-    /// address index. The derivation path is `m/44'/60'/0'/0'/{address_index}'` (hardened path).
+    /// This method derives an ML-DSA-87 keypair using the scheme-specific seed and the
+    /// provided address index. The derivation path is
+    /// `m/44'/60'/0'/0'/{address_index}'` (hardened path).
     ///
     /// # Arguments
     ///
@@ -606,7 +695,7 @@ impl HHDWallet {
     ///
     /// The derivation path is `m/44'/60'/0'/0'/{address_index}'` (hardened path). The
     /// 32-byte SLIP-0010 child key is truncated to its first 24 bytes to match the MAYO-1
-    /// keygen seed size (SLIP-0010 output is uniform, so truncation preserves the 192-bit
+    /// key-generation seed size (SLIP-0010 output is uniform, so truncation preserves the 192-bit
     /// seed security targeted by MAYO-1).
     ///
     /// # Arguments
@@ -653,7 +742,7 @@ impl HHDWallet {
     ///
     /// The derivation path is `m/44'/60'/0'/0'/{address_index}'` (hardened path). The
     /// 32-byte SLIP-0010 child key is truncated to its first 24 bytes to match the MAYO-2
-    /// keygen seed size (SLIP-0010 output is uniform, so truncation preserves the 192-bit
+    /// key-generation seed size (SLIP-0010 output is uniform, so truncation preserves the 192-bit
     /// seed security targeted by MAYO-2).
     ///
     /// # Arguments
@@ -740,6 +829,60 @@ impl HHDWallet {
 
         Mayo3::derive_from_seed(seed_bytes, address_index).map_err(WalletError::KeyError)
     }
+
+    #[cfg(feature = "hqc")]
+    fn derive_hqc_keypair(
+        &self,
+        scheme: KemScheme,
+        address_index: u32,
+    ) -> Result<(KemEncapsulationKey, KemDecapsulationKey), WalletError> {
+        let kem_seed = self
+            .kem_master_seeds
+            .get(&scheme)
+            .ok_or(WalletError::KemSchemeNotConfigured(scheme))?;
+
+        derive_hqc_keypair_from_seed(scheme, kem_seed.as_seed().as_bytes(), address_index)
+            .map_err(WalletError::KeyError)
+    }
+
+    /// Derives an HQC-128 encapsulation/decapsulation keypair.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`WalletError`] if HQC-128 is not configured or derivation fails.
+    #[cfg(feature = "hqc")]
+    pub fn derive_hqc128_keypair(
+        &self,
+        address_index: u32,
+    ) -> Result<(KemEncapsulationKey, KemDecapsulationKey), WalletError> {
+        self.derive_hqc_keypair(KemScheme::Hqc128, address_index)
+    }
+
+    /// Derives an HQC-192 encapsulation/decapsulation keypair.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`WalletError`] if HQC-192 is not configured or derivation fails.
+    #[cfg(feature = "hqc")]
+    pub fn derive_hqc192_keypair(
+        &self,
+        address_index: u32,
+    ) -> Result<(KemEncapsulationKey, KemDecapsulationKey), WalletError> {
+        self.derive_hqc_keypair(KemScheme::Hqc192, address_index)
+    }
+
+    /// Derives an HQC-256 encapsulation/decapsulation keypair.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`WalletError`] if HQC-256 is not configured or derivation fails.
+    #[cfg(feature = "hqc")]
+    pub fn derive_hqc256_keypair(
+        &self,
+        address_index: u32,
+    ) -> Result<(KemEncapsulationKey, KemDecapsulationKey), WalletError> {
+        self.derive_hqc_keypair(KemScheme::Hqc256, address_index)
+    }
 }
 
 /// Errors that can occur during wallet operations.
@@ -756,6 +899,10 @@ pub enum WalletError {
     /// The requested signature scheme is not supported in this wallet.
     #[error("Invalid scheme")]
     InvalidScheme,
+    /// The requested KEM was not configured in this wallet.
+    #[cfg(feature = "hqc")]
+    #[error("KEM scheme '{0}' is not configured in this wallet")]
+    KemSchemeNotConfigured(KemScheme),
     /// Invalid derivation path encountered during key derivation.
     #[error("Invalid derivation path")]
     InvalidDerivationPath,
@@ -767,19 +914,19 @@ pub enum WalletError {
         /// Actual HMAC key length in bytes
         actual: usize,
     },
-    /// Error occurred during mnemonic processing (BIP-39).
+    /// An error occurred during mnemonic processing (BIP-39).
     #[error("Mnemonic error: {0}")]
     Bip39(#[from] MnemonicError),
-    /// Error occurred during BIP-32 key derivation.
-    #[error("BIP32 error: {0}")]
+    /// An error occurred during BIP-32 key derivation.
+    #[error("BIP-32 error: {0}")]
     Bip32(#[from] bip32::Error),
-    /// Error occurred in signature scheme configuration or derivation.
+    /// An error occurred in signature-scheme configuration or derivation.
     #[error("Signature scheme error: {0}")]
     SignatureSchemeError(#[from] SignatureSchemeError),
-    /// Error occurred during key operations (derivation, signing, verification).
+    /// An error occurred during a key operation (derivation, signing, or verification).
     #[error("Key error: {0}")]
     KeyError(#[from] KeyError),
-    /// Error occurred during BIP-85 seed derivation.
+    /// An error occurred during BIP-85 seed derivation.
     #[error("BIP85 error: {0}")]
     Bip85Error(#[from] Bip85Error),
 }
@@ -798,6 +945,104 @@ fn mnemonic_determinism() {
 
     assert_eq!(keypair1.0, keypair2.0);
     assert_eq!(keypair1.1, keypair2.1);
+}
+
+#[cfg(all(test, feature = "hqc"))]
+#[allow(clippy::unwrap_used)]
+mod hqc_tests {
+    use super::*;
+    use rstest::rstest;
+
+    fn fixed_mnemonic() -> Mnemonic {
+        Mnemonic::from_phrase(
+            "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about",
+        )
+        .unwrap()
+    }
+
+    fn derive(
+        wallet: &HHDWallet,
+        scheme: KemScheme,
+        address_index: u32,
+    ) -> Result<(KemEncapsulationKey, KemDecapsulationKey), WalletError> {
+        if scheme == KemScheme::Hqc128 {
+            wallet.derive_hqc128_keypair(address_index)
+        } else if scheme == KemScheme::Hqc192 {
+            wallet.derive_hqc192_keypair(address_index)
+        } else {
+            wallet.derive_hqc256_keypair(address_index)
+        }
+    }
+
+    #[rstest]
+    #[case::hqc128(KemScheme::Hqc128)]
+    #[case::hqc192(KemScheme::Hqc192)]
+    #[case::hqc256(KemScheme::Hqc256)]
+    fn hqc_wallet_restoration_is_deterministic(#[case] scheme: KemScheme) {
+        let first = HHDWallet::new_from_mnemonic_with_kem_schemes(
+            fixed_mnemonic(),
+            Vec::new(),
+            vec![scheme],
+            None,
+        )
+        .unwrap();
+        let second = HHDWallet::new_from_mnemonic_with_kem_schemes(
+            fixed_mnemonic(),
+            Vec::new(),
+            vec![scheme],
+            None,
+        )
+        .unwrap();
+
+        let first_keys = derive(&first, scheme, 4).unwrap();
+        let second_keys = derive(&second, scheme, 4).unwrap();
+        assert_eq!(first_keys.0.to_raw_bytes(), second_keys.0.to_raw_bytes());
+        assert_eq!(first_keys.1.to_raw_bytes(), second_keys.1.to_raw_bytes());
+    }
+
+    #[test]
+    fn random_wallet_constructor_configures_requested_kem_seeds() {
+        let schemes = [KemScheme::Hqc128, KemScheme::Hqc192, KemScheme::Hqc256];
+        let wallet = HHDWallet::new_with_kem_schemes(Vec::new(), schemes.to_vec(), None).unwrap();
+
+        assert_eq!(wallet.kem_master_seeds().len(), schemes.len());
+        for scheme in schemes {
+            let seed = wallet
+                .kem_master_seeds()
+                .get(&scheme)
+                .expect("requested KEM seed should be configured");
+            assert_eq!(seed.scheme(), scheme);
+        }
+    }
+
+    #[test]
+    fn signature_only_constructor_does_not_implicitly_enable_hqc() {
+        let wallet = HHDWallet::new_from_mnemonic(fixed_mnemonic(), Vec::new(), None).unwrap();
+        assert!(matches!(
+            wallet.derive_hqc128_keypair(0),
+            Err(WalletError::KemSchemeNotConfigured(KemScheme::Hqc128))
+        ));
+    }
+
+    #[cfg(all(feature = "encp", feature = "decp"))]
+    #[rstest]
+    #[case::hqc128(KemScheme::Hqc128)]
+    #[case::hqc192(KemScheme::Hqc192)]
+    #[case::hqc256(KemScheme::Hqc256)]
+    fn hhd_hqc_round_trip(#[case] scheme: KemScheme) {
+        let wallet = HHDWallet::new_from_mnemonic_with_kem_schemes(
+            fixed_mnemonic(),
+            Vec::new(),
+            vec![scheme],
+            None,
+        )
+        .unwrap();
+        let (encapsulation_key, decapsulation_key) = derive(&wallet, scheme, 0).unwrap();
+        let (ciphertext, sender_secret) = scheme.encapsulate(&encapsulation_key).unwrap();
+        let receiver_secret = scheme.decapsulate(&ciphertext, &decapsulation_key).unwrap();
+
+        assert_eq!(sender_secret.to_raw_bytes(), receiver_secret.to_raw_bytes());
+    }
 }
 
 #[cfg(all(feature = "sign", feature = "vrfy"))]

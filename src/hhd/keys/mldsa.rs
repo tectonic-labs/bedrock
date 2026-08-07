@@ -1,4 +1,5 @@
-//! This module provides a method to derive a ML-DSA keypair from a seed and an address index using [SLIP-0010][slip-0010].
+//! This module provides a method to derive an ML-DSA keypair from a seed and an address
+//! index using [SLIP-0010][slip-0010].
 //!
 //! # Key Specifications
 //!
@@ -7,7 +8,8 @@
 //!
 //! # Derivation Path
 //!
-//! Uses BIP-44 hardened derivation path: `m/44'/60'/0'/0'/{address_index}'`
+//! Uses the hardened BIP-44 derivation path `m/44'/60'/0'/0'/{address_index}'`:
+//!
 //! - `44'`: BIP-44 standard
 //! - `60'`: Ethereum coin type
 //! - `0'`: Account index
@@ -39,7 +41,7 @@ macro_rules! impl_ml_dsa_struct {
         pub struct $name;
 
         impl $name {
-            /// Generates a ML-DSA keypair directly from a 32-byte seed.
+            /// Generates an ML-DSA keypair directly from a 32-byte seed.
             ///
             /// # Arguments
             ///
@@ -59,24 +61,24 @@ macro_rules! impl_ml_dsa_struct {
                     });
                 }
 
-                // Convert to fixed-size array
+                // Convert to a fixed-size array.
                 let mut seed_array = [0u8; $seed_size_const];
                 seed_array.copy_from_slice(seed);
 
-                // Generate keypair using ml-dsa-rust
+                // Generate the keypair with `ml-dsa`.
                 let (verifying_key, signing_key) = MlDsaScheme::$version
                     .keypair_from_seed(&seed_array)
                     .map_err(|e| KeyError::KeyGenerationFailed(e.to_string()))?;
 
-                // Zeroize the seed bytes
+                // Zeroize the seed bytes.
                 seed_array.zeroize();
 
                 Ok((signing_key, verifying_key))
             }
 
-            /// Derives a ML-DSA keypair from a seed and address index using SLIP-0010.
+            /// Derives an ML-DSA keypair from a seed and address index using SLIP-0010.
             ///
-            /// Uses the BIP-44 hardened derivation path: `m/44'/60'/0'/0'/{address_index}'`
+            /// Uses the hardened BIP-44 derivation path `m/44'/60'/0'/0'/{address_index}'`.
             ///
             /// # Arguments
             ///
@@ -91,7 +93,7 @@ macro_rules! impl_ml_dsa_struct {
                 seed: &[u8],
                 address_index: u32,
             ) -> Result<(MlDsaSigningKey, MlDsaVerificationKey), KeyError> {
-                // Build derivation path following BIP-44 (m/44'/60'/0'/0'/${address_index}')
+                // Build the BIP-44 derivation path (m/44'/60'/0'/0'/{address_index}'),
                 // following the full hardened derivation path convention.
                 let derivation_path_str = format!(
                     "{}/{}'",
@@ -100,16 +102,16 @@ macro_rules! impl_ml_dsa_struct {
                 );
                 let derivation_path = derivation_path_str.parse()?;
 
-                // Derive HD child seed from master child seed (SLIP-10):
+                // Derive the HD child key from the scheme-specific root seed (SLIP-0010):
                 let child_xprv: Slip10XPrvKey<SigningKey> =
                     Slip10::derive_from_path(seed, &derivation_path, SignatureScheme::$name)?;
                 let mut private_key_bytes = child_xprv.private_key_bytes();
 
-                // Generate MlDsa keypair from seed
+                // Generate the ML-DSA keypair from the seed.
                 let (signing_key, verifying_key) =
                     Self::generate_keypair_from_seed(&private_key_bytes)?;
 
-                // Zeroize the private key bytes
+                // Zeroize the private-key bytes.
                 private_key_bytes.zeroize();
 
                 Ok((signing_key, verifying_key))
@@ -140,7 +142,7 @@ mod tests {
         0x3c, 0x3d, 0x3e, 0x3f,
     ];
 
-    /// Test that MlDsa keypair can be derived from a seed
+    /// Tests that an ML-DSA keypair can be derived from a seed.
     #[rstest]
     #[case::mldsa44(SignatureScheme::MlDsa44)]
     #[case::mldsa65(SignatureScheme::MlDsa65)]
@@ -167,7 +169,7 @@ mod tests {
         assert_eq!(keypair.1.to_raw_bytes().len(), scheme.verifying_key_size(),);
     }
 
-    /// Test that MlDsa keypair derivation is deterministic
+    /// Tests that ML-DSA keypair derivation is deterministic.
     #[rstest]
     #[case::mldsa44(SignatureScheme::MlDsa44)]
     #[case::mldsa65(SignatureScheme::MlDsa65)]

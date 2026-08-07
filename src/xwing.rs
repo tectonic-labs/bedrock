@@ -1,8 +1,9 @@
-//! Implements the X-Wing Key Encapsulation Method (X-Wing-KEM) algorithm.
-//! X-Wing-KEM is a KEM in the sense that it creates a (decapsulation key, encapsulation key) pair,
-//! such that anyone can use the encapsulation key to establish a shared key with the holder of the
-//! decapsulation key. X-Wing-KEM is a general-purpose hybrid post-quantum KEM,
-//! combining x25519 and ML-KEM or ClassicMcEliece.
+//! Implements the X-Wing key-encapsulation mechanism (X-Wing KEM).
+//!
+//! X-Wing creates an encapsulation and decapsulation keypair. Anyone can use the
+//! encapsulation key to establish a shared secret with the holder of the decapsulation
+//! key. It is a general-purpose hybrid post-quantum KEM that combines X25519 with ML-KEM
+//! or Classic McEliece.
 
 use crate::{deserialize_hex_or_bin, error::*, kem::*, serialize_hex_or_bin};
 use rand_core::RngCore;
@@ -17,37 +18,37 @@ use std::{
 };
 use x25519_dalek::*;
 
-/// Shared secret key
+/// An X-Wing shared secret.
 pub type SharedSecret = [u8; 32];
 
 const X_WING_LABEL: &[u8; 6] = br"\.//^\";
 
-// Naming convention to match RFC
-// ss -> Shared Secret
-// ct -> Ciphertext
-// ek -> Ephemeral Key
-// pk -> Public Key
-// sk -> Secret Key
-// Suffixes
-// _m -> Kem related key
-// _x -> x25519 related key
+// Naming convention matching the RFC:
+// ss -> shared secret
+// ct -> ciphertext
+// ek -> ephemeral key
+// pk -> public key
+// sk -> secret key
+// Suffixes:
+// _m -> KEM-related key
+// _x -> X25519-related key
 
-/// The schemes supported by X-Wing
+/// The schemes supported by X-Wing.
 ///
-/// The current RFC at IETF details only using ML-KEM-768.
-/// However, the implementation supports all schemes.
+/// The X-Wing Internet-Draft defines the ML-KEM-768 combination. This implementation also
+/// supports the additional combinations listed below.
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Ord, PartialOrd, Hash)]
 pub enum XwingScheme {
     #[cfg(feature = "ml-kem")]
-    /// x25519 w/ML-Kem-768
+    /// X25519 with ML-KEM-768.
     #[default]
     X25519MlKem768,
     #[cfg(feature = "ml-kem")]
-    /// x25519 w/ML-Kem-1024
+    /// X25519 with ML-KEM-1024.
     X25519MlKem1024,
     #[cfg(feature = "mceliece")]
     #[cfg_attr(not(feature = "ml-kem"), default)]
-    /// x25519 w/ClassicMcEliece348864
+    /// X25519 with Classic McEliece 348864.
     X25519McEliece348864,
 }
 
@@ -152,7 +153,7 @@ impl From<&XwingScheme> for KemScheme {
 }
 
 impl XwingScheme {
-    /// Generate X-Wing KEM keys
+    /// Generates an X-Wing keypair.
     pub fn keypair(&self) -> Result<(EncapsulationKey, DecapsulationKey)> {
         let seed = match self {
             #[cfg(feature = "ml-kem")]
@@ -171,7 +172,7 @@ impl XwingScheme {
         self.keypair_from_seed(&seed)
     }
 
-    /// Generate X-Wing KEM keys from a known seed
+    /// Generates an X-Wing keypair from a seed.
     pub fn keypair_from_seed(&self, seed: &[u8]) -> Result<(EncapsulationKey, DecapsulationKey)> {
         let dk = DecapsulationKey {
             scheme: *self,
@@ -188,7 +189,7 @@ impl XwingScheme {
     }
 }
 
-/// X-Wing encapsulation key
+/// An X-Wing encapsulation key.
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[cfg_attr(test, derive(PartialEq, Eq))]
 pub struct EncapsulationKey {
@@ -217,7 +218,7 @@ impl From<&DecapsulationKey> for EncapsulationKey {
 }
 
 impl EncapsulationKey {
-    /// Create the X-Wing ciphertext and shared secret
+    /// Creates an X-Wing ciphertext and shared secret.
     pub fn encapsulate(&self) -> Result<(Ciphertext, SharedSecret)> {
         let (ct_m, ss_m) = self.pk_m.scheme().encapsulate(&self.pk_m)?;
 
@@ -229,14 +230,14 @@ impl EncapsulationKey {
         Ok((ct, ss))
     }
 
-    /// Convert the encapsulation key to the raw bytes
+    /// Converts the encapsulation key to raw bytes.
     pub fn to_raw_bytes(&self) -> Vec<u8> {
         let mut bytes = self.pk_m.to_raw_bytes();
         bytes.extend_from_slice(self.pk_x.as_bytes());
         bytes
     }
 
-    /// Read the raw encapsulation key bytes and try to convert to a valid key
+    /// Constructs an encapsulation key from raw bytes.
     pub fn from_raw_bytes(scheme: XwingScheme, raw_bytes: &[u8]) -> Result<Self> {
         let scheme: KemScheme = scheme.into();
         let pk_m = KemEncapsulationKey::from_raw_bytes(scheme, &raw_bytes[..raw_bytes.len() - 32])?;
@@ -248,7 +249,7 @@ impl EncapsulationKey {
     }
 }
 
-/// An X-Wing ciphertext
+/// An X-Wing ciphertext.
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[cfg_attr(test, derive(PartialEq, Eq))]
 pub struct Ciphertext {
@@ -261,14 +262,14 @@ pub struct Ciphertext {
 }
 
 impl Ciphertext {
-    /// Convert the ciphertext to the raw bytes
+    /// Converts the ciphertext to raw bytes.
     pub fn to_raw_bytes(&self) -> Vec<u8> {
         let mut bytes = self.ct_m.to_raw_bytes();
         bytes.extend_from_slice(self.ct_x.as_bytes());
         bytes
     }
 
-    /// Read the raw ciphertext bytes and try to convert to a valid key
+    /// Constructs a ciphertext from raw bytes.
     pub fn from_raw_bytes(scheme: XwingScheme, raw_bytes: &[u8]) -> Result<Self> {
         let scheme: KemScheme = scheme.into();
         let ct_m = KemCiphertext::from_raw_bytes(scheme, &raw_bytes[..raw_bytes.len() - 32])?;
@@ -280,7 +281,7 @@ impl Ciphertext {
     }
 }
 
-/// An X-Wing decapsulation key
+/// An X-Wing decapsulation key.
 #[derive(Clone, Deserialize, Serialize)]
 #[cfg_attr(test, derive(PartialEq, Eq))]
 pub struct DecapsulationKey {
@@ -312,7 +313,7 @@ impl zeroize::Zeroize for DecapsulationKey {
 impl zeroize::ZeroizeOnDrop for DecapsulationKey {}
 
 impl DecapsulationKey {
-    /// Decapsulate the ciphertext to produce the shared secret
+    /// Decapsulates the ciphertext to produce the shared secret.
     pub fn decapsulate(&self, ct: &Ciphertext) -> Result<SharedSecret> {
         let ExpandedDecapsulationKey {
             sk_m,
@@ -329,12 +330,12 @@ impl DecapsulationKey {
         Ok(ss)
     }
 
-    /// Convert the decapsulation key to the raw bytes which are just the seed
+    /// Returns the decapsulation key's seed bytes.
     pub fn to_seed(&self) -> Vec<u8> {
         self.seed.clone()
     }
 
-    /// Set the seed for the [`DecapsulationKey`]
+    /// Constructs a [`DecapsulationKey`] from a seed.
     pub fn from_seed(scheme: XwingScheme, raw_bytes: &[u8]) -> Self {
         Self {
             scheme,
@@ -342,7 +343,7 @@ impl DecapsulationKey {
         }
     }
 
-    /// Convert to expanded form
+    /// Converts the decapsulation key to expanded form.
     pub fn expand(&self) -> Result<ExpandedDecapsulationKey> {
         use sha3::digest::Update;
         let mut hasher = Shake256::default();
@@ -384,7 +385,7 @@ impl DecapsulationKey {
     }
 }
 
-/// The expanded decapsulation key
+/// An expanded X-Wing decapsulation key.
 #[derive(Clone)]
 #[allow(missing_debug_implementations)]
 pub struct ExpandedDecapsulationKey {
@@ -395,7 +396,7 @@ pub struct ExpandedDecapsulationKey {
 }
 
 impl ExpandedDecapsulationKey {
-    /// Decapsulate the ciphertext to produce the shared secret
+    /// Decapsulates the ciphertext to produce the shared secret.
     pub fn decapsulate(&self, ct: &Ciphertext) -> Result<SharedSecret> {
         let ss_m = self.sk_m.scheme().decapsulate(&ct.ct_m, &self.sk_m)?;
 
@@ -405,7 +406,7 @@ impl ExpandedDecapsulationKey {
         Ok(ss)
     }
 
-    /// Return the associated encapsulation key
+    /// Returns the associated encapsulation key.
     pub fn encapsulation_key(&self) -> EncapsulationKey {
         EncapsulationKey {
             pk_m: self.pk_m.clone(),

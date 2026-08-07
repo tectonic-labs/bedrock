@@ -6,10 +6,10 @@
 //!
 //! # Features
 //!
-//! - Generate random 24-word mnemonic phrases (English)
-//! - Parse and validate existing mnemonic phrases
-//! - Convert mnemonics to BIP-32 seeds with optional passphrase support
-//! - Full BIP-39 compliance
+//! - Generates random 24-word English mnemonic phrases.
+//! - Parses and validates existing mnemonic phrases.
+//! - Converts mnemonics to BIP-32 seeds with optional passphrase support.
+//! - Provides full BIP-39 compliance.
 //!
 //! # BIP-39 Standard
 //!
@@ -20,9 +20,9 @@
 //! # Seed Generation
 //!
 //! Mnemonics are converted to seeds using PBKDF2 with:
-//! - **Password-based derivation**: Optional passphrase adds extra security
-//! - **Iterations**: 2048 iterations (BIP-39 standard)
-//! - **Output**: 64-byte (512-bit) seed for BIP-32 HD key derivation
+//! - **Password-based derivation**: An optional passphrase adds extra security.
+//! - **Iterations**: 2,048 iterations (the BIP-39 standard).
+//! - **Output**: A 64-byte (512-bit) seed for BIP-32 HD key derivation.
 //!
 //! # Example
 //!
@@ -111,7 +111,7 @@ impl Mnemonic {
     /// let mnemonic = Mnemonic::new_random();
     /// let phrase = mnemonic.to_phrase();
     ///
-    /// // Verify it's a 24-word phrase
+    /// // Verify that it is a 24-word phrase.
     /// let word_count = phrase.split_whitespace().count();
     /// assert_eq!(word_count, 24);
     /// ```
@@ -195,7 +195,7 @@ impl Mnemonic {
     ///
     /// # Arguments
     ///
-    /// * `password` - Optional BIP-39 passphrase (adds extra security layer)
+    /// * `password` - Optional BIP-39 passphrase (adds an extra security layer)
     ///   - If `None`, uses an empty string (no passphrase)
     ///   - If `Some(passphrase)`, uses the provided passphrase
     ///
@@ -256,13 +256,13 @@ pub enum MnemonicError {
     /// Invalid seed length encountered during seed conversion.
     #[error("Invalid seed length: expected {expected}, got {actual}")]
     InvalidSeedLength {
-        /// Expected seed length in bytes (always 64 for BIP-39)
+        /// Expected seed length in bytes (always 64 for BIP-39).
         expected: usize,
-        /// Actual seed length in bytes
+        /// Actual seed length in bytes.
         actual: usize,
     },
-    /// Error occurred during BIP-39 mnemonic processing.
-    #[error("BIP39 error: {0}")]
+    /// An error occurred during BIP-39 mnemonic processing.
+    #[error("BIP-39 error: {0}")]
     Bip39(#[from] Bip39ErrorKind),
 }
 

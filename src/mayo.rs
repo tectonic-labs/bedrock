@@ -1,4 +1,4 @@
-//! MAYO key and signature methods
+//! MAYO key and signature methods.
 
 #[cfg(feature = "kgen")]
 use crate::os_rng;
@@ -9,7 +9,7 @@ macro_rules! impl_mayo_struct {
     ($name:ident, $validate:ident, $expect:expr) => {
         #[derive(Clone, Serialize, Deserialize)]
         #[cfg_attr(test, derive(PartialEq, Eq))]
-        #[doc = concat!("A [`", stringify!($name), "`] for mayo")]
+        #[doc = concat!("A byte-backed [`", stringify!($name), "`] value for MAYO.")]
         #[repr(transparent)]
         pub struct $name(pub(crate) InnerMayo);
 
@@ -35,39 +35,40 @@ macro_rules! impl_mayo_struct {
         }
 
         impl $name {
-            /// The [`MayoScheme`] represented by this struct
+            /// Returns the [`MayoScheme`] represented by this value.
             pub fn scheme(&self) -> MayoScheme {
                 self.0.scheme
             }
 
-            #[doc = concat!("Convert [`", stringify!($name), "`] to its raw byte representation")]
+            #[doc = concat!("Converts [`", stringify!($name), "`] to its raw byte representation.")]
             pub fn to_raw_bytes(&self) -> Vec<u8> {
                 self.0.value.clone()
             }
 
-            #[doc = concat!("Convert [`", stringify!($name), "`] from its raw byte representation and scheme")]
+            #[doc = concat!("Constructs [`", stringify!($name), "`] from raw bytes and a scheme.")]
             pub fn from_raw_bytes(scheme: MayoScheme, bytes: &[u8]) -> Result<Self> {
                 scheme.$validate(bytes)?;
                 Ok(InnerMayo {
                     scheme,
                     value: bytes.to_vec(),
-                }.into())
+                }
+                .into())
             }
         }
     };
 }
 
 scheme_impl_pure!(
-    /// MAYO schemes
+    /// MAYO schemes.
     MayoScheme,
     #[default]
-    /// MAYO-1 (NIST Level 1)
+    /// MAYO-1 (NIST Level 1).
     Mayo1 => "MAYO-1" ; 1 ; 24,
-    /// MAYO-2 (NIST Level 1)
+    /// MAYO-2 (NIST Level 1).
     Mayo2 => "MAYO-2" ; 2 ; 24,
-    /// MAYO-3 (NIST Level 3)
+    /// MAYO-3 (NIST Level 3).
     Mayo3 => "MAYO-3" ; 3 ; 32,
-    /// MAYO-5 (NIST Level 5)
+    /// MAYO-5 (NIST Level 5).
     Mayo5 => "MAYO-5" ; 4 ; 40,
 );
 
@@ -98,7 +99,7 @@ macro_rules! with_mayo_params {
 }
 
 impl MayoScheme {
-    /// Validate a verification (public) key encoding for this scheme.
+    /// Validates a verification (public) key encoding for this scheme.
     fn validate_public_key(&self, bytes: &[u8]) -> Result<()> {
         with_mayo_params!(self, |P| {
             pq_mayo::VerifyingKey::<P>::try_from(bytes)
@@ -107,7 +108,7 @@ impl MayoScheme {
         })
     }
 
-    /// Validate a signing (secret) key encoding for this scheme.
+    /// Validates a signing (secret) key encoding for this scheme.
     fn validate_signing_key(&self, bytes: &[u8]) -> Result<()> {
         with_mayo_params!(self, |P| {
             pq_mayo::SigningKey::<P>::try_from(bytes)
@@ -116,7 +117,7 @@ impl MayoScheme {
         })
     }
 
-    /// Validate a signature encoding for this scheme.
+    /// Validates a signature encoding for this scheme.
     fn validate_signature(&self, bytes: &[u8]) -> Result<()> {
         with_mayo_params!(self, |P| {
             pq_mayo::Signature::<P>::try_from(bytes)
@@ -126,7 +127,7 @@ impl MayoScheme {
     }
 
     #[cfg(feature = "kgen")]
-    /// Generate a new MAYO verification and signing key pair.
+    /// Generates a new MAYO verification and signing keypair.
     pub fn keypair(&self) -> Result<(MayoVerificationKey, MayoSigningKey)> {
         with_mayo_params!(self, |P| {
             let mut rng = os_rng();
@@ -140,9 +141,10 @@ impl MayoScheme {
     }
 
     #[cfg(feature = "kgen")]
-    /// Generate a new MAYO key pair from a seed (the compact secret-key seed).
+    /// Generates a new MAYO keypair from its compact secret-key seed.
     ///
-    /// The seed must be exactly `seed_size()` bytes (24 for MAYO-1/2, 32 for MAYO-3, 40 for MAYO-5).
+    /// The seed must be exactly `seed_size()` bytes: 24 for MAYO-1/2, 32 for MAYO-3, or
+    /// 40 for MAYO-5.
     pub fn keypair_from_seed(&self, seed: &[u8]) -> Result<(MayoVerificationKey, MayoSigningKey)> {
         if seed.len() != self.seed_size() {
             return Err(Error::InvalidSeedLength(seed.len()));
@@ -158,7 +160,7 @@ impl MayoScheme {
     }
 
     #[cfg(feature = "kgen")]
-    /// Pack raw verification/signing key bytes into bedrock's byte-backed key types.
+    /// Packs raw verification and signing key bytes into Bedrock's byte-backed key types.
     fn pack_keypair(&self, vk: Vec<u8>, sk: Vec<u8>) -> (MayoVerificationKey, MayoSigningKey) {
         (
             InnerMayo {
@@ -175,7 +177,7 @@ impl MayoScheme {
     }
 
     #[cfg(feature = "sign")]
-    /// Sign a message with the specified signing key.
+    /// Signs a message with the specified signing key.
     ///
     /// MAYO signing is randomized; the salt is drawn from the thread RNG.
     pub fn sign(&self, message: &[u8], signing_key: &MayoSigningKey) -> Result<MayoSignature> {
@@ -202,7 +204,7 @@ impl MayoScheme {
     }
 
     #[cfg(feature = "vrfy")]
-    /// Verify a signature.
+    /// Verifies a signature.
     pub fn verify(
         &self,
         message: &[u8],
