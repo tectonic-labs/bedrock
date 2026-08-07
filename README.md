@@ -43,7 +43,7 @@ Two security levels plus Ethereum variant:
 
 ### MAYO (Digital Signatures)
 
-MAYO provides multivariate "oil and vinegar" signatures with compact public keys through
+MAYO provides multivariate oil-and-vinegar signatures with compact public keys through
 the `mayo` feature. It offers four parameter sets at three NIST security levels:
 
 - **MAYO-1** (NIST Level 1) - Default
@@ -52,9 +52,9 @@ the `mayo` feature. It offers four parameter sets at three NIST security levels:
 - **MAYO-5** (NIST Level 5)
 
 HHD key derivation is supported for MAYO-1, MAYO-2, and MAYO-3. The 32-byte
-SLIP-0010 child key is truncated to the parameter set's key-generation seed size (24 bytes for
-MAYO-1/2, 32 bytes for MAYO-3). MAYO-5 is not offered in HHD because its 40-byte seed
-would require expanding, rather than truncating, the child key.
+SLIP-0010 child key is truncated to the parameter set's key-generation seed size (24 bytes
+for MAYO-1 and MAYO-2; 32 bytes for MAYO-3). MAYO-5 is not offered in HHD because its
+40-byte seed would require expanding, rather than truncating, the child key.
 
 ### ML-KEM (Key Encapsulation)
 
@@ -128,7 +128,7 @@ it through the `frodo` feature. Six parameter sets are available:
 - **FrodoKEM-1344-AES** / **FrodoKEM-1344-SHAKE** (NIST Level 5)
 
 The AES and SHAKE variants of a given `n` differ only in how the matrix **A** is derived
-and are byte-identical in every key, ciphertext, and shared-secret length. They are
+and have identical key, ciphertext, and shared-secret lengths. They are
 therefore distinguished exclusively by the scheme stored alongside the key material —
 never by encoding length.
 
@@ -162,7 +162,7 @@ post-quantum signature. It follows ePrint 2025/1844 and Section 4 of
 - **Ed25519-ML-DSA-65**
 - **Ed25519-FN-DSA-512**
 
-The Ed25519 commitment `R` is recovered at verification rather than transmitted, so the
+The Ed25519 commitment `R` is recovered during verification rather than transmitted, so the
 classical half of the signature is a single 32-byte scalar instead of a full 64-byte EdDSA
 signature. The classical component is serialized first in both keys and signatures.
 
@@ -353,7 +353,7 @@ All key types, signatures, ciphertexts, and shared secrets implement `serde::Ser
 and `serde::Deserialize`:
 
 - **Human-readable formats** (JSON, for example): Serialized as hex strings.
-- **Binary formats** (postcard and bincode, for example): Serialized as compact byte arrays.
+- **Binary formats** (postcard and CBOR, for example): Serialized as compact byte arrays.
 
 Schemes implement the `Display` and `FromStr` traits for string parsing:
 
@@ -526,7 +526,7 @@ Control which algorithms and operations are enabled:
 - `encp` - Enable encapsulation operations (default)
 - `decp` - Enable decapsulation operations (default)
 
-### Features
+### Default Features
 
 Bedrock is designed to allow selective features to minimize the dependency list.
 The default feature set is:
@@ -540,25 +540,25 @@ default = ["eth_falcon", "falcon", "ml-dsa", "slh-dsa", "mayo", "decp", "encp", 
 Verification only (no key generation or signing):
 
 ```toml
-tectonic-bedrock = { version = "0.3", default-features = false, features = ["ml-dsa", "vrfy"] }
+tectonic-bedrock = { version = "0.4", default-features = false, features = ["ml-dsa", "vrfy"] }
 ```
 
 ML-KEM only:
 
 ```toml
-tectonic-bedrock = { version = "0.3", default-features = false, features = ["ml-kem", "kgen", "encp", "decp"] }
+tectonic-bedrock = { version = "0.4", default-features = false, features = ["ml-kem", "kgen", "encp", "decp"] }
 ```
 
 X-Wing hybrid KEM only:
 
 ```toml
-tectonic-bedrock = { version = "0.3", default-features = false, features = ["ml-kem", "xwing", "kgen", "encp", "decp"] }
+tectonic-bedrock = { version = "0.4", default-features = false, features = ["ml-kem", "xwing", "kgen", "encp", "decp"] }
 ```
 
 ## Error Handling
 
 All fallible operations return `Result<T, tectonic_bedrock::error::Error>`. The `Error`
-enum includes:
+enum includes, among others:
 
 - `McElieceError(String)` - Errors from the Classic McEliece KEM.
 - `InvalidScheme(u8)` / `InvalidSchemeStr(String)` - Invalid scheme identifiers.

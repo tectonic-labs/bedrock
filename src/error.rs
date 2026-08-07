@@ -56,7 +56,7 @@ pub enum Error {
     ///
     /// Byte length is never a reliable discriminator between parameter sets — MAYO-1
     /// and MAYO-2 share a 24-byte compact secret key, and FrodoKEM's AES and SHAKE
-    /// variants are byte-identical in every dimension — so every dispatch method binds
+    /// variants have identical lengths in every dimension — so every dispatch method binds
     /// to the stored scheme and reports this error on mismatch.
     #[error("scheme mismatch: expected '{expected}', got '{actual}'")]
     SchemeMismatch {

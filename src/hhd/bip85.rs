@@ -96,9 +96,9 @@ impl Bip85 {
     ///
     /// - ECDSA secp256k1: `1`
     /// - Falcon-512: `2`
-    /// - ML-DSA 44: `4`
-    /// - ML-DSA 65: `5`
-    /// - ML-DSA 87: `6`
+    /// - ML-DSA-44: `4`
+    /// - ML-DSA-65: `5`
+    /// - ML-DSA-87: `6`
     /// - MAYO-1: `7`
     /// - MAYO-2: `8`
     /// - MAYO-3: `9`

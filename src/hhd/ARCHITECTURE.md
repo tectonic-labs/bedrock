@@ -28,7 +28,7 @@ uses [BIP-32](https://github.com/bitcoin/bips/blob/master/bip-0032.mediawiki),
 [SLIP-0010](https://slips.readthedocs.io/en/latest/slip-0010/) to post-quantum schemes.
 
 In summary, BIP-39 generates a master seed from a mnemonic, and BIP-85 generates an
-independent child seed for each configured scheme. BIP-85 uses BIP-32 hardened child key
+independent child seed for each configured scheme. BIP-85 uses hardened BIP-32 child key
 derivation (CKD) with the path `m/83696968'/{app_no}'/{index}'`. The ECDSA branch
 (`index = 1`) can use hardened or non-hardened BIP-32 derivation. Falcon (`index = 2`),
 ML-DSA (`index = 4, 5, 6`), MAYO (`index = 7, 8, 9`), and HQC
@@ -279,7 +279,7 @@ not supported because deriving its 40-byte seed would require expansion rather t
 truncation. HQC uses all 32 child-key bytes directly for each parameter set.
 
 The original Falcon and ML-DSA proposals do not provide an out-of-the-box key
-rerandomization technique, so they cannot use a non-hardened derivation path.
+rerandomization technique, so their keychains cannot use a non-hardened derivation path.
 
 ```
 └─> HMAC-SHA-512("bip-entropy-from-k", k) = child_master_seed

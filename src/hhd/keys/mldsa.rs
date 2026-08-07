@@ -3,8 +3,8 @@
 //!
 //! # Key Specifications
 //!
-//! - **Private key**: 2560 bytes (ML-DSA 44), 4032 bytes (ML-DSA 65), 4896 bytes (ML-DSA 87)
-//! - **Public key**: 1312 bytes (ML-DSA 44), 1952 bytes (ML-DSA 65), 2592 bytes (ML-DSA 87)
+//! - **Private key**: 2560 bytes (ML-DSA-44), 4032 bytes (ML-DSA-65), 4896 bytes (ML-DSA-87)
+//! - **Public key**: 1312 bytes (ML-DSA-44), 1952 bytes (ML-DSA-65), 2592 bytes (ML-DSA-87)
 //!
 //! # Derivation Path
 //!
