@@ -1,27 +1,28 @@
 //! BIP-85 implementation for deriving child seeds from a mnemonic.
 //!
-//! This module provides functionality to derive signature scheme-specific seeds from a single
-//! BIP-39 mnemonic using the [BIP-85][bip-85] standard. BIP-85 allows deterministic
-//! derivation of multiple entropy sources from a single master seed, enabling
-//! multiple signature schemes to use different seeds and still coexist in a hybrid
-//! deterministic wallet.
+//! This module derives scheme-specific seeds from one BIP-39 mnemonic using the
+//! [BIP-85][bip-85] standard. BIP-85 deterministically derives multiple entropy sources
+//! from one master seed, allowing signature schemes and HHD-enabled KEMs to use separate
+//! seeds in the same wallet.
 //!
 //! # Features
 //!
-//! - Derive scheme-specific seeds from a single mnemonic
-//! - Support for multiple signature schemes (ECDSA secp256k1, Falcon-512)
+//! - Derives scheme-specific seeds from one mnemonic.
+//! - Supports ECDSA secp256k1, Falcon-512, ML-DSA, MAYO, and HQC.
 //!
 //! # Derivation Process
 //!
 //! The BIP-85 derivation process follows these steps:
 //!
-//! 1. **Master Seed**: Convert the BIP-39 mnemonic to a master seed using PBKDF2
-//! 2. **Derivation Path**: Derive an extended private key (XPrv) using a scheme-specific path
+//! 1. **Master seed**: Convert the BIP-39 mnemonic to a master seed using PBKDF2.
+//! 2. **Derivation path**: Derive an extended private key (XPrv) using a scheme-specific
+//!    path.
 //!    - Base path: `m/83696968'/83286642'`
-//!    - Scheme-specific suffix: `1'` for ECDSA, `2'` for Falcon-512
-//! 3. **Entropy Extraction**: Extract entropy using HMAC-SHA512 with the key info string
+//!    - Scheme-specific suffix: `1'` for ECDSA, `2'` for Falcon-512, `4'`–`9'` for
+//!      ML-DSA and MAYO, and `10'`–`12'` for HQC.
+//! 3. **Entropy extraction**: Extract entropy using HMAC-SHA-512 with the key-info string.
 //!    - Key info: `"bip-entropy-from-k"`
-//! 4. **Child Seed**: Return a scheme-specific seed (64 bytes)
+//! 4. **Child seed**: Return a 64-byte scheme-specific seed.
 //!
 //! # Example
 //!
@@ -42,12 +43,17 @@
 
 use crate::hhd::mnemonic::{Mnemonic, MnemonicError};
 use crate::hhd::signatures::{SignatureScheme, SignatureSchemeError, SignatureSeed};
+#[cfg(feature = "hqc")]
+use crate::{
+    hhd::kems::{self, HhdKemSchemeError, KemSeed},
+    kem::KemScheme,
+};
 use bip32::{DerivationPath, Seed, XPrv};
 use hmac::{Hmac, Mac};
 use sha2::Sha512;
 use zeroize::Zeroize;
 
-/// HMAC-SHA512 type alias for BIP-85 entropy extraction.
+/// HMAC-SHA-512 type alias for BIP-85 entropy extraction.
 type HmacSha512 = Hmac<Sha512>;
 
 /// Base derivation path for BIP-85 child seed derivation.
@@ -56,7 +62,7 @@ type HmacSha512 = Hmac<Sha512>;
 /// for deriving child seeds from a master mnemonic.
 const BIP85_BASE_PATH: &str = "m/83696968'/83286642'";
 
-/// Key info string used for HMAC-SHA512 in BIP-85 entropy extraction.
+/// Key-info string used for HMAC-SHA-512 in BIP-85 entropy extraction.
 ///
 /// This constant string `"bip-entropy-from-k"` is used as the HMAC key when
 /// extracting entropy from a derived private key according to BIP-85.
@@ -65,15 +71,18 @@ const BIP85_KEY_INFO: &str = "bip-entropy-from-k";
 /// BIP-85 implementation for deriving child seeds from a mnemonic.
 ///
 /// This struct provides static methods for BIP-85 seed derivation.
-/// It allows deriving signature scheme-specific seeds from a single BIP-39 mnemonic,
-/// enabling multiple signature schemes to share the same master seed while
-/// maintaining cryptographic separation.
+/// It derives scheme-specific seeds from a single BIP-39 mnemonic, allowing multiple
+/// schemes to share a master seed while maintaining cryptographic separation.
 ///
 /// # Derivation Paths
 ///
-/// Each signature scheme gets its own unique derivation path:
-/// - **ECDSA secp256k1**: `m/83696968'/83286642'/1'`
-/// - **Falcon-512**: `m/83696968'/83286642'/2'`
+/// Each supported scheme gets a unique derivation path:
+///
+/// - **ECDSA secp256k1**: `m/83696968'/83286642'/1'`.
+/// - **Falcon-512**: `m/83696968'/83286642'/2'`.
+/// - **ML-DSA-44/65/87**: Suffixes `4'`, `5'`, and `6'`.
+/// - **MAYO-1/2/3**: Suffixes `7'`, `8'`, and `9'`.
+/// - **HQC-128/192/256**: Suffixes `10'`, `11'`, and `12'`.
 ///
 /// This ensures that different schemes produce different seeds from the same
 /// mnemonic, providing cryptographic seed separation between schemes.
@@ -84,6 +93,7 @@ impl Bip85 {
     /// Converts a signature scheme to its BIP-85 child index number.
     ///
     /// Each signature scheme is assigned a unique index for BIP-85 derivation:
+    ///
     /// - ECDSA secp256k1: `1`
     /// - Falcon-512: `2`
     /// - ML-DSA 44: `4`
@@ -93,7 +103,7 @@ impl Bip85 {
     /// - MAYO-2: `8`
     /// - MAYO-3: `9`
     ///
-    /// Note: reserving index 3 for Falcon1024 support.
+    /// Index 3 is reserved for future analysis.
     ///
     /// # Arguments
     ///
@@ -127,9 +137,26 @@ impl Bip85 {
         }
     }
 
+    /// Converts an HHD-enabled KEM to its BIP-85 child index.
+    ///
+    /// HQC-128, HQC-192, and HQC-256 use indices `10`, `11`, and `12`
+    /// respectively. These indices do not overlap any signature branch.
+    #[cfg(feature = "hqc")]
+    pub(crate) fn child_index_from_kem_scheme(scheme: KemScheme) -> Result<u32, HhdKemSchemeError> {
+        if scheme == KemScheme::Hqc128 {
+            Ok(10)
+        } else if scheme == KemScheme::Hqc192 {
+            Ok(11)
+        } else if scheme == KemScheme::Hqc256 {
+            Ok(12)
+        } else {
+            Err(HhdKemSchemeError::UnsupportedScheme(scheme))
+        }
+    }
+
     /// Gets the BIP-85 child path suffix for the given signature scheme.
     ///
-    /// Returns a hardened path suffix (e.g., `"1'"``) that is appended
+    /// Returns a hardened path suffix (for example, `"1'"`) that is appended
     /// to the base BIP-85 path to create the scheme-specific derivation path.
     ///
     /// # Arguments
@@ -138,7 +165,8 @@ impl Bip85 {
     ///
     /// # Returns
     ///
-    /// A hardened path suffix as a `String` (e.g., `"1'"` for ECDSA, `"2'"` for Falcon512).
+    /// A hardened path suffix as a `String` (for example, `"1'"` for ECDSA or `"2'"`
+    /// for Falcon-512).
     ///
     /// # Example
     ///
@@ -153,6 +181,14 @@ impl Bip85 {
     /// ```
     pub fn child_path_from_scheme(scheme: SignatureScheme) -> String {
         format!("{}'", Bip85::child_index_from_scheme(scheme))
+    }
+
+    /// Gets the hardened BIP-85 child path suffix for an HHD-enabled KEM.
+    #[cfg(feature = "hqc")]
+    pub(crate) fn child_path_from_kem_scheme(
+        scheme: KemScheme,
+    ) -> Result<String, HhdKemSchemeError> {
+        Ok(format!("{}'", Bip85::child_index_from_kem_scheme(scheme)?))
     }
 
     /// Builds the full BIP-85 derivation path for the given signature scheme.
@@ -199,6 +235,18 @@ impl Bip85 {
         )
     }
 
+    /// Builds the full BIP-85 derivation path for an HHD-enabled KEM.
+    #[cfg(feature = "hqc")]
+    pub(crate) fn derivation_path_from_kem_scheme(
+        scheme: KemScheme,
+    ) -> Result<String, HhdKemSchemeError> {
+        Ok(format!(
+            "{}/{}",
+            BIP85_BASE_PATH,
+            Bip85::child_path_from_kem_scheme(scheme)?
+        ))
+    }
+
     /// Parses the full BIP-85 derivation path into a `DerivationPath`.
     ///
     /// This method converts the string representation of the derivation path
@@ -237,6 +285,18 @@ impl Bip85 {
             .map_err(SignatureSchemeError::InvalidDerivationPath)
     }
 
+    /// Parses the full BIP-85 derivation path for an HHD-enabled KEM.
+    #[cfg(feature = "hqc")]
+    pub(crate) fn derivation_path_from_kem_scheme_parsed(
+        scheme: KemScheme,
+    ) -> Result<DerivationPath, HhdKemSchemeError> {
+        Bip85::derivation_path_from_kem_scheme(scheme)?
+            .parse()
+            .map_err(|error: bip32::Error| {
+                HhdKemSchemeError::InvalidDerivationPath(error.to_string())
+            })
+    }
+
     /// Derives a child seed from a mnemonic using BIP-85.
     ///
     /// This method implements the BIP-85 standard to derive a scheme-specific
@@ -245,11 +305,11 @@ impl Bip85 {
     ///
     /// # Derivation Steps
     ///
-    /// 1. Convert the mnemonic to a master seed using BIP-39 (PBKDF2)
-    /// 2. Derive an extended private key (XPrv) using BIP-32 with the scheme-specific path
-    /// 3. Extract the private key bytes from the derived XPrv
-    /// 4. Apply HMAC-SHA512 with the key info string to extract entropy
-    /// 5. Return a scheme-specific seed (64 bytes)
+    /// 1. Convert the mnemonic to a master seed using BIP-39 (PBKDF2).
+    /// 2. Derive an extended private key (`XPrv`) using BIP-32 with the scheme-specific path.
+    /// 3. Extract the private-key bytes from the derived `XPrv`.
+    /// 4. Apply HMAC-SHA-512 with the key-info string to extract entropy.
+    /// 5. Return a 64-byte, scheme-specific seed.
     ///
     /// # Arguments
     ///
@@ -303,7 +363,7 @@ impl Bip85 {
         let master_seed = mnemonic.to_seed(password)?;
 
         // 2. Derive HD child seed from master seed (BIP-32):
-        //      - master_root_key = HMAC-SHA512("Bitcoin seed", master_seed)
+        //      - master_root_key = HMAC-SHA-512("Bitcoin seed", master_seed)
         //      - child_xprv = CKD(master_root_key, info = scheme_derivation_path)
         let scheme_derivation_path = Bip85::derivation_path_from_scheme_parsed(scheme)?;
         let child_xprv = XPrv::derive_from_path(&master_seed, &scheme_derivation_path)?;
@@ -312,7 +372,7 @@ impl Bip85 {
         let mut private_key_bytes = child_xprv.to_bytes();
 
         // 4. BIP-85 extraction step
-        //      - I = HMAC-SHA512("bip-entropy-from-k", sk)
+        //      - I = HMAC-SHA-512("bip-entropy-from-k", sk)
         let seed = Bip85::extract_entropy(private_key_bytes.as_ref(), scheme)?;
 
         // Zeroize the private key bytes
@@ -321,10 +381,32 @@ impl Bip85 {
         Ok(seed)
     }
 
-    /// Extracts entropy from a private key using BIP-85 HMAC-SHA512 extraction.
+    /// Derives a KEM-specific 64-byte root seed from a mnemonic using BIP-85.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Bip85Error`] if the KEM is not HHD-enabled or mnemonic, path,
+    /// BIP-32, or entropy extraction fails.
+    #[cfg(feature = "hqc")]
+    pub(crate) fn derive_kem_seed_from_mnemonic(
+        mnemonic: &Mnemonic,
+        scheme: KemScheme,
+        password: Option<&str>,
+    ) -> Result<KemSeed, Bip85Error> {
+        kems::ensure_hhd_supported(scheme)?;
+        let master_seed = mnemonic.to_seed(password)?;
+        let scheme_derivation_path = Bip85::derivation_path_from_kem_scheme_parsed(scheme)?;
+        let child_xprv = XPrv::derive_from_path(&master_seed, &scheme_derivation_path)?;
+        let mut private_key_bytes = child_xprv.to_bytes();
+        let seed = Bip85::extract_kem_entropy(private_key_bytes.as_ref(), scheme);
+        private_key_bytes.zeroize();
+        seed
+    }
+
+    /// Extracts entropy from a private key using BIP-85 HMAC-SHA-512 extraction.
     ///
     /// This method implements the BIP-85 entropy extraction step, which uses
-    /// HMAC-SHA512 with the key info string `"bip-entropy-from-k"` to derive
+    /// HMAC-SHA-512 with the key-info string `"bip-entropy-from-k"` to derive
     /// a 64-byte seed from the provided private key bytes.
     ///
     /// # Arguments
@@ -344,25 +426,15 @@ impl Bip85 {
     ///
     /// # Note
     ///
-    /// This is an internal method used by `derive_seed_from_mnemonic`. It's exposed
+    /// This is an internal method used by `derive_seed_from_mnemonic`. It is exposed
     /// for advanced use cases, but most users should use `derive_seed_from_mnemonic`.
     pub fn extract_entropy(
         private_key: &[u8],
         scheme: SignatureScheme,
     ) -> Result<SignatureSeed, Bip85Error> {
-        // Compute HMAC-SHA512("bip-entropy-from-k", sk) to get child entropy
-        let mut hmac = HmacSha512::new_from_slice(BIP85_KEY_INFO.as_bytes()).map_err(|_| {
-            Bip85Error::InvalidHmacKeyLength {
-                expected: 64, // HMAC-SHA512 key length (512 bits = 64 bytes)
-                actual: BIP85_KEY_INFO.len(),
-            }
-        })?;
-        hmac.update(private_key.as_ref());
-        let mut child_entropy = hmac.finalize().into_bytes();
+        let mut child_seed = Bip85::extract_entropy_bytes(private_key)?;
 
-        let mut child_seed: [u8; 64] = child_entropy.into();
-
-        // Return the child seed for the given scheme
+        // Return the child seed for the given scheme.
         let signature_seed = match scheme {
             SignatureScheme::EcdsaSecp256k1 => SignatureSeed::ECDSAsecp256k1(Seed::new(child_seed)),
             SignatureScheme::Falcon512 => SignatureSeed::Falcon512(Seed::new(child_seed)),
@@ -374,34 +446,64 @@ impl Bip85 {
             SignatureScheme::Mayo3 => SignatureSeed::Mayo3(Seed::new(child_seed)),
         };
 
-        // Zeroize the child entropy
-        child_entropy.zeroize();
         child_seed.zeroize();
 
         Ok(signature_seed)
+    }
+
+    /// Extracts BIP-85 entropy and associates it with an HHD-enabled KEM.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Bip85Error`] when the KEM is unsupported or HMAC initialization fails.
+    #[cfg(feature = "hqc")]
+    pub(crate) fn extract_kem_entropy(
+        private_key: &[u8],
+        scheme: KemScheme,
+    ) -> Result<KemSeed, Bip85Error> {
+        kems::ensure_hhd_supported(scheme)?;
+        let mut child_seed = Bip85::extract_entropy_bytes(private_key)?;
+        let kem_seed = KemSeed::new(scheme, Seed::new(child_seed));
+        child_seed.zeroize();
+        Ok(kem_seed)
+    }
+
+    fn extract_entropy_bytes(private_key: &[u8]) -> Result<[u8; 64], Bip85Error> {
+        let mut hmac = HmacSha512::new_from_slice(BIP85_KEY_INFO.as_bytes()).map_err(|_| {
+            Bip85Error::InvalidHmacKeyLength {
+                expected: 64,
+                actual: BIP85_KEY_INFO.len(),
+            }
+        })?;
+        hmac.update(private_key);
+        Ok(hmac.finalize().into_bytes().into())
     }
 }
 
 /// Errors that can occur during BIP-85 seed derivation.
 #[derive(Debug, thiserror::Error)]
 pub enum Bip85Error {
-    /// Error occurred during mnemonic to seed conversion (BIP-39).
+    /// An error occurred during mnemonic-to-seed conversion (BIP-39).
     #[error("Mnemonic error: {0}")]
     Mnemonic(#[from] MnemonicError),
-    /// Error occurred while parsing or validating the derivation path.
+    /// An error occurred while parsing or validating the derivation path.
     #[error("Invalid derivation path: {0}")]
     InvalidDerivationPath(#[from] SignatureSchemeError),
     /// HMAC key length validation failed during entropy extraction.
     #[error("Invalid HMAC key length: expected {expected}, got {actual}")]
     InvalidHmacKeyLength {
-        /// Expected HMAC key length in bytes
+        /// Expected HMAC key length in bytes.
         expected: usize,
-        /// Actual HMAC key length in bytes
+        /// Actual HMAC key length in bytes.
         actual: usize,
     },
-    /// Error occurred during BIP-32 key derivation.
-    #[error("BIP32 error: {0}")]
+    /// An error occurred during BIP-32 key derivation.
+    #[error("BIP-32 error: {0}")]
     Bip32(#[from] bip32::Error),
+    /// The requested KEM has no HHD derivation definition.
+    #[cfg(feature = "hqc")]
+    #[error("KEM scheme error: {0}")]
+    HhdKemScheme(#[from] HhdKemSchemeError),
 }
 
 #[cfg(test)]
@@ -434,6 +536,44 @@ mod tests {
         let path =
             Bip85::derivation_path_from_scheme_parsed(scheme).expect("should parse valid path");
         assert_eq!(path.to_string(), expected);
+    }
+
+    #[cfg(feature = "hqc")]
+    #[rstest]
+    #[case::hqc128(KemScheme::Hqc128, "m/83696968'/83286642'/10'")]
+    #[case::hqc192(KemScheme::Hqc192, "m/83696968'/83286642'/11'")]
+    #[case::hqc256(KemScheme::Hqc256, "m/83696968'/83286642'/12'")]
+    fn test_hqc_bip85_paths(#[case] scheme: KemScheme, #[case] expected: &str) {
+        assert_eq!(
+            Bip85::derivation_path_from_kem_scheme(scheme).unwrap(),
+            expected
+        );
+        assert_eq!(
+            Bip85::derivation_path_from_kem_scheme_parsed(scheme)
+                .unwrap()
+                .to_string(),
+            expected
+        );
+    }
+
+    #[cfg(feature = "hqc")]
+    #[test]
+    fn hqc_parameter_sets_receive_distinct_bip85_seeds() {
+        let mnemonic = Mnemonic::from_phrase(
+            "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about",
+        )
+        .unwrap();
+
+        let hqc128 =
+            Bip85::derive_kem_seed_from_mnemonic(&mnemonic, KemScheme::Hqc128, None).unwrap();
+        let hqc192 =
+            Bip85::derive_kem_seed_from_mnemonic(&mnemonic, KemScheme::Hqc192, None).unwrap();
+        let hqc256 =
+            Bip85::derive_kem_seed_from_mnemonic(&mnemonic, KemScheme::Hqc256, None).unwrap();
+
+        assert_ne!(hqc128.as_seed().as_bytes(), hqc192.as_seed().as_bytes());
+        assert_ne!(hqc128.as_seed().as_bytes(), hqc256.as_seed().as_bytes());
+        assert_ne!(hqc192.as_seed().as_bytes(), hqc256.as_seed().as_bytes());
     }
 
     fn test_bip_85(

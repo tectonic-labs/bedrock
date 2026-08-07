@@ -1,16 +1,16 @@
-//! SLIP10 derivation
+//! SLIP-0010 derivation.
 //!
-//! [SLIP10][slip10-spec] specifies a derivation method for hierarchical deterministic wallets.
-//! that includes more curves than [BIP32][bip32-spec].
+//! [SLIP-0010][slip10-spec] specifies a derivation method for hierarchical deterministic
+//! wallets that supports more curves than [BIP-32][bip32-spec].
 //!
-//! Refer to [SLIP10][slip10-spec] to learn more about the derivation method.
-//!
-//! This implementation only considers hardened derivation paths.
+//! This implementation supports only hardened derivation paths.
 //!
 //! [slip10-spec]: https://github.com/satoshilabs/slips/blob/master/slip-0010.md
 //! [bip32-spec]: https://github.com/bitcoin/bips/blob/master/bip-0032.mediawiki
 
 use crate::hhd::signatures::SignatureScheme;
+#[cfg(feature = "hqc")]
+use crate::{hhd::kems, kem::KemScheme};
 use bip32::DerivationPath;
 use bip32::{ChildNumber, ExtendedKeyAttrs, KeyFingerprint, PrivateKey, PublicKey};
 use hmac::{digest::crypto_common::InvalidLength, Hmac, Mac};
@@ -18,12 +18,12 @@ use sha2::Sha512;
 use zeroize::Zeroize;
 type HmacSha512 = Hmac<Sha512>;
 
-/// Size in bytes of the derived key material in SLIP-10.
-/// The HMAC-SHA512 output (64 bytes) is split at this boundary: the first 32 bytes
+/// Size in bytes of the derived key material in SLIP-0010.
+/// The HMAC-SHA-512 output (64 bytes) is split at this boundary: the first 32 bytes
 /// become the child key material and the remaining 32 bytes become the chain code.
 const SLIP10_DERIVED_KEY_BYTES: usize = 32;
 
-/// SLIP10 extended private key
+/// SLIP-0010 extended private key.
 pub(crate) struct Slip10XPrvKey<K: PrivateKey> {
     private_key: K,
     attrs: ExtendedKeyAttrs,
@@ -31,7 +31,7 @@ pub(crate) struct Slip10XPrvKey<K: PrivateKey> {
 
 impl<K: PrivateKey> std::fmt::Debug for Slip10XPrvKey<K> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        // Don't expose private key in debug output for security
+        // Do not expose the private key in debug output.
         f.debug_struct("Slip10XPrvKey")
             .field("private_key", &"<redacted>")
             .field("attrs", &self.attrs)
@@ -40,8 +40,9 @@ impl<K: PrivateKey> std::fmt::Debug for Slip10XPrvKey<K> {
 }
 
 impl<K: PrivateKey> Slip10XPrvKey<K> {
-    /// Derive a child key for a particular [`ChildNumber`].
-    /// Function based on the BIP-32 implementation.
+    /// Derives a child key for a particular [`ChildNumber`].
+    ///
+    /// This function is based on the BIP-32 implementation.
     pub(crate) fn derive_child(
         &self,
         child_number: ChildNumber,
@@ -57,13 +58,13 @@ impl<K: PrivateKey> Slip10XPrvKey<K> {
 
         // We should technically loop here if the tweak is zero or overflows
         // the order of the underlying elliptic curve group, incrementing the
-        // index, however per "Child key derivation (CKD) functions":
+        // index. However, according to "Child key derivation (CKD) functions":
         // https://github.com/bitcoin/bips/blob/master/bip-0032.mediawiki#child-key-derivation-ckd-functions
         //
         // > "Note: this has probability lower than 1 in 2^127."
         //
-        // ...so instead, we simply return an error if this were ever to happen,
-        // as the chances of it happening are vanishingly small.
+        // We therefore return an error if this ever happens because the
+        // probability is vanishingly small.
         let private_key = self.private_key.derive_child(tweak)?;
 
         let attrs = ExtendedKeyAttrs {
@@ -76,27 +77,29 @@ impl<K: PrivateKey> Slip10XPrvKey<K> {
         Ok(Slip10XPrvKey { private_key, attrs })
     }
 
-    /// Get the private key bytes of the Slip10XPrvKey.
+    /// Returns the private key bytes of the [`Slip10XPrvKey`].
     pub(crate) fn private_key_bytes(&self) -> Vec<u8> {
         self.private_key.to_bytes().into()
     }
 }
 
-/// SLIP10 implementation that only supports hardened derivation paths from seed.
+/// SLIP-0010 implementation that supports only hardened derivation paths from a seed.
 ///
-/// ## Supported curves:
+/// ## Supported schemes
+///
 /// - Falcon-512
-/// - ML-DSA 44
-/// - ML-DSA 65
-/// - ML-DSA 87
+/// - ML-DSA-44/65/87
+/// - MAYO-1/2/3
+/// - HQC-128/192/256
 ///
-/// ## Supported derivation paths:
+/// ## Supported derivation paths
+///
 /// - Hardened derivation paths
 #[derive(Debug, Copy, Clone)]
 pub(crate) struct Slip10;
 
 impl Slip10 {
-    /// Derive a child key from the given [`DerivationPath`] for a specific signature scheme.
+    /// Derives a child key from the given [`DerivationPath`] for a signature scheme.
     pub(crate) fn derive_from_path<S, K>(
         seed: S,
         path: &DerivationPath,
@@ -106,16 +109,35 @@ impl Slip10 {
         S: AsRef<[u8]>,
         K: PrivateKey,
     {
-        // Validate that all components in the derivation path are hardened
-        validate_all_hardened(path)?;
-
-        path.iter().fold(
-            Self::derive_root_xprv_from_seed::<S, K>(seed, scheme),
-            |maybe_key, child_num| maybe_key.and_then(|key| key.derive_child(child_num)),
+        Self::derive_from_path_with_parameters(
+            seed,
+            path,
+            scheme.root_seed_size(),
+            scheme.domain_separator(),
         )
     }
 
-    /// Create the root extended key for the given seed value.
+    /// Derives a child key for an HHD-enabled KEM.
+    #[cfg(feature = "hqc")]
+    pub(crate) fn derive_kem_from_path<S, K>(
+        seed: S,
+        path: &DerivationPath,
+        scheme: KemScheme,
+    ) -> Result<Slip10XPrvKey<K>, Slip10Error>
+    where
+        S: AsRef<[u8]>,
+        K: PrivateKey,
+    {
+        Self::derive_from_path_with_parameters(
+            seed,
+            path,
+            kems::HQC_ROOT_SEED_SIZE,
+            kems::domain_separator(scheme)?,
+        )
+    }
+
+    /// Creates the root extended key for the given seed value.
+    #[cfg(test)]
     pub(crate) fn derive_root_xprv_from_seed<S, K>(
         seed: S,
         scheme: SignatureScheme,
@@ -124,14 +146,48 @@ impl Slip10 {
         S: AsRef<[u8]>,
         K: PrivateKey,
     {
-        if seed.as_ref().len() != scheme.root_seed_size() {
+        Self::derive_root_xprv_with_parameters(
+            seed,
+            scheme.root_seed_size(),
+            scheme.domain_separator(),
+        )
+    }
+
+    fn derive_from_path_with_parameters<S, K>(
+        seed: S,
+        path: &DerivationPath,
+        root_seed_size: usize,
+        domain_separator: &[u8],
+    ) -> Result<Slip10XPrvKey<K>, Slip10Error>
+    where
+        S: AsRef<[u8]>,
+        K: PrivateKey,
+    {
+        validate_all_hardened(path)?;
+
+        path.iter().fold(
+            Self::derive_root_xprv_with_parameters::<S, K>(seed, root_seed_size, domain_separator),
+            |maybe_key, child_num| maybe_key.and_then(|key| key.derive_child(child_num)),
+        )
+    }
+
+    fn derive_root_xprv_with_parameters<S, K>(
+        seed: S,
+        root_seed_size: usize,
+        domain_separator: &[u8],
+    ) -> Result<Slip10XPrvKey<K>, Slip10Error>
+    where
+        S: AsRef<[u8]>,
+        K: PrivateKey,
+    {
+        if seed.as_ref().len() != root_seed_size {
             return Err(Slip10Error::InvalidSeedLength {
-                expected: scheme.root_seed_size(),
+                expected: root_seed_size,
                 actual: seed.as_ref().len(),
             });
         }
 
-        let mut hmac = HmacSha512::new_from_slice(scheme.domain_separator())?;
+        let mut hmac = HmacSha512::new_from_slice(domain_separator)?;
         hmac.update(seed.as_ref());
 
         let mut result = hmac.finalize().into_bytes();
@@ -143,21 +199,21 @@ impl Slip10 {
             child_number: ChildNumber::default(),
             chain_code: chain_code.try_into()?,
         };
-        // Zeroize the result from hmac bytes
+        // Zeroize the HMAC output.
         result.zeroize();
 
         Ok(Slip10XPrvKey { private_key, attrs })
     }
 }
 
-/// Validate that all components in a derivation path are hardened
+/// Validates that every component in a derivation path is hardened.
 ///
 /// # Arguments
-/// * `path` - The derivation path to validate
+/// * `path` - The derivation path to validate.
 ///
 /// # Returns
-/// * `Ok(())` if all components are hardened
-/// * `Err(Slip10Error::InvalidDerivationPath)` if any component is not hardened
+/// * `Ok(())` if all components are hardened.
+/// * `Err(Slip10Error::InvalidDerivationPath)` if any component is not hardened.
 pub(crate) fn validate_all_hardened(path: &DerivationPath) -> Result<(), Slip10Error> {
     for child_num in path.iter() {
         if !child_num.is_hardened() {
@@ -170,32 +226,36 @@ pub(crate) fn validate_all_hardened(path: &DerivationPath) -> Result<(), Slip10E
     Ok(())
 }
 
-/// Errors for the SLIP10 implementation.
+/// Errors for the SLIP-0010 implementation.
 #[derive(Debug, thiserror::Error)]
 pub enum Slip10Error {
-    /// Invalid derivation path
+    /// Invalid derivation path.
     #[error("Invalid derivation path: {0}")]
     InvalidDerivationPath(String),
-    /// Invalid seed length
+    /// Invalid seed length.
     #[error("Invalid seed length: expected {expected}, got {actual}")]
     InvalidSeedLength {
-        /// Expected seed length in bytes
+        /// Expected seed length in bytes.
         expected: usize,
-        /// Actual seed length in bytes
+        /// Actual seed length in bytes.
         actual: usize,
     },
-    /// Invalid HMAC key length
+    /// Invalid HMAC key length.
     #[error("Invalid HMAC key length")]
     InvalidHmacKeyLength(#[from] InvalidLength),
-    /// Array conversion failed
+    /// Array conversion failed.
     #[error("Array conversion failed: {0}")]
     ConversionError(#[from] std::array::TryFromSliceError),
-    /// BIP32 error
-    #[error("BIP32 error: {0}")]
+    /// BIP-32 error.
+    #[error("BIP-32 error: {0}")]
     Bip32(#[from] bip32::Error),
-    /// Maximum derivation depth exceeded
+    /// Maximum derivation depth exceeded.
     #[error("Maximum derivation depth exceeded")]
     MaximumDerivationDepthExceeded,
+    /// KEM scheme metadata error.
+    #[cfg(feature = "hqc")]
+    #[error("KEM scheme error: {0}")]
+    HhdKemScheme(#[from] crate::hhd::kems::HhdKemSchemeError),
 }
 
 #[cfg(test)]
@@ -246,12 +306,12 @@ mod tests {
     }
 
     // ============================================================================
-    // Test for bip32 test vector 3 with hardened paths
+    // Test BIP-32 test vector 3 with hardened paths.
     // ============================================================================
 
     // Test vector 3 from BIP-32
     // https://github.com/bitcoin/bips/blob/master/bip-0032.mediawiki#test-vector-3
-    // This test compares SLIP0010 implementation with BIP-32 library to check consistency.
+    // This test compares the SLIP-0010 implementation with the BIP-32 library for consistency.
 
     // Seed (hex): 4b381541583be4423346c643850da4b320e46a87ae3d2a4e6da11eba819cd4acba45d239319ac14f863b8d5ab5a0d0c64d2e8a1e7d1457df2e5a3c51c73235be
     const TEST_VECTOR_3_SEED_HEX: &str = "4b381541583be4423346c643850da4b320e46a87ae3d2a4e6da11eba819cd4acba45d239319ac14f863b8d5ab5a0d0c64d2e8a1e7d1457df2e5a3c51c73235be";
@@ -277,7 +337,7 @@ mod tests {
     }
 
     fn test_root_key_equivalence(seed: &[u8], scheme: SignatureScheme, expected_xprv_str: &str) {
-        // For this test vector, we'll use the 64-byte seed directly
+        // Use the 64-byte seed directly for this test vector.
         let seed_64_array: [u8; 64] = seed.try_into().unwrap();
 
         // 1. Generate root using BIP-32
@@ -330,15 +390,15 @@ mod tests {
         assert_eq!(slip10_root.attrs.depth, 0);
     }
 
-    /// Test path equivalence between BIP-32 and SLIP-0010
-    /// Verifies that BIP-32 and SLIP-0010 produce identical results
+    /// Tests path equivalence between BIP-32 and SLIP-0010.
+    /// Verifies that BIP-32 and SLIP-0010 produce identical results.
     fn test_path_equivalence(
         seed: &[u8],
         scheme: SignatureScheme,
         path_str: &str,
         expected_xprv_str: &str,
     ) {
-        // Convert seed to 64 bytes array
+        // Convert the seed to a 64-byte array.
         let seed_64_array: [u8; 64] = seed.try_into().unwrap();
 
         // Parse derivation path

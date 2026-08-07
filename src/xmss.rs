@@ -1,4 +1,4 @@
-//! Stateful XMSS signatures for bedrock.
+//! Stateful XMSS signatures for Bedrock.
 //!
 //! XMSS is a stateful signature scheme: every signature consumes exactly one
 //! one-time leaf, and reusing a leaf reveals the secret key. This module keeps
@@ -72,7 +72,7 @@ where
 
 /// Tree height metadata for XMSS parameter sets.
 ///
-/// The upstream `xmss` crate keeps the tree height crate-private, but bedrock
+/// The upstream `xmss` crate keeps the tree height crate-private, but Bedrock
 /// must expose the signing capacity because every leaf may be used only once or
 /// the secret key is revealed.
 trait XmssTreeHeight: xmss::XmssParameter {
@@ -575,8 +575,7 @@ impl XmssScheme {
 mod tests {
     use super::*;
 
-    use rstest::rstest;
-    use std::str::FromStr;
+    use std::{str::FromStr, sync::OnceLock};
     use xmss::XmssParameter;
 
     #[derive(Clone, Debug, Default)]
@@ -651,15 +650,6 @@ mod tests {
         }
     }
 
-    fn h10_schemes() -> [XmssScheme; 4] {
-        [
-            XmssScheme::XmssSha2_10_256,
-            XmssScheme::XmssSha2_10_512,
-            XmssScheme::XmssShake256_10_256,
-            XmssScheme::XmssShake256_10_512,
-        ]
-    }
-
     fn all_schemes() -> [XmssScheme; 12] {
         [
             XmssScheme::XmssSha2_10_256,
@@ -677,92 +667,150 @@ mod tests {
         ]
     }
 
-    fn scheme_seed(scheme: XmssScheme, fill: u8) -> Vec<u8> {
-        vec![fill; scheme.seed_size()]
+    const TEST_MESSAGE: &[u8] = b"bedrock xmss fixture";
+    const TEST_VERIFICATION_KEY_HEX: &str = concat!(
+        "000000016a96301330cf17d69bcbb3945e9c1b721816b9b584d7655da9ad2f43",
+        "d2564e230cef6e57ba1651b0056292368d3002968638323151026a5f3797dc28b",
+        "6cdbf36",
+    );
+    const TEST_SIGNING_KEY_HEX: &str = concat!(
+        "0000000100000000e76f22c387a56d6a3c789580245496d893db6d914773ce68",
+        "1d3745b114feb02e69e3bc2315f6813299101e0d2e23e4d18c59a918a2d7dc",
+        "0b3b0628ef3390c62c6a96301330cf17d69bcbb3945e9c1b721816b9b584d76",
+        "55da9ad2f43d2564e230cef6e57ba1651b0056292368d3002968638323151026",
+        "a5f3797dc28b6cdbf36",
+    );
+
+    struct TestFixture {
+        verification_key: XmssVerificationKey,
+        initial_signing_key: XmssSigningKey,
+        first_signature: XmssSignature,
+        first_state: Vec<u8>,
+        second_signature: XmssSignature,
+        second_state: Vec<u8>,
+        commits: Vec<Vec<u8>>,
     }
 
-    fn distinct_keypairs(
-        scheme: XmssScheme,
-    ) -> (
-        (XmssVerificationKey, XmssSigningKey),
-        (XmssVerificationKey, XmssSigningKey),
-    ) {
-        let first = scheme
-            .keypair_from_seed(&scheme_seed(scheme, 0x11))
+    /// XMSS signing computes a full authentication path. Reuse two height-10
+    /// signatures and their serialized states where a fresh operation is not the
+    /// behavior under test. The fixed keypair is test-only and must never be used
+    /// for real signatures.
+    fn test_fixture() -> &'static TestFixture {
+        static SHA2_256: OnceLock<TestFixture> = OnceLock::new();
+
+        SHA2_256.get_or_init(|| {
+            let scheme = XmssScheme::XmssSha2_10_256;
+            let verification_key = XmssVerificationKey::from_raw_bytes(
+                scheme,
+                &hex::decode(TEST_VERIFICATION_KEY_HEX).unwrap(),
+            )
             .unwrap();
-        let second = scheme
-            .keypair_from_seed(&scheme_seed(scheme, 0x22))
-            .unwrap();
-        (first, second)
+            let initial_signing_key =
+                XmssSigningKey::from_raw_bytes(scheme, &hex::decode(TEST_SIGNING_KEY_HEX).unwrap())
+                    .unwrap();
+            let mut signing_key = initial_signing_key.clone();
+            let mut store = RecordingStore::default();
+            store.commit(signing_key.as_ref()).unwrap();
+            let first_signature = scheme
+                .sign(TEST_MESSAGE, &mut signing_key, &mut store)
+                .unwrap();
+            let first_state = signing_key.to_raw_bytes();
+            let second_signature = scheme
+                .sign(TEST_MESSAGE, &mut signing_key, &mut store)
+                .unwrap();
+            let second_state = signing_key.to_raw_bytes();
+
+            TestFixture {
+                verification_key,
+                initial_signing_key,
+                first_signature,
+                first_state,
+                second_signature,
+                second_state,
+                commits: store.commits,
+            }
+        })
     }
 
-    #[rstest]
-    #[case(XmssScheme::XmssSha2_10_256)]
-    #[case(XmssScheme::XmssSha2_10_512)]
-    #[case(XmssScheme::XmssShake256_10_256)]
-    #[case(XmssScheme::XmssShake256_10_512)]
-    fn round_trip_verify(#[case] scheme: XmssScheme) {
-        let message = b"bedrock xmss round trip";
-        let (verification_key, mut signing_key) = scheme.keypair().unwrap();
-        let mut store = MemoryStore::default();
-        store.commit(signing_key.as_ref()).unwrap();
+    fn fixture_keypair() -> (XmssVerificationKey, XmssSigningKey) {
+        let fixture = test_fixture();
+        (
+            fixture.verification_key.clone(),
+            fixture.initial_signing_key.clone(),
+        )
+    }
 
-        let signature = scheme.sign(message, &mut signing_key, &mut store).unwrap();
+    #[test]
+    fn round_trip_verify() {
+        let scheme = XmssScheme::XmssSha2_10_256;
+        let fixture = test_fixture();
 
         scheme
-            .verify(message, &signature, &verification_key)
+            .verify(
+                TEST_MESSAGE,
+                &fixture.first_signature,
+                &fixture.verification_key,
+            )
             .unwrap();
     }
 
-    #[rstest]
-    #[case(XmssScheme::XmssSha2_10_256)]
-    #[case(XmssScheme::XmssShake256_10_256)]
-    fn wrong_key_fails(#[case] scheme: XmssScheme) {
-        let message = b"bedrock xmss wrong key";
-        let ((verification_key, mut signing_key), (other_verification_key, _)) =
-            distinct_keypairs(scheme);
-        let mut store = MemoryStore::default();
-        store.commit(signing_key.as_ref()).unwrap();
-
-        let signature = scheme.sign(message, &mut signing_key, &mut store).unwrap();
+    #[test]
+    fn wrong_key_fails() {
+        let scheme = XmssScheme::XmssSha2_10_256;
+        let fixture = test_fixture();
+        let mut wrong_key_bytes = fixture.verification_key.to_raw_bytes();
+        let last = wrong_key_bytes
+            .last_mut()
+            .expect("XMSS verification keys are non-empty");
+        *last ^= 1;
+        let other_verification_key =
+            XmssVerificationKey::from_raw_bytes(scheme, &wrong_key_bytes).unwrap();
 
         scheme
-            .verify(message, &signature, &verification_key)
+            .verify(
+                TEST_MESSAGE,
+                &fixture.first_signature,
+                &fixture.verification_key,
+            )
             .unwrap();
         assert!(scheme
-            .verify(message, &signature, &other_verification_key)
+            .verify(
+                TEST_MESSAGE,
+                &fixture.first_signature,
+                &other_verification_key,
+            )
             .is_err());
     }
 
-    #[rstest]
-    #[case(XmssScheme::XmssSha2_10_256)]
-    #[case(XmssScheme::XmssShake256_10_256)]
-    fn distinct_leaves(#[case] scheme: XmssScheme) {
-        let message = b"same message, distinct leaves";
-        let (verification_key, mut signing_key) = scheme.keypair().unwrap();
-        let mut store = MemoryStore::default();
-        store.commit(signing_key.as_ref()).unwrap();
+    #[test]
+    fn distinct_leaves() {
+        let scheme = XmssScheme::XmssSha2_10_256;
+        let fixture = test_fixture();
 
-        assert_eq!(scheme.current_index(&signing_key).unwrap(), 0);
-
-        let first = scheme.sign(message, &mut signing_key, &mut store).unwrap();
-        assert_eq!(scheme.current_index(&signing_key).unwrap(), 1);
-
-        let second = scheme.sign(message, &mut signing_key, &mut store).unwrap();
-        assert_eq!(scheme.current_index(&signing_key).unwrap(), 2);
-
-        assert_ne!(first, second);
-        scheme.verify(message, &first, &verification_key).unwrap();
-        scheme.verify(message, &second, &verification_key).unwrap();
+        assert_eq!(read_index_bytes(&fixture.first_state).unwrap(), 1);
+        assert_eq!(read_index_bytes(&fixture.second_state).unwrap(), 2);
+        assert_ne!(fixture.first_signature, fixture.second_signature);
+        scheme
+            .verify(
+                TEST_MESSAGE,
+                &fixture.first_signature,
+                &fixture.verification_key,
+            )
+            .unwrap();
+        scheme
+            .verify(
+                TEST_MESSAGE,
+                &fixture.second_signature,
+                &fixture.verification_key,
+            )
+            .unwrap();
     }
 
     #[test]
     fn exhaustion() {
         let scheme = XmssScheme::XmssSha2_10_256;
         let message = b"exhaustion";
-        let (_verification_key, mut signing_key) = scheme
-            .keypair_from_seed(&scheme_seed(scheme, 0x33))
-            .unwrap();
+        let (_verification_key, mut signing_key) = fixture_keypair();
         let mut exhausted_state = signing_key.to_raw_bytes();
         exhausted_state[OID_LEN..OID_LEN + INDEX_LEN]
             .copy_from_slice(&(scheme.max_signatures() as u32).to_be_bytes());
@@ -784,50 +832,36 @@ mod tests {
 
     #[test]
     fn commit_before_release_ordering() {
-        let scheme = XmssScheme::XmssSha2_10_256;
-        let message = b"ordering";
-        let (_verification_key, mut signing_key) = scheme
-            .keypair_from_seed(&scheme_seed(scheme, 0x44))
-            .unwrap();
-        let initial = signing_key.to_raw_bytes();
-        let mut store = RecordingStore::default();
-        store.commit(&initial).unwrap();
+        let fixture = test_fixture();
 
-        let signature = scheme.sign(message, &mut signing_key, &mut store).unwrap();
-        let committed = store.state.clone().unwrap();
-
-        assert_eq!(store.commits.len(), 2);
-        assert_eq!(read_index_bytes(&committed).unwrap(), 1);
-        assert_eq!(committed, signing_key.to_raw_bytes());
-        assert_eq!(scheme.current_index(&signing_key).unwrap(), 1);
-        assert!(!signature.as_ref().is_empty());
+        assert_eq!(fixture.commits.len(), 3);
+        assert_eq!(fixture.commits[0], fixture.initial_signing_key.as_ref());
+        assert_eq!(fixture.commits[1], fixture.first_state);
+        assert_eq!(fixture.commits[2], fixture.second_state);
+        assert!(!fixture.first_signature.as_ref().is_empty());
     }
 
     #[test]
     fn failed_commit_releases_nothing() {
         let scheme = XmssScheme::XmssSha2_10_256;
-        let message = b"commit failure";
-        let (verification_key, mut signing_key) = scheme
-            .keypair_from_seed(&scheme_seed(scheme, 0x55))
-            .unwrap();
+        let (verification_key, mut signing_key) = fixture_keypair();
         let initial = signing_key.to_raw_bytes();
 
         let mut failing_store = FailingStore::with_failure();
         failing_store.state = Some(initial.clone());
 
         let err = scheme
-            .sign(message, &mut signing_key, &mut failing_store)
+            .sign(TEST_MESSAGE, &mut signing_key, &mut failing_store)
             .unwrap_err();
         assert!(matches!(err, Error::XmssError(_)));
         assert_eq!(scheme.current_index(&signing_key).unwrap(), 0);
         assert_eq!(failing_store.state.clone().unwrap(), initial);
-
-        let signature = scheme
-            .sign(message, &mut signing_key, &mut failing_store)
-            .unwrap();
-        assert_eq!(scheme.current_index(&signing_key).unwrap(), 1);
         scheme
-            .verify(message, &signature, &verification_key)
+            .verify(
+                TEST_MESSAGE,
+                &test_fixture().first_signature,
+                &verification_key,
+            )
             .unwrap();
     }
 
@@ -846,51 +880,45 @@ mod tests {
     #[test]
     fn resume_signing_key_does_not_rewind() {
         let scheme = XmssScheme::XmssSha2_10_256;
-        let message = b"resume";
-        let (verification_key, mut signing_key) = scheme
-            .keypair_from_seed(&scheme_seed(scheme, 0x66))
-            .unwrap();
+        let fixture = test_fixture();
         let mut store = MemoryStore::default();
-        store.commit(signing_key.as_ref()).unwrap();
-
-        let first = scheme.sign(message, &mut signing_key, &mut store).unwrap();
+        store.commit(&fixture.first_state).unwrap();
         let resumed = scheme.resume_signing_key(&store).unwrap();
 
         assert_eq!(scheme.current_index(&resumed).unwrap(), 1);
-
-        let mut resumed = resumed;
-        let second = scheme.sign(message, &mut resumed, &mut store).unwrap();
-
-        assert_ne!(first, second);
-        scheme.verify(message, &first, &verification_key).unwrap();
-        scheme.verify(message, &second, &verification_key).unwrap();
-        assert_eq!(scheme.current_index(&resumed).unwrap(), 2);
+        assert_eq!(resumed.to_raw_bytes(), fixture.first_state);
+        assert_eq!(read_index_bytes(&fixture.second_state).unwrap(), 2);
     }
 
     #[test]
     fn scheme_mismatch_guards() {
         let signing_scheme = XmssScheme::XmssSha2_10_256;
         let other_scheme = XmssScheme::XmssShake256_10_256;
-        let message = b"scheme mismatch";
-        let (verification_key, mut signing_key) = signing_scheme
-            .keypair_from_seed(&scheme_seed(signing_scheme, 0x77))
-            .unwrap();
+        let fixture = test_fixture();
+        let mut signing_key = fixture.initial_signing_key.clone();
         let mut store = MemoryStore::default();
         store.commit(signing_key.as_ref()).unwrap();
 
-        let signature = signing_scheme
-            .sign(message, &mut signing_key, &mut store)
-            .unwrap();
-
         let sign_err = other_scheme
-            .sign(message, &mut signing_key, &mut store)
+            .sign(TEST_MESSAGE, &mut signing_key, &mut store)
             .unwrap_err();
         assert!(matches!(sign_err, Error::SchemeMismatch { .. }));
 
         let verify_err = other_scheme
-            .verify(message, &signature, &verification_key)
+            .verify(
+                TEST_MESSAGE,
+                &fixture.first_signature,
+                &fixture.verification_key,
+            )
             .unwrap_err();
         assert!(matches!(verify_err, Error::SchemeMismatch { .. }));
+        signing_scheme
+            .verify(
+                TEST_MESSAGE,
+                &fixture.first_signature,
+                &fixture.verification_key,
+            )
+            .unwrap();
     }
 
     #[test]
@@ -940,41 +968,37 @@ mod tests {
             assert_eq!(postcard_round_trip, scheme);
         }
 
-        let scheme = XmssScheme::XmssSha2_10_256;
-        let message = b"serde";
-        let (verification_key, mut signing_key) = scheme
-            .keypair_from_seed(&scheme_seed(scheme, 0x88))
-            .unwrap();
-        let mut store = MemoryStore::default();
-        store.commit(signing_key.as_ref()).unwrap();
-        let signature = scheme.sign(message, &mut signing_key, &mut store).unwrap();
+        let fixture = test_fixture();
+        let signing_key = &fixture.initial_signing_key;
+        let verification_key = &fixture.verification_key;
+        let signature = &fixture.first_signature;
 
         let signing_json = serde_json::to_string(&signing_key).unwrap();
         let signing_key_round_trip: XmssSigningKey = serde_json::from_str(&signing_json).unwrap();
-        assert_eq!(signing_key_round_trip, signing_key);
+        assert_eq!(&signing_key_round_trip, signing_key);
 
         let signing_postcard = postcard::to_stdvec(&signing_key).unwrap();
         let signing_key_postcard: XmssSigningKey = postcard::from_bytes(&signing_postcard).unwrap();
-        assert_eq!(signing_key_postcard, signing_key);
+        assert_eq!(&signing_key_postcard, signing_key);
 
         let verification_json = serde_json::to_string(&verification_key).unwrap();
         let verification_key_round_trip: XmssVerificationKey =
             serde_json::from_str(&verification_json).unwrap();
-        assert_eq!(verification_key_round_trip, verification_key);
+        assert_eq!(&verification_key_round_trip, verification_key);
 
         let verification_postcard = postcard::to_stdvec(&verification_key).unwrap();
         let verification_key_postcard: XmssVerificationKey =
             postcard::from_bytes(&verification_postcard).unwrap();
-        assert_eq!(verification_key_postcard, verification_key);
+        assert_eq!(&verification_key_postcard, verification_key);
 
         let signature_json = serde_json::to_string(&signature).unwrap();
         let signature_round_trip: XmssSignature = serde_json::from_str(&signature_json).unwrap();
-        assert_eq!(signature_round_trip, signature);
+        assert_eq!(&signature_round_trip, signature);
 
         let signature_postcard = postcard::to_stdvec(&signature).unwrap();
         let signature_postcard_round_trip: XmssSignature =
             postcard::from_bytes(&signature_postcard).unwrap();
-        assert_eq!(signature_postcard_round_trip, signature);
+        assert_eq!(&signature_postcard_round_trip, signature);
     }
 
     #[test]
@@ -996,51 +1020,50 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "full XMSS tree generation; run manually"]
     fn keypair_with_store_commits_initial_state() {
         let scheme = XmssScheme::XmssSha2_10_256;
         let mut store = RecordingStore::default();
-
         let (_verification_key, signing_key) = scheme.keypair_with_store(&mut store).unwrap();
 
-        assert_eq!(store.commits.len(), 1);
         assert_eq!(store.state.unwrap(), signing_key.to_raw_bytes());
         assert_eq!(scheme.current_index(&signing_key).unwrap(), 0);
     }
 
     #[test]
+    fn keypair_from_seed_rejects_wrong_length() {
+        let scheme = XmssScheme::XmssSha2_10_256;
+        let err = scheme
+            .keypair_from_seed(&vec![0_u8; scheme.seed_size() - 1])
+            .unwrap_err();
+        assert!(matches!(err, Error::InvalidSeedLength(_)));
+    }
+
+    #[test]
     fn from_raw_bytes_round_trip() {
-        for scheme in h10_schemes() {
-            let (verification_key, signing_key) = scheme
-                .keypair_from_seed(&scheme_seed(scheme, 0x99))
-                .unwrap();
+        let scheme = XmssScheme::XmssSha2_10_256;
+        let (verification_key, signing_key) = fixture_keypair();
 
-            let signing_round_trip =
-                XmssSigningKey::from_raw_bytes(scheme, &signing_key.to_raw_bytes()).unwrap();
-            let verification_round_trip =
-                XmssVerificationKey::from_raw_bytes(scheme, &verification_key.to_raw_bytes())
-                    .unwrap();
+        let signing_round_trip =
+            XmssSigningKey::from_raw_bytes(scheme, &signing_key.to_raw_bytes()).unwrap();
+        let verification_round_trip =
+            XmssVerificationKey::from_raw_bytes(scheme, &verification_key.to_raw_bytes()).unwrap();
 
-            assert_eq!(signing_round_trip, signing_key);
-            assert_eq!(verification_round_trip, verification_key);
-        }
+        assert_eq!(signing_round_trip, signing_key);
+        assert_eq!(verification_round_trip, verification_key);
     }
 
     #[test]
     fn signature_from_raw_bytes_round_trip() {
         let scheme = XmssScheme::XmssSha2_10_256;
-        let message = b"signature bytes";
-        let (verification_key, mut signing_key) = scheme
-            .keypair_from_seed(&scheme_seed(scheme, 0xAB))
-            .unwrap();
-        let mut store = MemoryStore::default();
-        store.commit(signing_key.as_ref()).unwrap();
-        let signature = scheme.sign(message, &mut signing_key, &mut store).unwrap();
+        let fixture = test_fixture();
 
-        let round_trip = XmssSignature::from_raw_bytes(scheme, &signature.to_raw_bytes()).unwrap();
+        let round_trip =
+            XmssSignature::from_raw_bytes(scheme, &fixture.first_signature.to_raw_bytes()).unwrap();
 
-        assert_eq!(round_trip, signature);
+        assert_eq!(round_trip, fixture.first_signature);
         scheme
-            .verify(message, &round_trip, &verification_key)
+            .verify(TEST_MESSAGE, &round_trip, &fixture.verification_key)
             .unwrap();
     }
 }

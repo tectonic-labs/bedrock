@@ -7,10 +7,10 @@
 //!
 //! Two independent checks:
 //!
-//! 1. **Decapsulation against NIST vectors.** The HQC fixtures under `tests/data/` are
-//!    vector 0 of the official HQC KAT files for each parameter set, as published for
-//!    FIPS 207. Decapsulating the given ciphertext with the given secret key must yield
-//!    the given shared secret. Nothing in this crate can influence the expected value.
+//! 1. **Decapsulation against submission vectors.** The HQC fixtures under `tests/data/`
+//!    are vector 0 of the official HQC submission's KAT files for each parameter set.
+//!    Decapsulating the given ciphertext with the given secret key must yield the given
+//!    shared secret. Nothing in this crate can influence the expected value.
 //!
 //! 2. **Published encoding sizes.** Every parameter set has fixed key, ciphertext and
 //!    shared-secret lengths defined by its specification. Asserting them catches a
@@ -58,7 +58,7 @@ mod hqc_nist_vectors {
         assert_eq!(
             ss.to_raw_bytes(),
             expected,
-            "{scheme} decapsulated a NIST vector to the wrong shared secret"
+            "{scheme} decapsulated an HQC submission vector to the wrong shared secret"
         );
     }
 
@@ -216,7 +216,7 @@ mod frodo_iso_vectors {
 /// The HQC rows are read off the official KAT vectors under `tests/data/`, so they are
 /// genuinely external. The sntrup and FrodoKEM rows come from their upstream crates'
 /// published parameter tables — weaker than a NIST vector, but still outside this crate,
-/// which is what makes them able to catch a scheme dispatched to a neighbouring
+/// which allows them to catch a scheme dispatched to a neighboring
 /// parameter set's backend.
 const PUBLISHED_SIZES: &[(KemScheme, usize, usize, usize, usize)] = &[
     #[cfg(feature = "hqc")]
@@ -255,7 +255,7 @@ const PUBLISHED_SIZES: &[(KemScheme, usize, usize, usize, usize)] = &[
 
 /// Every scheme must produce keys and ciphertexts of its own published length.
 ///
-/// A scheme dispatched to a neighbouring parameter set's backend fails here even though
+/// A scheme dispatched to a neighboring parameter set's backend fails here even though
 /// it would round-trip perfectly, because the round-trip never leaves that backend.
 #[test]
 fn encodings_match_published_sizes() {

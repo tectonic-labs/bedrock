@@ -1,4 +1,5 @@
-//! This module provides methods to derive MAYO keypairs from a seed and an address index using [SLIP-0010][slip-0010].
+//! Methods for deriving MAYO keypairs from a seed and an address index with
+//! [SLIP-0010][slip-0010].
 //!
 //! # Key Specifications
 //!
@@ -7,18 +8,19 @@
 //!
 //! # Derivation Path
 //!
-//! Uses BIP-44 hardened derivation path: `m/44'/60'/0'/0'/{address_index}'`
+//! Uses the hardened BIP-44 derivation path `m/44'/60'/0'/0'/{address_index}'`:
+//!
 //! - `44'`: BIP-44 standard
 //! - `60'`: Ethereum coin type
 //! - `0'`: Account index
 //! - `0'`: Change (hardened)
 //! - `{address_index}'`: Address index (hardened)
 //!
-//! # Seed Truncation (strip-only)
+//! # Seed Truncation
 //!
-//! A SLIP-0010 child key is always 32 bytes, while MAYO keygen seed sizes are 24 bytes
+//! A SLIP-0010 child key is always 32 bytes, while MAYO key-generation seed sizes are 24 bytes
 //! (MAYO-1/2), 32 bytes (MAYO-3), and 40 bytes (MAYO-5). The derivation rule for the MAYO
-//! family only strips bits, never expands them:
+//! family only truncates bits; it never expands them:
 //!
 //! - **MAYO-1/2**: truncate the 32-byte SLIP-0010 child key to its first 24 bytes.
 //!   SLIP-0010 output is computationally indistinguishable from uniform, so any 24-byte
@@ -55,11 +57,11 @@ macro_rules! impl_mayo_struct {
 
         impl $name {
             /// Generates a MAYO keypair directly from a seed of exactly the scheme's
-            /// keygen seed size (24 bytes for MAYO-1/2, 32 bytes for MAYO-3).
+            /// key-generation seed size (24 bytes for MAYO-1/2, 32 bytes for MAYO-3).
             ///
             /// # Arguments
             ///
-            /// * `seed` - The seed bytes (must be exactly the scheme's keygen seed size)
+            /// * `seed` - The seed bytes (must exactly match the scheme's key-generation seed size)
             ///
             /// # Returns
             ///
@@ -75,16 +77,16 @@ macro_rules! impl_mayo_struct {
                     });
                 }
 
-                // Convert to fixed-size array
+                // Convert to a fixed-size array.
                 let mut seed_array = [0u8; $seed_size_const];
                 seed_array.copy_from_slice(seed);
 
-                // Generate keypair using pq-mayo
+                // Generate the keypair with `pq-mayo`.
                 let (verifying_key, signing_key) = MayoScheme::$version
                     .keypair_from_seed(&seed_array)
                     .map_err(|e| KeyError::KeyGenerationFailed(e.to_string()))?;
 
-                // Zeroize the seed bytes
+                // Zeroize the seed bytes.
                 seed_array.zeroize();
 
                 Ok((signing_key, verifying_key))
@@ -92,12 +94,12 @@ macro_rules! impl_mayo_struct {
 
             /// Derives a MAYO keypair from a seed and address index using SLIP-0010.
             ///
-            /// Uses the BIP-44 hardened derivation path: `m/44'/60'/0'/0'/{address_index}'`
+            /// Uses the hardened BIP-44 derivation path `m/44'/60'/0'/0'/{address_index}'`.
             ///
-            /// The 32-byte SLIP-0010 child key is truncated to the scheme's keygen seed
+            /// The 32-byte SLIP-0010 child key is truncated to the scheme's key-generation seed
             /// size (its first 24 bytes for MAYO-1/2, all 32 bytes for MAYO-3). SLIP-0010
             /// output is uniform, so truncation preserves the seed security targeted by
-            /// the parameter set. HHD derivation only strips bits and never expands them.
+            /// the parameter set. HHD derivation only truncates bits and never expands them.
             ///
             /// # Arguments
             ///
@@ -112,7 +114,7 @@ macro_rules! impl_mayo_struct {
                 seed: &[u8],
                 address_index: u32,
             ) -> Result<(MayoSigningKey, MayoVerificationKey), KeyError> {
-                // Build derivation path following BIP-44 (m/44'/60'/0'/0'/${address_index}')
+                // Build the BIP-44 derivation path (m/44'/60'/0'/0'/{address_index}'),
                 // following the full hardened derivation path convention.
                 let derivation_path_str = format!(
                     "{}/{}'",
@@ -121,16 +123,16 @@ macro_rules! impl_mayo_struct {
                 );
                 let derivation_path = derivation_path_str.parse()?;
 
-                // Derive HD child seed from master child seed (SLIP-10):
+                // Derive the HD child key from the scheme-specific root seed (SLIP-0010):
                 let child_xprv: Slip10XPrvKey<SigningKey> =
                     Slip10::derive_from_path(seed, &derivation_path, SignatureScheme::$scheme)?;
                 let mut private_key_bytes = child_xprv.private_key_bytes();
 
-                // Generate MAYO keypair from the (possibly truncated) seed
+                // Generate the MAYO keypair from the possibly truncated seed.
                 let (signing_key, verifying_key) =
                     Self::generate_keypair_from_seed(&private_key_bytes[..$seed_size_const])?;
 
-                // Zeroize the private key bytes
+                // Zeroize the private-key bytes.
                 private_key_bytes.zeroize();
 
                 Ok((signing_key, verifying_key))
@@ -172,7 +174,7 @@ mod tests {
         .expect("should derive MAYO keypair from seed")
     }
 
-    /// Test that a MAYO keypair can be derived from a seed
+    /// Tests that a MAYO keypair can be derived from a seed.
     #[rstest]
     #[case::mayo1(SignatureScheme::Mayo1)]
     #[case::mayo2(SignatureScheme::Mayo2)]
@@ -183,7 +185,7 @@ mod tests {
         assert_eq!(vk.to_raw_bytes().len(), scheme.verifying_key_size());
     }
 
-    /// Test that MAYO keypair derivation is deterministic
+    /// Tests that MAYO keypair derivation is deterministic.
     #[rstest]
     #[case::mayo1(SignatureScheme::Mayo1)]
     #[case::mayo2(SignatureScheme::Mayo2)]
@@ -203,7 +205,7 @@ mod tests {
         );
     }
 
-    /// Test that the derived keypair equals a direct keygen from the (possibly truncated)
+    /// Tests that the derived keypair equals direct key generation from the (possibly truncated)
     /// prefix of the SLIP-0010 child key.
     #[rstest]
     #[case::mayo1(

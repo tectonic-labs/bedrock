@@ -1,4 +1,4 @@
-//! SLH-DSA key and signature methods
+//! SLH-DSA key and signature methods.
 
 #[cfg(feature = "kgen")]
 use crate::os_rng;
@@ -9,7 +9,7 @@ macro_rules! impl_slh_dsa_struct {
     ($name:ident, $validate:ident, $expect:expr) => {
         #[derive(Clone, Serialize, Deserialize)]
         #[cfg_attr(test, derive(PartialEq, Eq))]
-        #[doc = concat!("A [`", stringify!($name), "`] for slh-dsa")]
+        #[doc = concat!("A byte-backed [`", stringify!($name), "`] value for SLH-DSA.")]
         #[repr(transparent)]
         pub struct $name(pub(crate) InnerSlhDsa);
 
@@ -35,55 +35,56 @@ macro_rules! impl_slh_dsa_struct {
         }
 
         impl $name {
-            /// The [`SlhDsaScheme`] represented by this struct
+            /// Returns the [`SlhDsaScheme`] represented by this value.
             pub fn scheme(&self) -> SlhDsaScheme {
                 self.0.scheme
             }
 
-            #[doc = concat!("Convert [`", stringify!($name), "`] to its raw byte representation")]
+            #[doc = concat!("Converts [`", stringify!($name), "`] to its raw byte representation.")]
             pub fn to_raw_bytes(&self) -> Vec<u8> {
                 self.0.value.clone()
             }
 
-            #[doc = concat!("Convert [`", stringify!($name), "`] from its raw byte representation and scheme")]
+            #[doc = concat!("Constructs [`", stringify!($name), "`] from raw bytes and a scheme.")]
             pub fn from_raw_bytes(scheme: SlhDsaScheme, bytes: &[u8]) -> Result<Self> {
                 scheme.$validate(bytes)?;
                 Ok(InnerSlhDsa {
                     scheme,
                     value: bytes.to_vec(),
-                }.into())
+                }
+                .into())
             }
         }
     };
 }
 
 scheme_impl_pure!(
-    /// SLH-DSA schemes
+    /// SLH-DSA schemes.
     SlhDsaScheme,
     #[default]
-    /// SLH-DSA-SHA2-128s (NIST Level 1)
+    /// SLH-DSA-SHA2-128s (NIST Level 1).
     SlhDsaSha2128s => "SLH-DSA-SHA2-128s" ; 1 ; 48,
-    /// SLH-DSA-SHA2-128f (NIST Level 1)
+    /// SLH-DSA-SHA2-128f (NIST Level 1).
     SlhDsaSha2128f => "SLH-DSA-SHA2-128f" ; 2 ; 48,
-    /// SLH-DSA-SHAKE-128s (NIST Level 1)
+    /// SLH-DSA-SHAKE-128s (NIST Level 1).
     SlhDsaShake128s => "SLH-DSA-SHAKE-128s" ; 3 ; 48,
-    /// SLH-DSA-SHAKE-128f (NIST Level 1)
+    /// SLH-DSA-SHAKE-128f (NIST Level 1).
     SlhDsaShake128f => "SLH-DSA-SHAKE-128f" ; 4 ; 48,
-    /// SLH-DSA-SHA2-192s (NIST Level 3)
+    /// SLH-DSA-SHA2-192s (NIST Level 3).
     SlhDsaSha2192s => "SLH-DSA-SHA2-192s" ; 5 ; 72,
-    /// SLH-DSA-SHA2-192f (NIST Level 3)
+    /// SLH-DSA-SHA2-192f (NIST Level 3).
     SlhDsaSha2192f => "SLH-DSA-SHA2-192f" ; 6 ; 72,
-    /// SLH-DSA-SHAKE-192s (NIST Level 3)
+    /// SLH-DSA-SHAKE-192s (NIST Level 3).
     SlhDsaShake192s => "SLH-DSA-SHAKE-192s" ; 7 ; 72,
-    /// SLH-DSA-SHAKE-192f (NIST Level 3)
+    /// SLH-DSA-SHAKE-192f (NIST Level 3).
     SlhDsaShake192f => "SLH-DSA-SHAKE-192f" ; 8 ; 72,
-    /// SLH-DSA-SHA2-256s (NIST Level 5)
+    /// SLH-DSA-SHA2-256s (NIST Level 5).
     SlhDsaSha2256s => "SLH-DSA-SHA2-256s" ; 9 ; 96,
-    /// SLH-DSA-SHA2-256f (NIST Level 5)
+    /// SLH-DSA-SHA2-256f (NIST Level 5).
     SlhDsaSha2256f => "SLH-DSA-SHA2-256f" ; 10 ; 96,
-    /// SLH-DSA-SHAKE-256s (NIST Level 5)
+    /// SLH-DSA-SHAKE-256s (NIST Level 5).
     SlhDsaShake256s => "SLH-DSA-SHAKE-256s" ; 11 ; 96,
-    /// SLH-DSA-SHAKE-256f (NIST Level 5)
+    /// SLH-DSA-SHAKE-256f (NIST Level 5).
     SlhDsaShake256f => "SLH-DSA-SHAKE-256f" ; 12 ; 96,
 );
 
@@ -171,7 +172,7 @@ impl SlhDsaScheme {
     }
 
     #[cfg(feature = "kgen")]
-    /// Generate a new SLH-DSA verification and signing key pair.
+    /// Generates a new SLH-DSA verification and signing keypair.
     pub fn keypair(&self) -> Result<(SlhDsaVerificationKey, SlhDsaSigningKey)> {
         use slh_dsa::signature::Keypair;
         with_slh_dsa_params!(self, |P| {
@@ -183,10 +184,10 @@ impl SlhDsaScheme {
     }
 
     #[cfg(feature = "kgen")]
-    /// Generate a new SLH-DSA key pair from a seed.
+    /// Generates a new SLH-DSA keypair from a seed.
     ///
     /// The seed is `sk_seed ‖ sk_prf ‖ pk_seed`, each `N` bytes (`N` = 16/24/32 for the
-    /// 128/192/256 security levels), per FIPS-205 `slh_keygen_internal`.
+    /// 128/192/256 security levels), per FIPS 205's `slh_keygen_internal`.
     pub fn keypair_from_seed(
         &self,
         seed: &[u8],
@@ -222,7 +223,7 @@ impl SlhDsaScheme {
     }
 
     #[cfg(feature = "sign")]
-    /// Sign a message with the specified signing key (deterministic, empty context).
+    /// Signs a message with the specified signing key (deterministic, empty context).
     pub fn sign(&self, message: &[u8], signing_key: &SlhDsaSigningKey) -> Result<SlhDsaSignature> {
         use slh_dsa::signature::Signer;
         with_slh_dsa_params!(self, |P| {
@@ -240,7 +241,7 @@ impl SlhDsaScheme {
     }
 
     #[cfg(feature = "vrfy")]
-    /// Verify a signature.
+    /// Verifies a signature.
     pub fn verify(
         &self,
         message: &[u8],

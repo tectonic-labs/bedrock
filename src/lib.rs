@@ -1,4 +1,4 @@
-//! Tectonic's common cryptography library
+//! Tectonic's common cryptography library.
 //!
 
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
@@ -53,7 +53,7 @@ pub mod xwing;
 
 #[cfg(all(feature = "xwing", not(any(feature = "ml-kem", feature = "mceliece"))))]
 compiler_error!(
-    "Can't enable `xwing` w/o picking a specific kem to use. Please enable `ml-kem` or `mceliece` also."
+    "cannot enable `xwing` without selecting an underlying KEM; enable `ml-kem` or `mceliece`"
 );
 
 #[cfg(any(

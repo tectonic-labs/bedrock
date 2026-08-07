@@ -1,5 +1,5 @@
-/// Implements serde::{Serialize, Deserialize} using Strings for human readable formats
-/// and u8 for non-human readable formats
+/// Implements `serde::{Serialize, Deserialize}` using strings for human-readable formats
+/// and `u8` for non-human-readable formats.
 macro_rules! serde_impl {
     ($name:ident) => {
         impl serde::Serialize for $name {
@@ -160,7 +160,7 @@ macro_rules! scheme_common_impl {
         }
 
         impl $name {
-            #[doc = concat!("Get the seed size for ", stringify!($name))]
+            #[doc = concat!("Returns the seed size for ", stringify!($name), ".")]
             pub fn seed_size(&self) -> usize {
                 match self {
                     $(

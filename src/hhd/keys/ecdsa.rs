@@ -1,4 +1,5 @@
-//! This module provides a method to derive an ECDSA secp256k1 keypair from a seed and an address index using [BIP-32][bip-32].
+//! This module provides a method to derive an ECDSA secp256k1 keypair from a seed and an
+//! address index using [BIP-32][bip-32].
 //!
 //! # Key Specifications
 //!
@@ -7,14 +8,15 @@
 //!
 //! # Derivation Path
 //!
-//! Uses BIP-44 derivation path: `m/44'/60'/0'/0/{address_index}`
+//! Uses the BIP-44 derivation path `m/44'/60'/0'/0/{address_index}`:
+//!
 //! - `44'`: BIP-44 standard
 //! - `60'`: Ethereum coin type
 //! - `0'`: Account index
 //! - `0`: Change (external addresses)
 //! - `{address_index}`: Address index (non-hardened)
 //!
-//! [Bip32]: https://docs.rs/bip32/latest/bip32/
+//! [bip-32]: https://docs.rs/bip32/latest/bip32/
 
 use crate::hhd::keys::KeyError;
 use crate::hhd::signatures::SignatureScheme;
@@ -22,14 +24,14 @@ use bip32::secp256k1::ecdsa::{SigningKey, VerifyingKey};
 use bip32::XPrv;
 use zeroize::Zeroize;
 
-/// ECDSA secp256k1 keypair
+/// ECDSA secp256k1 keypair derivation.
 #[derive(Debug, Copy, Clone)]
 pub struct EcdsaSecp256k1 {}
 
 impl EcdsaSecp256k1 {
     /// Derives an ECDSA keypair from a seed and an address index using BIP-32 HD key derivation.
     ///
-    /// This method follows the BIP-44 derivation path: `m/44'/60'/0'/0/{address_index}`
+    /// This method follows the BIP-44 derivation path `m/44'/60'/0'/0/{address_index}`,
     /// where the address index is non-hardened.
     ///
     /// # Arguments
@@ -45,14 +47,15 @@ impl EcdsaSecp256k1 {
     /// # Errors
     ///
     /// Returns `KeyError` in the following cases:
-    /// - Invalid derivation path parsing
-    /// - BIP-32 derivation failure
-    /// - Invalid signing key creation
+    ///
+    /// - The derivation path cannot be parsed.
+    /// - BIP-32 derivation fails.
+    /// - The signing key is invalid.
     pub fn derive_from_seed(
         seed: &[u8],
         address_index: u32,
     ) -> Result<(SigningKey, VerifyingKey), KeyError> {
-        // Build derivation path following BIP-44 (m/44'/60'/0'/0/${address_index})
+        // Build the BIP-44 derivation path (m/44'/60'/0'/0/{address_index}).
         let derivation_path_str = format!(
             "{}/{}",
             SignatureScheme::EcdsaSecp256k1.bip44_non_hardened_base_path()?,
@@ -60,16 +63,16 @@ impl EcdsaSecp256k1 {
         );
         let derivation_path = derivation_path_str.parse()?;
 
-        // Derive HD child seed from master child seed (BIP-32):
+        // Derive the HD child key from the scheme-specific root seed (BIP-32):
         let child_xprv = XPrv::derive_from_path(seed, &derivation_path)?;
 
-        // Extract private key bytes from child xprv
+        // Extract the private-key bytes from the child extended private key.
         let mut private_key_bytes = child_xprv.to_bytes();
         let signing_key = SigningKey::from_bytes(&private_key_bytes.into())
             .map_err(|e| KeyError::EcdsaError(format!("Failed to create signing key: {:?}", e)))?;
         let verifying_key = *signing_key.verifying_key();
 
-        // Zeroize the private key bytes
+        // Zeroize the private-key bytes.
         private_key_bytes.zeroize();
 
         Ok((signing_key, verifying_key))
@@ -100,10 +103,9 @@ mod tests {
     /// Tests that signing and verification work correctly for ECDSA keypairs.
     ///
     /// This test verifies:
-    /// - Keypair can be derived from a seed
-    /// - Messages can be signed
-    /// - Signatures can be verified
-    /// - Correct signatures validate successfully
+    /// - A keypair can be derived from a seed.
+    /// - Messages can be signed.
+    /// - Correct signatures can be verified.
     #[test]
     fn test_ecdsa_sign_verify() {
         let (sk, vk) = EcdsaSecp256k1::derive_from_seed(&TEST_ECDSA_SEED_64, 0).unwrap();

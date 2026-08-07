@@ -1,4 +1,5 @@
-//! This module provides a method to derive a Falcon-512 keypair from a seed and an address index using [SLIP-0010][slip-0010].
+//! This module provides a method to derive a Falcon-512 keypair from a seed and an address
+//! index using [SLIP-0010][slip-0010].
 //!
 //! # Key Specifications
 //!
@@ -7,7 +8,8 @@
 //!
 //! # Derivation Path
 //!
-//! Uses BIP-44 hardened derivation path: `m/44'/60'/0'/0'/{address_index}'`
+//! Uses the hardened BIP-44 derivation path `m/44'/60'/0'/0'/{address_index}'`:
+//!
 //! - `44'`: BIP-44 standard
 //! - `60'`: Ethereum coin type
 //! - `0'`: Account index
@@ -23,7 +25,7 @@ use crate::hhd::slip10::{Slip10, Slip10XPrvKey};
 use bip32::secp256k1::ecdsa::SigningKey;
 use zeroize::Zeroize;
 
-/// Falcon-512 keypair
+/// Falcon-512 keypair derivation.
 #[derive(Debug, Copy, Clone)]
 pub struct FnDsa512 {}
 
@@ -48,16 +50,16 @@ impl FnDsa512 {
             });
         }
 
-        // Convert to fixed-size array
+        // Convert to a fixed-size array.
         let mut seed_array = [0u8; FALCON512_KEY_GENERATION_SEED_SIZE];
         seed_array.copy_from_slice(seed);
 
-        // Generate keypair using falcon-rust
+        // Generate the keypair with `fn-dsa`.
         let (verifying_key, signing_key) = FalconScheme::Dsa512
             .keypair_from_seed(&seed_array)
             .map_err(|e| KeyError::KeyGenerationFailed(e.to_string()))?;
 
-        // Zeroize the seed bytes
+        // Zeroize the seed bytes.
         seed_array.zeroize();
 
         Ok((signing_key, verifying_key))
@@ -65,7 +67,7 @@ impl FnDsa512 {
 
     /// Derives a Falcon-512 keypair from a seed and address index using SLIP-0010.
     ///
-    /// Uses the BIP-44 hardened derivation path: `m/44'/60'/0'/0'/{address_index}'`
+    /// Uses the hardened BIP-44 derivation path `m/44'/60'/0'/0'/{address_index}'`.
     ///
     /// # Arguments
     ///
@@ -80,7 +82,7 @@ impl FnDsa512 {
         seed: &[u8],
         address_index: u32,
     ) -> Result<(FalconSigningKey, FalconVerificationKey), KeyError> {
-        // Build derivation path following BIP-44 (m/44'/60'/0'/0'/${address_index}')
+        // Build the BIP-44 derivation path (m/44'/60'/0'/0'/{address_index}'),
         // following the full hardened derivation path convention.
         let derivation_path_str = format!(
             "{}/{}'",
@@ -89,15 +91,15 @@ impl FnDsa512 {
         );
         let derivation_path = derivation_path_str.parse()?;
 
-        // Derive HD child seed from master child seed (SLIP-10):
+        // Derive the HD child key from the scheme-specific root seed (SLIP-0010):
         let child_xprv: Slip10XPrvKey<SigningKey> =
             Slip10::derive_from_path(seed, &derivation_path, SignatureScheme::Falcon512)?;
         let mut private_key_bytes = child_xprv.private_key_bytes();
 
-        // Generate Falcon keypair from seed
+        // Generate the Falcon keypair from the seed.
         let (signing_key, verifying_key) = Self::generate_keypair_from_seed(&private_key_bytes)?;
 
-        // Zeroize the private key bytes
+        // Zeroize the private-key bytes.
         private_key_bytes.zeroize();
 
         Ok((signing_key, verifying_key))
@@ -119,7 +121,7 @@ mod tests {
         0x3c, 0x3d, 0x3e, 0x3f,
     ];
 
-    /// Test that Falcon keypair can be derived from a seed
+    /// Tests that a Falcon keypair can be derived from a seed.
     #[test]
     fn test_falcon_derive_from_seed_basic() {
         let address_index = 0u32;
@@ -142,7 +144,7 @@ mod tests {
         );
     }
 
-    /// Test that Falcon keypair derivation is deterministic
+    /// Tests that Falcon keypair derivation is deterministic.
     #[test]
     fn test_falcon_derive_from_seed_deterministic() {
         let address_index = 5u32;

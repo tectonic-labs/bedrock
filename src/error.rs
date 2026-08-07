@@ -1,4 +1,4 @@
-//! Error types for the library
+//! Error types for the library.
 
 use thiserror::Error as ThisError;
 
@@ -12,44 +12,44 @@ impl core::fmt::Display for LeavesCount {
     }
 }
 
-/// Error type for the library
+/// Error type for the library.
 #[derive(ThisError, Debug)]
 pub enum Error {
-    /// Classic McEliece error
+    /// Classic McEliece error.
     #[error("Classic McEliece error: {0}")]
     McElieceError(String),
-    /// ML-DSA error
+    /// ML-DSA error.
     #[error("ML-DSA error: {0}")]
     MlDsaError(String),
-    /// ML-KEM error
+    /// ML-KEM error.
     #[error("ML-KEM error: {0}")]
     MlKemError(String),
-    /// MAYO error
+    /// MAYO error.
     #[error("MAYO error: {0}")]
     MayoError(String),
-    /// SLH-DSA error
+    /// SLH-DSA error.
     #[error("SLH-DSA error: {0}")]
     SlhDsaError(String),
-    /// HQC error
+    /// HQC error.
     #[error("HQC error: {0}")]
     HqcError(String),
-    /// FrodoKEM error
+    /// FrodoKEM error.
     #[error("FrodoKEM error: {0}")]
     FrodoError(String),
-    /// Streamlined NTRU Prime error
-    #[error("sntrup761 error: {0}")]
+    /// Streamlined NTRU Prime error.
+    #[error("Streamlined NTRU Prime error: {0}")]
     SntrupError(String),
-    /// XMSS error
+    /// XMSS error.
     #[error("XMSS error: {0}")]
     XmssError(String),
     /// The XMSS one-time-signature leaves for this key are exhausted; no further
     /// signatures may be produced without revealing the secret key.
     #[error("XMSS key exhausted: all {0} one-time-signature leaves have been consumed")]
     XmssKeyExhausted(LeavesCount),
-    /// Bird-of-Prey hybrid signature error
+    /// Bird-of-Prey hybrid signature error.
     #[error("Bird-of-Prey error: {0}")]
     BirdOfPreyError(String),
-    /// Deterministic RNG error
+    /// Deterministic RNG error.
     #[error("deterministic RNG error: {0}")]
     DetRngError(String),
     /// A key or signature belonging to one scheme was passed to a different scheme.
@@ -65,13 +65,13 @@ pub enum Error {
         /// The scheme the supplied key or signature actually carries.
         actual: String,
     },
-    /// Invalid scheme
+    /// Invalid numeric scheme identifier.
     #[error("Invalid scheme: {0}")]
     InvalidScheme(u8),
-    /// Invalid scheme
+    /// Invalid string scheme identifier.
     #[error("Invalid scheme: {0}")]
     InvalidSchemeStr(String),
-    /// A deprecated scheme, removed for being too weak, was requested (e.g. when
+    /// A deprecated scheme, removed for being too weak, was requested (for example, when
     /// deserializing data produced by an older version of the library).
     #[error(
         "scheme '{scheme}' is deprecated and no longer supported (too weak); use '{replacement}' or a stronger parameter set"
@@ -99,40 +99,40 @@ pub enum Error {
     /// FrodoKEM among them — refuse rather than invent the extra material.
     #[error("deterministic key generation is not supported: {0}")]
     DeterministicKeygenUnsupported(&'static str),
-    /// Invalid seed length
+    /// Invalid seed length.
     #[error("Invalid seed length: got {0}")]
     InvalidSeedLength(usize),
-    /// Invalid length
+    /// Invalid length.
     #[error("Invalid length: {0}")]
     InvalidLength(usize),
-    /// Errors related to ETH-FALCON DSA
+    /// ETHFALCON signature error.
     #[error("An error occurred with eth-falcon: {0}")]
     FnDsaError(String),
-    /// SLIP-10 derivation errors
+    /// SLIP-0010 derivation errors.
     #[cfg(feature = "hhd")]
-    #[error("SLIP-10 error: {0}")]
+    #[error("SLIP-0010 error: {0}")]
     Slip10Error(#[from] crate::hhd::Slip10Error),
-    /// Signature scheme errors
+    /// Signature scheme error.
     #[cfg(feature = "hhd")]
     #[error("Signature scheme error: {0}")]
     SignatureSchemeError(#[from] crate::hhd::SignatureSchemeError),
-    /// Key errors
+    /// Key error.
     #[cfg(feature = "hhd")]
     #[error("Key error: {0}")]
     KeyError(#[from] crate::hhd::KeyError),
-    /// Mnemonic errors
+    /// Mnemonic error.
     #[cfg(feature = "hhd")]
     #[error("Mnemonic error: {0}")]
     MnemonicError(#[from] crate::hhd::MnemonicError),
-    /// BIP-85 errors
+    /// BIP-85 error.
     #[cfg(feature = "hhd")]
-    #[error("BIP-82 error: {0}")]
+    #[error("BIP-85 error: {0}")]
     Bip85Error(#[from] crate::hhd::Bip85Error),
-    /// HD wallet errors
+    /// HD wallet error.
     #[cfg(feature = "hhd")]
     #[error("HD wallet error: {0}")]
     WalletError(#[from] crate::hhd::WalletError),
 }
 
-/// Result type for the library
+/// Result type for the library.
 pub type Result<T> = std::result::Result<T, Error>;

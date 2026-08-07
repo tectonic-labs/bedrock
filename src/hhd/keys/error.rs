@@ -31,7 +31,7 @@ pub enum KeyError {
     InvalidDerivationPath(String),
 
     /// BIP-32 derivation error.
-    #[error("BIP32 error: {0}")]
+    #[error("BIP-32 error: {0}")]
     Bip32(#[from] bip32::Error),
 
     /// SLIP-0010 derivation error.
@@ -58,7 +58,7 @@ pub enum KeyError {
     #[error("Falcon error: {0}")]
     FalconError(String),
 
-    /// Seed length doesn't match expected size.
+    /// Seed length does not match the expected size.
     #[error("Invalid seed length: expected {expected}, got {actual}")]
     InvalidSeedLength {
         /// Expected seed length in bytes.
@@ -67,7 +67,7 @@ pub enum KeyError {
         actual: usize,
     },
 
-    /// Signature scheme not supported for this operation.
+    /// The signature scheme is not supported for this operation.
     #[error("Unsupported signature scheme")]
     UnsupportedScheme,
 }

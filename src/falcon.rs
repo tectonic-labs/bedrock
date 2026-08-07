@@ -1,6 +1,6 @@
-//! Falcon key and signature methods
+//! Falcon key and signature methods.
 //!
-//! Because FIPS-206 (FN-DSA) has not been published, Falcon is not a stable DSA recommended for
+//! Because FIPS 206 (FN-DSA) has not been published, Falcon is not a stable DSA recommended for
 //! production. The signature and key formats here may change once the final standard lands.
 
 use crate::{
@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "eth_falcon")]
 mod eth_falcon;
 
-/// Map a [`FalconScheme`] to the fn-dsa `logn` degree parameter.
+/// Maps a [`FalconScheme`] to the `fn-dsa` `logn` degree parameter.
 fn logn(scheme: FalconScheme) -> u32 {
     match scheme {
         FalconScheme::Dsa512 => 9,
@@ -25,10 +25,9 @@ fn logn(scheme: FalconScheme) -> u32 {
 
 macro_rules! impl_falcon_struct {
     ($name:ident, $validate:ident, $expect:expr) => {
-
         #[derive(Clone, Serialize, Deserialize)]
         #[cfg_attr(test, derive(PartialEq, Eq))]
-        #[doc = concat!("A [`", stringify!($name), "`] for fn-dsa")]
+        #[doc = concat!("A byte-backed [`", stringify!($name), "`] value for FN-DSA.")]
         #[repr(transparent)]
         pub struct $name(pub(crate) InnerFalcon);
 
@@ -54,45 +53,46 @@ macro_rules! impl_falcon_struct {
         }
 
         impl $name {
-            /// The [`FalconScheme`] represented by this struct
+            /// Returns the [`FalconScheme`] represented by this value.
             pub fn scheme(&self) -> FalconScheme {
                 self.0.scheme
             }
 
-            #[doc = concat!("Convert [`", stringify!($name), "`] to its raw byte representation")]
+            #[doc = concat!("Converts [`", stringify!($name), "`] to its raw byte representation.")]
             pub fn to_raw_bytes(&self) -> Vec<u8> {
                 self.0.value.clone()
             }
 
-            #[doc = concat!("Convert [`", stringify!($name), "`] from its raw byte representation and scheme")]
+            #[doc = concat!("Constructs [`", stringify!($name), "`] from raw bytes and a scheme.")]
             pub fn from_raw_bytes(scheme: FalconScheme, bytes: &[u8]) -> Result<Self> {
                 scheme.$validate(bytes)?;
                 Ok(InnerFalcon {
                     scheme,
                     value: bytes.to_vec(),
-                }.into())
+                }
+                .into())
             }
         }
     };
 }
 
 scheme_impl_pure!(
-    /// Falcon schemes
+    /// Falcon schemes.
     FalconScheme,
     #[default]
-    /// DSA-512
+    /// FN-DSA-512.
     Dsa512 => "FN-DSA-512" ; 1 ; 32,
-    /// DSA-1024
+    /// FN-DSA-1024.
     Dsa1024 => "FN-DSA-1024" ; 2 ; 48,
     @cfg(feature = "eth_falcon")
-    /// ETHFALCON
+    /// ETHFALCON.
     Ethereum => "ETHFALCON" ; 3 ; 32,
 );
 
 serde_impl!(FalconScheme);
 
 impl FalconScheme {
-    /// Validate a Falcon signing (secret) key encoding for this scheme (by length).
+    /// Validates a Falcon signing (secret) key encoding for this scheme by length.
     fn validate_signing_key(&self, bytes: &[u8]) -> Result<()> {
         if bytes.len() == fn_dsa_comm::sign_key_size(logn(*self)) {
             Ok(())
@@ -101,7 +101,7 @@ impl FalconScheme {
         }
     }
 
-    /// Validate a Falcon verification (public) key encoding for this scheme (by length).
+    /// Validates a Falcon verification (public) key encoding for this scheme by length.
     fn validate_public_key(&self, bytes: &[u8]) -> Result<()> {
         if bytes.len() == fn_dsa_comm::vrfy_key_size(logn(*self)) {
             Ok(())
@@ -110,7 +110,7 @@ impl FalconScheme {
         }
     }
 
-    /// Validate a Falcon signature length for this scheme.
+    /// Validates a Falcon signature length for this scheme.
     fn validate_signature(&self, bytes: &[u8]) -> Result<()> {
         if bytes.len() == fn_dsa_comm::signature_size(logn(*self)) {
             Ok(())
@@ -120,7 +120,7 @@ impl FalconScheme {
     }
 
     #[cfg(feature = "kgen")]
-    /// Generate a new Falcon signing and verification key pair
+    /// Generates a new Falcon signing and verification keypair.
     pub fn keypair(&self) -> Result<(FalconVerificationKey, FalconSigningKey)> {
         use fn_dsa_kgen::{sign_key_size, vrfy_key_size, KeyPairGenerator};
         let logn = logn(*self);
@@ -132,7 +132,7 @@ impl FalconScheme {
     }
 
     #[cfg(feature = "kgen")]
-    /// Generate a new Falcon signing and verification key pair from a seed
+    /// Generates a new Falcon signing and verification keypair from a seed.
     pub fn keypair_from_seed(
         &self,
         seed: &[u8],
@@ -173,7 +173,7 @@ impl FalconScheme {
     ) -> Result<FalconSignature> {
         // Use the original Falcon hash-to-point (SHAKE256(nonce ‖ message), the NIST round-3
         // convention), which fn-dsa exposes as `HASH_ID_ORIGINAL_FALCON` — NOT `HASH_ID_RAW`.
-        // This is the convention the on-chain CATX precompiles verify against. When FIPS-206
+        // This is the convention the on-chain CATX precompiles verify against. When FIPS 206
         // (FN-DSA) is published this hash-to-point may change and will need to be revisited.
         use fn_dsa_sign::{signature_size, SigningKey, DOMAIN_NONE, HASH_ID_ORIGINAL_FALCON};
         let mut sk = fn_dsa_sign::SigningKeyStandard::decode(signing_key.0.value.as_slice())
@@ -194,7 +194,7 @@ impl FalconScheme {
     }
 
     #[cfg(all(feature = "sign", not(feature = "eth_falcon")))]
-    /// Sign a message with the specified signing key
+    /// Signs a message with the specified signing key.
     pub fn sign(&self, message: &[u8], signing_key: &FalconSigningKey) -> Result<FalconSignature> {
         self.sign_inner(message, signing_key)
     }
@@ -226,7 +226,7 @@ impl FalconScheme {
     }
 
     #[cfg(all(feature = "vrfy", not(feature = "eth_falcon")))]
-    /// Verify a signature
+    /// Verifies a signature.
     pub fn verify(
         &self,
         message: &[u8],
@@ -354,7 +354,7 @@ mod tests {
     // Seeded Falcon keygen is deterministic, but the seed→key derivation is implementation
     // specific and not fixed by a published standard. These vectors are the current outputs.
     // On-chain verification does not depend on seeded-keygen reproducibility — only on the
-    // standard NIST signature/public-key wire format. Once FIPS-206 (FN-DSA) is published the
+    // standard NIST signature/public-key wire format. Once FIPS 206 (FN-DSA) is published, the
     // seed derivation may change and these vectors will need to be regenerated.
     #[cfg(feature = "kgen")]
     #[test]

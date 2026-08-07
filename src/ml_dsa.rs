@@ -1,4 +1,4 @@
-//! ML-DSA key and signature methods
+//! ML-DSA key and signature methods.
 
 #[cfg(feature = "kgen")]
 use crate::os_rng;
@@ -7,10 +7,9 @@ use serde::{Deserialize, Serialize};
 
 macro_rules! impl_ml_dsa_struct {
     ($name:ident, $validate:ident, $expect:expr) => {
-
         #[derive(Clone, Serialize, Deserialize)]
         #[cfg_attr(test, derive(PartialEq, Eq))]
-        #[doc = concat!("A [`", stringify!($name), "`] for ml-dsa")]
+        #[doc = concat!("A byte-backed [`", stringify!($name), "`] value for ML-DSA.")]
         #[repr(transparent)]
         pub struct $name(pub(crate) InnerMlDsa);
 
@@ -36,38 +35,39 @@ macro_rules! impl_ml_dsa_struct {
         }
 
         impl $name {
-            /// The [`MlDsaScheme`] represented by this struct
+            /// Returns the [`MlDsaScheme`] represented by this value.
             pub fn scheme(&self) -> MlDsaScheme {
                 self.0.scheme
             }
 
-            #[doc = concat!("Convert [`", stringify!($name), "`] to its raw byte representation")]
+            #[doc = concat!("Converts [`", stringify!($name), "`] to its raw byte representation.")]
             pub fn to_raw_bytes(&self) -> Vec<u8> {
                 self.0.value.clone()
             }
 
-            #[doc = concat!("Convert [`", stringify!($name), "`] from its raw byte representation and scheme")]
+            #[doc = concat!("Constructs [`", stringify!($name), "`] from raw bytes and a scheme.")]
             pub fn from_raw_bytes(scheme: MlDsaScheme, bytes: &[u8]) -> Result<Self> {
                 scheme.$validate(bytes)?;
                 Ok(InnerMlDsa {
                     scheme,
                     value: bytes.to_vec(),
-                }.into())
+                }
+                .into())
             }
         }
     };
 }
 
 scheme_impl_pure!(
-    /// ML-DSA schemes
+    /// ML-DSA schemes.
     MlDsaScheme,
-    /// ML-DSA 44 (NIST Level 2)
+    /// ML-DSA-44 (NIST Level 2).
     #[deprecated(since = "0.3.0", note = "use ML-DSA-65 or a stronger parameter set")]
     Dsa44 => "ML-DSA-44" ; 1 ; 32,
     #[default]
-    /// ML-DSA 65 (NIST Level 3)
+    /// ML-DSA-65 (NIST Level 3).
     Dsa65 => "ML-DSA-65" ; 2 ; 32,
-    /// ML-DSA 87 (NIST Level 5)
+    /// ML-DSA-87 (NIST Level 5).
     Dsa87 => "ML-DSA-87" ; 3 ; 32,
 );
 
@@ -94,7 +94,7 @@ macro_rules! with_ml_dsa_params {
 }
 
 impl MlDsaScheme {
-    /// Validate a verification (public) key encoding for this scheme.
+    /// Validates a verification (public) key encoding for this scheme.
     fn validate_public_key(&self, bytes: &[u8]) -> Result<()> {
         with_ml_dsa_params!(self, |P| {
             use ml_dsa::EncodedVerifyingKey;
@@ -104,7 +104,7 @@ impl MlDsaScheme {
         })
     }
 
-    /// Validate a signing (secret) key encoding for this scheme (expanded FIPS-204 form).
+    /// Validates a signing (secret) key encoding for this scheme (expanded FIPS 204 form).
     fn validate_signing_key(&self, bytes: &[u8]) -> Result<()> {
         with_ml_dsa_params!(self, |P| {
             use ml_dsa::ExpandedSigningKeyBytes;
@@ -114,7 +114,7 @@ impl MlDsaScheme {
         })
     }
 
-    /// Validate a signature encoding for this scheme.
+    /// Validates a signature encoding for this scheme.
     fn validate_signature(&self, bytes: &[u8]) -> Result<()> {
         with_ml_dsa_params!(self, |P| {
             ml_dsa::Signature::<P>::try_from(bytes)
@@ -124,8 +124,8 @@ impl MlDsaScheme {
     }
 
     #[cfg(feature = "kgen")]
-    /// Generate a new ML-DSA verification and signing key pair.
-    // `to_expanded` is deprecated upstream in favour of the seed form, but the wire format is the
+    /// Generates a new ML-DSA verification and signing keypair.
+    // `to_expanded` is deprecated upstream in favor of the seed form, but the wire format is the
     // expanded key, so we keep using it.
     #[allow(deprecated)]
     pub fn keypair(&self) -> Result<(MlDsaVerificationKey, MlDsaSigningKey)> {
@@ -141,7 +141,7 @@ impl MlDsaScheme {
     }
 
     #[cfg(feature = "kgen")]
-    /// Generate a new ML-DSA verification and signing key pair from a 32-byte seed (FIPS-204 ξ).
+    /// Generates a new ML-DSA verification and signing keypair from a 32-byte seed (FIPS 204 ξ).
     #[allow(deprecated)]
     pub fn keypair_from_seed(
         &self,
@@ -162,7 +162,7 @@ impl MlDsaScheme {
     }
 
     #[cfg(feature = "kgen")]
-    /// Pack raw verification/signing key bytes into bedrock's byte-backed key types.
+    /// Packs raw verification and signing key bytes into Bedrock's byte-backed key types.
     fn pack_keypair(&self, vk: Vec<u8>, sk: Vec<u8>) -> (MlDsaVerificationKey, MlDsaSigningKey) {
         (
             InnerMlDsa {
@@ -179,7 +179,7 @@ impl MlDsaScheme {
     }
 
     #[cfg(feature = "sign")]
-    /// Sign a message with the specified signing key (deterministic, empty context).
+    /// Signs a message with the specified signing key (deterministic, empty context).
     #[allow(deprecated)]
     pub fn sign(&self, message: &[u8], signing_key: &MlDsaSigningKey) -> Result<MlDsaSignature> {
         use ml_dsa::{ExpandedSigningKey, ExpandedSigningKeyBytes};
@@ -199,7 +199,7 @@ impl MlDsaScheme {
     }
 
     #[cfg(feature = "vrfy")]
-    /// Verify a signature.
+    /// Verifies a signature.
     pub fn verify(
         &self,
         message: &[u8],
