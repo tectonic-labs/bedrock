@@ -264,6 +264,9 @@ macro_rules! frodo_schemes {
 #[cfg(feature = "sntrup")]
 macro_rules! with_sntrup_params {
     ($scheme:expr, |$P:ident| $body:block) => {{
+        // Call sites normally narrow the value with `sntrup_schemes!()` first,
+        // but keep the fallback so the dispatcher also fails safely on its own.
+        #[allow(unreachable_patterns)]
         match $scheme {
             KemScheme::Sntrup653 => {
                 type $P = sntrup::Sntrup653Params;

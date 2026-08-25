@@ -145,6 +145,22 @@ XMSS provides hash-based signatures under **RFC 8391** and **SP 800-208** throug
 `xmss` feature. It supports twelve parameter sets: SHA-2 and SHAKE256, each at tree heights
 10, 16, and 20 and with 256- or 512-bit output.
 
+The optional `xmss-extra-depths` feature adds all 147 non-standard single-tree parameter
+sets from `pq-xmss`: seven hash/output families at heights 1–9, 11–15, 17–19, and 21–24.
+For example, construct a height-4 SHA-256 scheme with:
+
+```rust
+let scheme = XmssScheme::extra_depth(
+    XmssExtraDepthFamily::Sha2_256,
+    XmssExtraDepth::H4,
+);
+```
+
+These keys use `pq-xmss`'s private-use OIDs and therefore interoperate only with
+implementations that use the same extra-depth encoding. Tree generation and compact-key
+decoding grow exponentially with the height; choose the smallest tree that supplies the
+required capacity.
+
 **XMSS is stateful.** Every signature consumes one one-time-signature leaf, and releasing
 two signatures under the same leaf index reveals the secret key. Because Bedrock performs
 no I/O, state persistence is the caller's responsibility: implement the `XmssStateStore`
@@ -514,6 +530,7 @@ Control which algorithms and operations are enabled:
 - `hqc` - Enable HQC key encapsulation and, with `hhd`, HQC HD derivation
 - `sntrup` - Enable Streamlined NTRU Prime key encapsulation
 - `xmss` - Enable XMSS stateful signatures
+- `xmss-extra-depths` - Enable all 147 non-standard `pq-xmss` tree-depth parameter sets
 - `bird-of-prey` - Enable Bird-of-Prey-2 hybrid signatures
 - `xwing` - Enable X-Wing hybrid KEM (requires `ml-kem` or `mceliece`)
 - `hhd` - Enable hierarchical deterministic wallet support (default)

@@ -13,7 +13,7 @@ use crate::hhd::signatures::SignatureScheme;
 use crate::{hhd::kems, kem::KemScheme};
 use bip32::DerivationPath;
 use bip32::{ChildNumber, ExtendedKeyAttrs, KeyFingerprint, PrivateKey, PublicKey};
-use hmac::{digest::crypto_common::InvalidLength, Hmac, Mac};
+use hmac::{digest::InvalidLength, Hmac, KeyInit, Mac};
 use sha2::Sha512;
 use zeroize::Zeroize;
 type HmacSha512 = Hmac<Sha512>;

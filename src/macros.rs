@@ -79,6 +79,7 @@ macro_rules! scheme_impl_pure {
 
 /// Shared (algorithm-agnostic) impls for a scheme enum: `u8` conversions, `TryFrom<u8>`,
 /// `Display`, `FromStr`, and `seed_size`.
+#[allow(unused_macros)]
 macro_rules! scheme_common_impl {
     (
         $name:ident,

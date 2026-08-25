@@ -5,10 +5,46 @@ use fn_dsa::{
     VerifyingKeyStandard, DOMAIN_NONE, FN_DSA_LOGN_512, HASH_ID_RAW,
 };
 #[cfg(feature = "falcon")]
-use fn_dsa_comm::signature_size;
-use rand::SeedableRng;
+use fn_dsa_comm::{signature_size, CryptoRng, RngCore, RngError};
+#[cfg(feature = "falcon")]
+use rand::{Rng as Rng10, SeedableRng};
 #[cfg(feature = "falcon")]
 use tectonic_bedrock::falcon::{FalconScheme, FalconSigningKey, FalconVerificationKey};
+
+/// Adapts the Rand 0.10 ChaCha implementation to FN-DSA 0.3's rand_core 0.6
+/// trait boundary without retaining rand_chacha 0.3 as a direct dependency.
+#[cfg(feature = "falcon")]
+struct FnDsaRng(rand_chacha::ChaCha8Rng);
+
+#[cfg(feature = "falcon")]
+impl FnDsaRng {
+    fn from_seed(seed: [u8; 32]) -> Self {
+        Self(rand_chacha::ChaCha8Rng::from_seed(seed))
+    }
+}
+
+#[cfg(feature = "falcon")]
+impl RngCore for FnDsaRng {
+    fn next_u32(&mut self) -> u32 {
+        Rng10::next_u32(&mut self.0)
+    }
+
+    fn next_u64(&mut self) -> u64 {
+        Rng10::next_u64(&mut self.0)
+    }
+
+    fn fill_bytes(&mut self, dest: &mut [u8]) {
+        Rng10::fill_bytes(&mut self.0, dest);
+    }
+
+    fn try_fill_bytes(&mut self, dest: &mut [u8]) -> Result<(), RngError> {
+        self.fill_bytes(dest);
+        Ok(())
+    }
+}
+
+#[cfg(feature = "falcon")]
+impl CryptoRng for FnDsaRng {}
 
 #[cfg(all(feature = "eth_falcon", feature = "sign", feature = "vrfy"))]
 #[test]
@@ -39,7 +75,7 @@ fn fn_dsa_to_bedrock_compatibility_512() {
     const SEED: [u8; 32] = [3u8; 32];
     const FALCON_SCHEME: FalconScheme = FalconScheme::Dsa512;
 
-    let mut rng = rand_chacha::ChaCha8Rng::from_seed(SEED);
+    let mut rng = FnDsaRng::from_seed(SEED);
     let mut kg = KeyPairGeneratorStandard::default();
     let mut sk = [0u8; fn_dsa::sign_key_size(FN_DSA_LOGN_512)];
     let mut pk = [0u8; fn_dsa::vrfy_key_size(FN_DSA_LOGN_512)];
@@ -72,7 +108,7 @@ fn bedrock_to_fn_dsa_compatibility_512() {
     let mut fn_sk = res.unwrap();
     let mut signature = [0u8; signature_size(FN_DSA_LOGN_512)];
 
-    let mut rng = rand_chacha::ChaCha8Rng::from_seed([3u8; 32]);
+    let mut rng = FnDsaRng::from_seed([3u8; 32]);
     fn_sk.sign(&mut rng, &DOMAIN_NONE, &HASH_ID_RAW, MSG, &mut signature);
 
     let res = VerifyingKeyStandard::decode(pk.as_ref());

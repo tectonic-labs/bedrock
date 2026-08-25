@@ -5,6 +5,25 @@ All notable changes to this crate will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.5.0 - 2026-08-25
+
+### Added
+
+- Added the optional `xmss-extra-depths` feature, exposing all 147 non-standard
+  `pq-xmss` parameter sets across seven hash/output families and tree heights 1–9,
+  11–15, 17–19, and 21–24. Existing XMSS wire discriminants 1–12 remain unchanged;
+  extra-depth schemes occupy 13–159 and retain `pq-xmss`'s private-use key OIDs.
+
+### Changed
+
+- Replaced the `xmss` backend with `pq-xmss` for faster XMSS operations and lower
+  memory usage while preserving Bedrock's existing XMSS API and wire formats.
+- Updated `sntrup` to 0.4.0 for its SIMD-backed performance improvements and
+  zeroization of secret temporaries; this raises the effective MSRV to Rust 1.95.
+- Migrated the Rand/ChaCha stack to 0.10, HMAC/SHA-2/SHA-3/SHAKE to their Digest 0.11
+  releases, and Curve25519/X25519 Dalek to 5.0/3.0. FN-DSA's `rand_core` 0.6
+  compatibility boundary remains until its public RNG traits migrate.
+
 ## v0.4.0 - 2026-08-07
 
 ### Added
