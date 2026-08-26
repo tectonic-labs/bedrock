@@ -6,7 +6,7 @@
 // crate's own test modules do with `#[allow(clippy::unwrap_used)]`.
 #![allow(clippy::unwrap_used)]
 use criterion::{
-    criterion_group, criterion_main, measurement::Measurement, BenchmarkGroup, Criterion,
+    BenchmarkGroup, Criterion, criterion_group, criterion_main, measurement::Measurement,
 };
 
 use tectonic_bedrock::xwing::*;

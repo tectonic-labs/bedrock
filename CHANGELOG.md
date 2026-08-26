@@ -5,6 +5,35 @@ All notable changes to this crate will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.5.0 - 2026-08-25
+
+### Added
+
+- Added the nine standardized XMSS parameter sets that Bedrock did not previously
+  expose, using `pq-xmss` 0.2.0 to bring standard single-tree coverage to all 21
+  combinations.
+- Added the optional `xmss-extra-depths` feature, exposing all 147 non-standard
+  `pq-xmss` parameter sets across seven hash/output families and tree heights 1–9,
+  11–15, 17–19, and 21–24. Existing XMSS wire discriminants 1–12 remain unchanged,
+  the additional standard schemes use 13–21, and extra-depth schemes use a stable
+  24-slot-per-family layout from 22–189 with standard-depth slots reserved. Extra-depth
+  keys retain `pq-xmss`'s private-use OIDs.
+
+### Changed
+
+- Migrated the crate to the Rust 2024 edition while retaining Rust 1.95 as the MSRV.
+- Replaced the `xmss` backend with `pq-xmss` 0.2.0 for faster XMSS operations and
+  lower memory usage while preserving existing XMSS scheme names and wire discriminants.
+- Marked `XmssScheme` as non-exhaustive so optional or future parameter-set additions
+  do not break downstream exhaustive matches.
+- Updated `sntrup` to 0.4.0 for its SIMD-backed performance improvements and
+  zeroization of secret temporaries; this raises the effective MSRV to Rust 1.95.
+- Updated `rand` and `rand_chacha` to 0.10; moved the hash and MAC stack to
+  Digest 0.11-compatible releases (`hmac` 0.13, `sha2` 0.11, `sha3` 0.12, and
+  `shake` 0.1); and updated `curve25519-dalek` to 5.0 and `x25519-dalek` to 3.0.
+  FN-DSA's `rand_core` 0.6 compatibility boundary remains until its public RNG
+  traits migrate; newer backends use `rand_core` 0.10.
+
 ## v0.4.0 - 2026-08-07
 
 ### Added

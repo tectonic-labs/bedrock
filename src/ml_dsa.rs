@@ -129,7 +129,7 @@ impl MlDsaScheme {
     // expanded key, so we keep using it.
     #[allow(deprecated)]
     pub fn keypair(&self) -> Result<(MlDsaVerificationKey, MlDsaSigningKey)> {
-        use ml_dsa::{signature::Keypair, KeyGen};
+        use ml_dsa::{KeyGen, signature::Keypair};
         with_ml_dsa_params!(self, |P| {
             let mut rng = os_rng();
             let sk = P::key_gen(&mut rng);
@@ -150,7 +150,7 @@ impl MlDsaScheme {
         if seed.len() != self.seed_size() {
             return Err(Error::InvalidSeedLength(seed.len()));
         }
-        use ml_dsa::{signature::Keypair, KeyGen, B32};
+        use ml_dsa::{B32, KeyGen, signature::Keypair};
         with_ml_dsa_params!(self, |P| {
             let xi = B32::try_from(seed).map_err(|_| Error::InvalidSeedLength(seed.len()))?;
             let sk = P::from_seed(&xi);

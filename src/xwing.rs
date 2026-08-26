@@ -5,13 +5,14 @@
 //! key. It is a general-purpose hybrid post-quantum KEM that combines X25519 with ML-KEM
 //! or Classic McEliece.
 
-use crate::{deserialize_hex_or_bin, error::*, kem::*, serialize_hex_or_bin};
-use rand_core::RngCore;
+use crate::{deserialize_hex_or_bin, error::*, kem::*, os_rng, serialize_hex_or_bin};
+use rand_core_010::Rng;
 use serde::{Deserialize, Serialize};
 use sha3::{
+    Digest, Sha3_256,
     digest::{ExtendableOutput, XofReader},
-    Digest, Sha3_256, Shake256,
 };
+use shake::Shake256;
 use std::{
     fmt::{self, Display, Formatter},
     str::FromStr,
@@ -159,13 +160,13 @@ impl XwingScheme {
             #[cfg(feature = "ml-kem")]
             XwingScheme::X25519MlKem768 | XwingScheme::X25519MlKem1024 => {
                 let mut seed = [0u8; 32];
-                rand_core::OsRng.fill_bytes(&mut seed);
+                os_rng().fill_bytes(&mut seed);
                 seed.to_vec()
             }
             #[cfg(feature = "mceliece")]
             XwingScheme::X25519McEliece348864 => {
                 let mut seed = [0u8; 32];
-                rand_core::OsRng.fill_bytes(&mut seed);
+                os_rng().fill_bytes(&mut seed);
                 seed.to_vec()
             }
         };

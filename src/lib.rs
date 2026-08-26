@@ -84,3 +84,48 @@ where
 {
     serdect::slice::deserialize_hex_or_bin_vec(d)
 }
+
+#[cfg(all(
+    test,
+    any(
+        feature = "frodo",
+        feature = "hqc",
+        feature = "mceliece",
+        feature = "ml-kem",
+        feature = "sntrup",
+        feature = "xmss"
+    )
+))]
+#[allow(clippy::unwrap_used)]
+mod test_utils {
+    /// Round-trips a value through every serialization format required by the
+    /// project: Postcard, CBOR, JSON, TOML, and YAML.
+    pub(crate) fn round_trip_all_formats<T>(value: &T)
+    where
+        T: serde::Serialize + serde::de::DeserializeOwned + PartialEq + std::fmt::Debug,
+    {
+        let bytes = postcard::to_stdvec(value).unwrap();
+        assert_eq!(
+            value,
+            &postcard::from_bytes::<T>(&bytes).unwrap(),
+            "postcard"
+        );
+
+        let mut cbor = Vec::new();
+        ciborium::into_writer(value, &mut cbor).unwrap();
+        assert_eq!(
+            value,
+            &ciborium::from_reader::<T, _>(cbor.as_slice()).unwrap(),
+            "cbor"
+        );
+
+        let json = serde_json::to_string(value).unwrap();
+        assert_eq!(value, &serde_json::from_str::<T>(&json).unwrap(), "json");
+
+        let toml_text = toml::to_string(value).unwrap();
+        assert_eq!(value, &toml::from_str::<T>(&toml_text).unwrap(), "toml");
+
+        let yaml = yaml_serde::to_string(value).unwrap();
+        assert_eq!(value, &yaml_serde::from_str::<T>(&yaml).unwrap(), "yaml");
+    }
+}

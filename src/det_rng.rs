@@ -10,7 +10,7 @@
 //! the stream is unbounded.
 
 use crate::error::{Error, Result};
-use hmac::{Hmac, Mac};
+use hmac::{Hmac, KeyInit, Mac};
 use rand_core::{CryptoRng, Error as RandError, RngCore};
 use sha2::Sha512;
 use zeroize::Zeroize;

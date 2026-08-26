@@ -49,7 +49,7 @@ use crate::{
     kem::KemScheme,
 };
 use bip32::{DerivationPath, Seed, XPrv};
-use hmac::{Hmac, Mac};
+use hmac::{Hmac, KeyInit, Mac};
 use sha2::Sha512;
 use zeroize::Zeroize;
 

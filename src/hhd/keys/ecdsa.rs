@@ -20,8 +20,8 @@
 
 use crate::hhd::keys::KeyError;
 use crate::hhd::signatures::SignatureScheme;
-use bip32::secp256k1::ecdsa::{SigningKey, VerifyingKey};
 use bip32::XPrv;
+use bip32::secp256k1::ecdsa::{SigningKey, VerifyingKey};
 use zeroize::Zeroize;
 
 /// ECDSA secp256k1 keypair derivation.
@@ -85,8 +85,8 @@ impl EcdsaSecp256k1 {
 mod tests {
     use super::EcdsaSecp256k1;
     use bip32::secp256k1::ecdsa::{
-        signature::{Signer, Verifier},
         Signature,
+        signature::{Signer, Verifier},
     };
 
     /// Test seed for ECDSA keypair derivation tests.

@@ -1,7 +1,7 @@
 #![allow(missing_docs)]
 
 use falcon_rust::falcon512;
-use rand::{Rng, SeedableRng};
+use rand::{RngExt, SeedableRng};
 
 #[cfg(all(feature = "falcon", feature = "sign", feature = "vrfy"))]
 #[ignore]
@@ -14,7 +14,7 @@ fn falcon_rust_to_bedrock_512_compatibility() {
     const SEED: [u8; 32] = [3u8; 32];
 
     let mut rng = rand_chacha::ChaCha8Rng::from_seed(SEED);
-    let (sk, pk) = falcon512::keygen(rng.r#gen());
+    let (sk, pk) = falcon512::keygen(rng.random());
     let sig = falcon512::sign(MSG, &sk);
 
     let res =
