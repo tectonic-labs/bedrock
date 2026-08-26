@@ -34,8 +34,8 @@
 
 use crate::hhd::keys::KeyError;
 use crate::hhd::signatures::{
-    SignatureScheme, MAYO_1_KEY_GENERATION_SEED_SIZE, MAYO_2_KEY_GENERATION_SEED_SIZE,
-    MAYO_3_KEY_GENERATION_SEED_SIZE,
+    MAYO_1_KEY_GENERATION_SEED_SIZE, MAYO_2_KEY_GENERATION_SEED_SIZE,
+    MAYO_3_KEY_GENERATION_SEED_SIZE, SignatureScheme,
 };
 use crate::hhd::slip10::{Slip10, Slip10XPrvKey};
 use crate::mayo::{MayoScheme, MayoSigningKey, MayoVerificationKey};

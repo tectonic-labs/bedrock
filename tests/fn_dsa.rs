@@ -1,11 +1,11 @@
 #![allow(missing_docs)]
 
 use fn_dsa::{
-    KeyPairGenerator, KeyPairGeneratorStandard, SigningKey, SigningKeyStandard, VerifyingKey,
-    VerifyingKeyStandard, DOMAIN_NONE, FN_DSA_LOGN_512, HASH_ID_RAW,
+    DOMAIN_NONE, FN_DSA_LOGN_512, HASH_ID_RAW, KeyPairGenerator, KeyPairGeneratorStandard,
+    SigningKey, SigningKeyStandard, VerifyingKey, VerifyingKeyStandard,
 };
 #[cfg(feature = "falcon")]
-use fn_dsa_comm::{signature_size, CryptoRng, RngCore, RngError};
+use fn_dsa_comm::{CryptoRng, RngCore, RngError, signature_size};
 #[cfg(feature = "falcon")]
 use rand::{Rng as Rng10, SeedableRng};
 #[cfg(feature = "falcon")]

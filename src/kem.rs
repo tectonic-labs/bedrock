@@ -264,9 +264,6 @@ macro_rules! frodo_schemes {
 #[cfg(feature = "sntrup")]
 macro_rules! with_sntrup_params {
     ($scheme:expr, |$P:ident| $body:block) => {{
-        // Call sites normally narrow the value with `sntrup_schemes!()` first,
-        // but keep the fallback so the dispatcher also fails safely on its own.
-        #[allow(unreachable_patterns)]
         match $scheme {
             KemScheme::Sntrup653 => {
                 type $P = sntrup::Sntrup653Params;
@@ -292,6 +289,12 @@ macro_rules! with_sntrup_params {
                 type $P = sntrup::Sntrup1277Params;
                 $body
             }
+            #[cfg(any(
+                feature = "frodo",
+                feature = "hqc",
+                feature = "mceliece",
+                feature = "ml-kem"
+            ))]
             _ => {
                 return Err(Error::SchemeDispatch(
                     "non-sntrup scheme reached the sntrup dispatcher",
@@ -962,43 +965,8 @@ impl zeroize::Zeroize for InnerKem {
 #[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
+    use crate::test_utils::round_trip_all_formats;
     use rstest::*;
-
-    /// Round-trip a value through every serialization format the project mandates:
-    /// postcard, CBOR, JSON, TOML and YAML.
-    ///
-    /// The binary formats (postcard, CBOR) and the human-readable ones (JSON, TOML,
-    /// YAML) take different paths through `serdect`, which encodes byte strings as hex
-    /// for human-readable formats and as raw bytes otherwise. Exercising both sides is
-    /// the point: a change that breaks only the hex path would pass a postcard-only test.
-    fn round_trip_all_formats<T>(value: &T)
-    where
-        T: serde::Serialize + serde::de::DeserializeOwned + PartialEq + std::fmt::Debug,
-    {
-        let bytes = postcard::to_stdvec(value).unwrap();
-        assert_eq!(
-            value,
-            &postcard::from_bytes::<T>(&bytes).unwrap(),
-            "postcard"
-        );
-
-        let mut cbor = Vec::new();
-        ciborium::into_writer(value, &mut cbor).unwrap();
-        assert_eq!(
-            value,
-            &ciborium::from_reader::<T, _>(cbor.as_slice()).unwrap(),
-            "cbor"
-        );
-
-        let json = serde_json::to_string(value).unwrap();
-        assert_eq!(value, &serde_json::from_str::<T>(&json).unwrap(), "json");
-
-        let toml_text = toml::to_string(value).unwrap();
-        assert_eq!(value, &toml::from_str::<T>(&toml_text).unwrap(), "toml");
-
-        let yaml = yaml_serde::to_string(value).unwrap();
-        assert_eq!(value, &yaml_serde::from_str::<T>(&yaml).unwrap(), "yaml");
-    }
 
     /// A named field gives self-describing formats such as TOML a document-shaped root.
     #[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]

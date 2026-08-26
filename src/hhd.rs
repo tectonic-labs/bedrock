@@ -194,11 +194,11 @@ use crate::mayo::{MayoSigningKey, MayoVerificationKey};
 #[cfg(feature = "ml-dsa")]
 use crate::ml_dsa::{MlDsaSigningKey, MlDsaVerificationKey};
 use bip32::secp256k1::ecdsa::{SigningKey, VerifyingKey};
-#[cfg(feature = "hqc")]
-use keys::derive_hqc_keypair as derive_hqc_keypair_from_seed;
 use keys::EcdsaSecp256k1;
 #[cfg(feature = "falcon")]
 use keys::FnDsa512;
+#[cfg(feature = "hqc")]
+use keys::derive_hqc_keypair as derive_hqc_keypair_from_seed;
 #[cfg(feature = "mayo")]
 use keys::{Mayo1, Mayo2, Mayo3};
 #[cfg(feature = "ml-dsa")]
@@ -1057,8 +1057,8 @@ mod tests {
     #[cfg(feature = "ml-dsa")]
     use crate::ml_dsa::MlDsaScheme;
     use bip32::secp256k1::ecdsa::{
-        signature::{Signer, Verifier},
         Signature,
+        signature::{Signer, Verifier},
     };
     use rstest::rstest;
 

@@ -40,7 +40,18 @@ macro_rules! serde_impl {
 /// `FromStr`, which return [`Error::DeprecatedScheme`] so data produced by an older
 /// version of the library fails with a clear, actionable migration error instead of a
 /// generic "invalid scheme".
-#[allow(unused_macros)]
+#[cfg(any(
+    feature = "bird-of-prey",
+    feature = "falcon",
+    feature = "frodo",
+    feature = "hqc",
+    feature = "mayo",
+    feature = "mceliece",
+    feature = "ml-dsa",
+    feature = "ml-kem",
+    feature = "slh-dsa",
+    feature = "sntrup"
+))]
 macro_rules! scheme_impl_pure {
     (
         $(#[$meta:meta])*
@@ -79,7 +90,18 @@ macro_rules! scheme_impl_pure {
 
 /// Shared (algorithm-agnostic) impls for a scheme enum: `u8` conversions, `TryFrom<u8>`,
 /// `Display`, `FromStr`, and `seed_size`.
-#[allow(unused_macros)]
+#[cfg(any(
+    feature = "bird-of-prey",
+    feature = "falcon",
+    feature = "frodo",
+    feature = "hqc",
+    feature = "mayo",
+    feature = "mceliece",
+    feature = "ml-dsa",
+    feature = "ml-kem",
+    feature = "slh-dsa",
+    feature = "sntrup"
+))]
 macro_rules! scheme_common_impl {
     (
         $name:ident,

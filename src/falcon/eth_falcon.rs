@@ -79,8 +79,9 @@ impl FalconScheme {
         match self {
             Self::Ethereum => {
                 use fn_dsa_sign::{
-                    eth_falcon::{generate_salt, EthFalconSigningKey},
-                    signature_size, SigningKey, SigningKeyStandard, FN_DSA_LOGN_512,
+                    FN_DSA_LOGN_512, SigningKey, SigningKeyStandard,
+                    eth_falcon::{EthFalconSigningKey, generate_salt},
+                    signature_size,
                 };
 
                 let mut sk = SigningKeyStandard::decode(signing_key.0.value.as_ref())
@@ -108,7 +109,7 @@ impl FalconScheme {
     ) -> Result<()> {
         match self {
             Self::Ethereum => {
-                use fn_dsa_comm::eth_falcon::{decode_signature_to_packed, SALT_LEN};
+                use fn_dsa_comm::eth_falcon::{SALT_LEN, decode_signature_to_packed};
                 use fn_dsa_vrfy::eth_falcon::EthFalconVerifyingKey as Efvk;
 
                 let pk = EthFalconVerifyingKey::try_from(verification_key)?;

@@ -142,8 +142,8 @@ which is zero for these schemes and would otherwise be ambiguous.
 ### XMSS (Stateful Hash-Based Signatures)
 
 XMSS provides hash-based signatures under **RFC 8391** and **SP 800-208** through the
-`xmss` feature. It supports twelve parameter sets: SHA-2 and SHAKE256, each at tree heights
-10, 16, and 20 and with 256- or 512-bit output.
+`xmss` feature. It supports all 21 standardized single-tree parameter sets across seven
+hash/output families, each at tree heights 10, 16, and 20.
 
 The optional `xmss-extra-depths` feature adds all 147 non-standard single-tree parameter
 sets from `pq-xmss`: seven hash/output families at heights 1–9, 11–15, 17–19, and 21–24.

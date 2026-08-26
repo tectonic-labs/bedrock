@@ -9,8 +9,8 @@ use crate::{deserialize_hex_or_bin, error::*, kem::*, os_rng, serialize_hex_or_b
 use rand_core_010::Rng;
 use serde::{Deserialize, Serialize};
 use sha3::{
-    digest::{ExtendableOutput, XofReader},
     Digest, Sha3_256,
+    digest::{ExtendableOutput, XofReader},
 };
 use shake::Shake256;
 use std::{

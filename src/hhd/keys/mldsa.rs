@@ -20,8 +20,8 @@
 
 use crate::hhd::keys::KeyError;
 use crate::hhd::signatures::{
-    SignatureScheme, ML_DSA_44_KEY_GENERATION_SEED_SIZE, ML_DSA_65_KEY_GENERATION_SEED_SIZE,
-    ML_DSA_87_KEY_GENERATION_SEED_SIZE,
+    ML_DSA_44_KEY_GENERATION_SEED_SIZE, ML_DSA_65_KEY_GENERATION_SEED_SIZE,
+    ML_DSA_87_KEY_GENERATION_SEED_SIZE, SignatureScheme,
 };
 use crate::hhd::slip10::{Slip10, Slip10XPrvKey};
 use crate::ml_dsa::{MlDsaScheme, MlDsaSigningKey, MlDsaVerificationKey};

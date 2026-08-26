@@ -25,10 +25,10 @@ use crate::det_rng::DetRng;
 use crate::error::{Error, Result};
 use crate::ml_dsa::{MlDsaScheme, MlDsaSignature, MlDsaSigningKey, MlDsaVerificationKey};
 use crate::{deserialize_hex_or_bin, os_rng, serialize_hex_or_bin};
+use curve25519_dalek::EdwardsPoint;
 use curve25519_dalek::edwards::CompressedEdwardsY;
 use curve25519_dalek::scalar::Scalar;
-use curve25519_dalek::EdwardsPoint;
-use fn_dsa_comm::{sign_key_size, signature_size, vrfy_key_size, DOMAIN_NONE, HASH_ID_RAW};
+use fn_dsa_comm::{DOMAIN_NONE, HASH_ID_RAW, sign_key_size, signature_size, vrfy_key_size};
 #[cfg(feature = "kgen")]
 use fn_dsa_kgen::{KeyPairGenerator, KeyPairGeneratorStandard};
 #[cfg(feature = "sign")]

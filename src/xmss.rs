@@ -72,96 +72,32 @@ where
 
 /// Tree height metadata for XMSS parameter sets.
 ///
-/// The upstream `pq-xmss` standard parameter markers keep their tree height
-/// crate-private, but Bedrock must expose signing capacity because every leaf
-/// may be used only once or the secret key is revealed.
+/// Bedrock exposes signing capacity because every leaf may be used only once
+/// or the secret key is revealed.
 trait XmssTreeHeight: pq_xmss::XmssParameter {
     /// Full Merkle tree height `h`.
     const FULL_HEIGHT: u32;
 }
 
-impl XmssTreeHeight for pq_xmss::XmssSha2_10_256 {
-    const FULL_HEIGHT: u32 = 10;
+macro_rules! impl_xmss_tree_height {
+    ($($family:ident),+ $(,)?) => {
+        $(
+            impl<D: pq_xmss::XmssTreeDepth> XmssTreeHeight for pq_xmss::$family<D> {
+                const FULL_HEIGHT: u32 = D::HEIGHT;
+            }
+        )+
+    };
 }
 
-impl XmssTreeHeight for pq_xmss::XmssSha2_16_256 {
-    const FULL_HEIGHT: u32 = 16;
-}
-
-impl XmssTreeHeight for pq_xmss::XmssSha2_20_256 {
-    const FULL_HEIGHT: u32 = 20;
-}
-
-impl XmssTreeHeight for pq_xmss::XmssSha2_10_512 {
-    const FULL_HEIGHT: u32 = 10;
-}
-
-impl XmssTreeHeight for pq_xmss::XmssSha2_16_512 {
-    const FULL_HEIGHT: u32 = 16;
-}
-
-impl XmssTreeHeight for pq_xmss::XmssSha2_20_512 {
-    const FULL_HEIGHT: u32 = 20;
-}
-
-impl XmssTreeHeight for pq_xmss::XmssShake256_10_256 {
-    const FULL_HEIGHT: u32 = 10;
-}
-
-impl XmssTreeHeight for pq_xmss::XmssShake256_16_256 {
-    const FULL_HEIGHT: u32 = 16;
-}
-
-impl XmssTreeHeight for pq_xmss::XmssShake256_20_256 {
-    const FULL_HEIGHT: u32 = 20;
-}
-
-impl XmssTreeHeight for pq_xmss::XmssShake_10_512 {
-    const FULL_HEIGHT: u32 = 10;
-}
-
-impl XmssTreeHeight for pq_xmss::XmssShake_16_512 {
-    const FULL_HEIGHT: u32 = 16;
-}
-
-impl XmssTreeHeight for pq_xmss::XmssShake_20_512 {
-    const FULL_HEIGHT: u32 = 20;
-}
-
-#[cfg(feature = "xmss-extra-depths")]
-impl<D: pq_xmss::XmssTreeDepth> XmssTreeHeight for pq_xmss::XmssSha2_256<D> {
-    const FULL_HEIGHT: u32 = D::HEIGHT;
-}
-
-#[cfg(feature = "xmss-extra-depths")]
-impl<D: pq_xmss::XmssTreeDepth> XmssTreeHeight for pq_xmss::XmssSha2_512<D> {
-    const FULL_HEIGHT: u32 = D::HEIGHT;
-}
-
-#[cfg(feature = "xmss-extra-depths")]
-impl<D: pq_xmss::XmssTreeDepth> XmssTreeHeight for pq_xmss::XmssShake_256<D> {
-    const FULL_HEIGHT: u32 = D::HEIGHT;
-}
-
-#[cfg(feature = "xmss-extra-depths")]
-impl<D: pq_xmss::XmssTreeDepth> XmssTreeHeight for pq_xmss::XmssShake_512<D> {
-    const FULL_HEIGHT: u32 = D::HEIGHT;
-}
-
-#[cfg(feature = "xmss-extra-depths")]
-impl<D: pq_xmss::XmssTreeDepth> XmssTreeHeight for pq_xmss::XmssSha2_192<D> {
-    const FULL_HEIGHT: u32 = D::HEIGHT;
-}
-
-#[cfg(feature = "xmss-extra-depths")]
-impl<D: pq_xmss::XmssTreeDepth> XmssTreeHeight for pq_xmss::XmssShake256_256<D> {
-    const FULL_HEIGHT: u32 = D::HEIGHT;
-}
-
-#[cfg(feature = "xmss-extra-depths")]
-impl<D: pq_xmss::XmssTreeDepth> XmssTreeHeight for pq_xmss::XmssShake256_192<D> {
-    const FULL_HEIGHT: u32 = D::HEIGHT;
-}
+impl_xmss_tree_height!(
+    XmssSha2_192,
+    XmssSha2_256,
+    XmssSha2_512,
+    XmssShake_256,
+    XmssShake_512,
+    XmssShake256_192,
+    XmssShake256_256,
+);
 
 /// A non-standard XMSS tree depth exposed by `pq-xmss`'s `extra-depths`
 /// feature.
@@ -169,51 +105,55 @@ impl<D: pq_xmss::XmssTreeDepth> XmssTreeHeight for pq_xmss::XmssShake256_192<D> 
 /// Heights 10, 16, and 20 are omitted because standardized concrete parameter
 /// sets already cover them. Tree generation cost grows exponentially with the
 /// height, so applications should choose the smallest sufficient capacity.
+/// Binary serialization reserves one slot for every height from 1 through 24,
+/// including the three standard heights, so future availability cannot renumber
+/// existing extra-depth schemes.
 #[cfg(feature = "xmss-extra-depths")]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Ord, PartialOrd, Hash)]
+#[repr(u8)]
 pub enum XmssExtraDepth {
     /// Height 1 (2 signatures).
-    H1,
+    H1 = 1,
     /// Height 2 (4 signatures).
-    H2,
+    H2 = 2,
     /// Height 3 (8 signatures).
-    H3,
+    H3 = 3,
     /// Height 4 (16 signatures).
-    H4,
+    H4 = 4,
     /// Height 5 (32 signatures).
-    H5,
+    H5 = 5,
     /// Height 6 (64 signatures).
-    H6,
+    H6 = 6,
     /// Height 7 (128 signatures).
-    H7,
+    H7 = 7,
     /// Height 8 (256 signatures).
-    H8,
+    H8 = 8,
     /// Height 9 (512 signatures).
-    H9,
+    H9 = 9,
     /// Height 11 (2,048 signatures).
-    H11,
+    H11 = 11,
     /// Height 12 (4,096 signatures).
-    H12,
+    H12 = 12,
     /// Height 13 (8,192 signatures).
-    H13,
+    H13 = 13,
     /// Height 14 (16,384 signatures).
-    H14,
+    H14 = 14,
     /// Height 15 (32,768 signatures).
-    H15,
+    H15 = 15,
     /// Height 17 (131,072 signatures).
-    H17,
+    H17 = 17,
     /// Height 18 (262,144 signatures).
-    H18,
+    H18 = 18,
     /// Height 19 (524,288 signatures).
-    H19,
+    H19 = 19,
     /// Height 21 (2,097,152 signatures).
-    H21,
+    H21 = 21,
     /// Height 22 (4,194,304 signatures).
-    H22,
+    H22 = 22,
     /// Height 23 (8,388,608 signatures).
-    H23,
+    H23 = 23,
     /// Height 24 (16,777,216 signatures).
-    H24,
+    H24 = 24,
 }
 
 #[cfg(feature = "xmss-extra-depths")]
@@ -245,29 +185,7 @@ impl XmssExtraDepth {
 
     /// Returns the numeric Merkle tree height.
     pub const fn height(self) -> u32 {
-        match self {
-            Self::H1 => 1,
-            Self::H2 => 2,
-            Self::H3 => 3,
-            Self::H4 => 4,
-            Self::H5 => 5,
-            Self::H6 => 6,
-            Self::H7 => 7,
-            Self::H8 => 8,
-            Self::H9 => 9,
-            Self::H11 => 11,
-            Self::H12 => 12,
-            Self::H13 => 13,
-            Self::H14 => 14,
-            Self::H15 => 15,
-            Self::H17 => 17,
-            Self::H18 => 18,
-            Self::H19 => 19,
-            Self::H21 => 21,
-            Self::H22 => 22,
-            Self::H23 => 23,
-            Self::H24 => 24,
-        }
+        self as u32
     }
 
     /// Converts a numeric height to an available extra depth.
@@ -298,79 +216,30 @@ impl XmssExtraDepth {
         }
     }
 
-    const fn wire_index(self) -> u8 {
-        match self {
-            Self::H1 => 0,
-            Self::H2 => 1,
-            Self::H3 => 2,
-            Self::H4 => 3,
-            Self::H5 => 4,
-            Self::H6 => 5,
-            Self::H7 => 6,
-            Self::H8 => 7,
-            Self::H9 => 8,
-            Self::H11 => 9,
-            Self::H12 => 10,
-            Self::H13 => 11,
-            Self::H14 => 12,
-            Self::H15 => 13,
-            Self::H17 => 14,
-            Self::H18 => 15,
-            Self::H19 => 16,
-            Self::H21 => 17,
-            Self::H22 => 18,
-            Self::H23 => 19,
-            Self::H24 => 20,
-        }
-    }
-
-    const fn from_wire_index(index: u8) -> Option<Self> {
-        match index {
-            0 => Some(Self::H1),
-            1 => Some(Self::H2),
-            2 => Some(Self::H3),
-            3 => Some(Self::H4),
-            4 => Some(Self::H5),
-            5 => Some(Self::H6),
-            6 => Some(Self::H7),
-            7 => Some(Self::H8),
-            8 => Some(Self::H9),
-            9 => Some(Self::H11),
-            10 => Some(Self::H12),
-            11 => Some(Self::H13),
-            12 => Some(Self::H14),
-            13 => Some(Self::H15),
-            14 => Some(Self::H17),
-            15 => Some(Self::H18),
-            16 => Some(Self::H19),
-            17 => Some(Self::H21),
-            18 => Some(Self::H22),
-            19 => Some(Self::H23),
-            20 => Some(Self::H24),
-            _ => None,
-        }
+    const fn wire_slot(self) -> u8 {
+        self as u8 - 1
     }
 }
 
 /// A hash and output-width family for a non-standard XMSS tree depth.
 #[cfg(feature = "xmss-extra-depths")]
-#[allow(non_camel_case_types)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Ord, PartialOrd, Hash)]
+#[repr(u8)]
 pub enum XmssExtraDepthFamily {
     /// SHA-256 with a 256-bit output.
-    Sha2_256,
+    Sha2_256 = 0,
     /// SHA-512 with a 512-bit output.
-    Sha2_512,
+    Sha2_512 = 1,
     /// SHAKE128 with a 256-bit output.
-    Shake_256,
+    Shake128_256 = 2,
     /// SHAKE256 with a 512-bit output.
-    Shake_512,
+    Shake256_512 = 3,
     /// SHA-256 with a 192-bit output.
-    Sha2_192,
+    Sha2_192 = 4,
     /// SHAKE256 with a 256-bit output.
-    Shake256_256,
+    Shake256_256 = 5,
     /// SHAKE256 with a 192-bit output.
-    Shake256_192,
+    Shake256_192 = 6,
 }
 
 #[cfg(feature = "xmss-extra-depths")]
@@ -379,31 +248,23 @@ impl XmssExtraDepthFamily {
     pub const ALL: [Self; 7] = [
         Self::Sha2_256,
         Self::Sha2_512,
-        Self::Shake_256,
-        Self::Shake_512,
+        Self::Shake128_256,
+        Self::Shake256_512,
         Self::Sha2_192,
         Self::Shake256_256,
         Self::Shake256_192,
     ];
 
     const fn wire_index(self) -> u8 {
-        match self {
-            Self::Sha2_256 => 0,
-            Self::Sha2_512 => 1,
-            Self::Shake_256 => 2,
-            Self::Shake_512 => 3,
-            Self::Sha2_192 => 4,
-            Self::Shake256_256 => 5,
-            Self::Shake256_192 => 6,
-        }
+        self as u8
     }
 
     const fn from_wire_index(index: u8) -> Option<Self> {
         match index {
             0 => Some(Self::Sha2_256),
             1 => Some(Self::Sha2_512),
-            2 => Some(Self::Shake_256),
-            3 => Some(Self::Shake_512),
+            2 => Some(Self::Shake128_256),
+            3 => Some(Self::Shake256_512),
             4 => Some(Self::Sha2_192),
             5 => Some(Self::Shake256_256),
             6 => Some(Self::Shake256_192),
@@ -415,8 +276,8 @@ impl XmssExtraDepthFamily {
         match self {
             Self::Sha2_256 => ("SHA2", 256),
             Self::Sha2_512 => ("SHA2", 512),
-            Self::Shake_256 => ("SHAKE", 256),
-            Self::Shake_512 => ("SHAKE", 512),
+            Self::Shake128_256 => ("SHAKE", 256),
+            Self::Shake256_512 => ("SHAKE", 512),
             Self::Sha2_192 => ("SHA2", 192),
             Self::Shake256_256 => ("SHAKE256", 256),
             Self::Shake256_192 => ("SHAKE256", 192),
@@ -426,21 +287,29 @@ impl XmssExtraDepthFamily {
     const fn seed_size(self) -> usize {
         match self {
             Self::Sha2_192 | Self::Shake256_192 => 72,
-            Self::Sha2_256 | Self::Shake_256 | Self::Shake256_256 => 96,
-            Self::Sha2_512 | Self::Shake_512 => 192,
+            Self::Sha2_256 | Self::Shake128_256 | Self::Shake256_256 => 96,
+            Self::Sha2_512 | Self::Shake256_512 => 192,
         }
     }
 }
 
 #[cfg(feature = "xmss-extra-depths")]
-const XMSS_EXTRA_DEPTH_WIRE_START: u8 = 13;
+const XMSS_EXTRA_DEPTH_WIRE_START: u8 = 22;
 #[cfg(feature = "xmss-extra-depths")]
-const XMSS_EXTRA_DEPTHS_PER_FAMILY: u8 = 21;
+const XMSS_EXTRA_DEPTHS_PER_FAMILY: u8 = 24;
+#[cfg(feature = "xmss-extra-depths")]
+const XMSS_EXTRA_DEPTH_WIRE_END: u8 = XMSS_EXTRA_DEPTH_WIRE_START
+    + XMSS_EXTRA_DEPTHS_PER_FAMILY * XmssExtraDepthFamily::ALL.len() as u8
+    - 1;
 
 /// Supported XMSS parameter sets.
 ///
 /// Each scheme has a fixed Merkle tree height and therefore a fixed maximum
 /// number of signatures. Reusing a consumed leaf reveals the secret key.
+/// Binary serialization retains values 1–12 for Bedrock's original schemes,
+/// assigns 13–21 to the additional standard schemes, and starts the optional
+/// extra-depth family blocks at 22.
+#[non_exhaustive]
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Ord, PartialOrd, Hash)]
 pub enum XmssScheme {
     #[default]
@@ -474,6 +343,24 @@ pub enum XmssScheme {
     /// Maps to upstream `pq_xmss::XmssShake_20_512`, whose canonical RFC 8391 name
     /// is `XMSS-SHAKE_20_512`. See [`XmssScheme::XmssShake256_10_512`].
     XmssShake256_20_512,
+    /// `XMSS-SHA2_10_192`: SHA-256, 192-bit output, and tree height 10.
+    XmssSha2_10_192,
+    /// `XMSS-SHA2_16_192`: SHA-256, 192-bit output, and tree height 16.
+    XmssSha2_16_192,
+    /// `XMSS-SHA2_20_192`: SHA-256, 192-bit output, and tree height 20.
+    XmssSha2_20_192,
+    /// `XMSS-SHAKE_10_256`: SHAKE128, 256-bit output, and tree height 10.
+    XmssShake128_10_256,
+    /// `XMSS-SHAKE_16_256`: SHAKE128, 256-bit output, and tree height 16.
+    XmssShake128_16_256,
+    /// `XMSS-SHAKE_20_256`: SHAKE128, 256-bit output, and tree height 20.
+    XmssShake128_20_256,
+    /// `XMSS-SHAKE256_10_192`: SHAKE256, 192-bit output, and tree height 10.
+    XmssShake256_10_192,
+    /// `XMSS-SHAKE256_16_192`: SHAKE256, 192-bit output, and tree height 16.
+    XmssShake256_16_192,
+    /// `XMSS-SHAKE256_20_192`: SHAKE256, 192-bit output, and tree height 20.
+    XmssShake256_20_192,
     /// A non-standard `pq-xmss` parameter family and tree depth.
     ///
     /// The serialized key OID is private-use and interoperates only with
@@ -502,11 +389,20 @@ impl From<XmssScheme> for u8 {
             XmssScheme::XmssShake256_10_512 => 10,
             XmssScheme::XmssShake256_16_512 => 11,
             XmssScheme::XmssShake256_20_512 => 12,
+            XmssScheme::XmssSha2_10_192 => 13,
+            XmssScheme::XmssSha2_16_192 => 14,
+            XmssScheme::XmssSha2_20_192 => 15,
+            XmssScheme::XmssShake128_10_256 => 16,
+            XmssScheme::XmssShake128_16_256 => 17,
+            XmssScheme::XmssShake128_20_256 => 18,
+            XmssScheme::XmssShake256_10_192 => 19,
+            XmssScheme::XmssShake256_16_192 => 20,
+            XmssScheme::XmssShake256_20_192 => 21,
             #[cfg(feature = "xmss-extra-depths")]
             XmssScheme::ExtraDepth { family, depth } => {
                 XMSS_EXTRA_DEPTH_WIRE_START
                     + family.wire_index() * XMSS_EXTRA_DEPTHS_PER_FAMILY
-                    + depth.wire_index()
+                    + depth.wire_slot()
             }
         }
     }
@@ -535,14 +431,25 @@ impl TryFrom<u8> for XmssScheme {
             10 => Ok(Self::XmssShake256_10_512),
             11 => Ok(Self::XmssShake256_16_512),
             12 => Ok(Self::XmssShake256_20_512),
+            13 => Ok(Self::XmssSha2_10_192),
+            14 => Ok(Self::XmssSha2_16_192),
+            15 => Ok(Self::XmssSha2_20_192),
+            16 => Ok(Self::XmssShake128_10_256),
+            17 => Ok(Self::XmssShake128_16_256),
+            18 => Ok(Self::XmssShake128_20_256),
+            19 => Ok(Self::XmssShake256_10_192),
+            20 => Ok(Self::XmssShake256_16_192),
+            21 => Ok(Self::XmssShake256_20_192),
             #[cfg(feature = "xmss-extra-depths")]
-            XMSS_EXTRA_DEPTH_WIRE_START..=u8::MAX => {
+            XMSS_EXTRA_DEPTH_WIRE_START..=XMSS_EXTRA_DEPTH_WIRE_END => {
                 let offset = value - XMSS_EXTRA_DEPTH_WIRE_START;
                 let family =
                     XmssExtraDepthFamily::from_wire_index(offset / XMSS_EXTRA_DEPTHS_PER_FAMILY)
                         .ok_or(Error::InvalidScheme(value))?;
-                let depth = XmssExtraDepth::from_wire_index(offset % XMSS_EXTRA_DEPTHS_PER_FAMILY)
-                    .ok_or(Error::InvalidScheme(value))?;
+                let depth = XmssExtraDepth::from_height(
+                    u32::from(offset % XMSS_EXTRA_DEPTHS_PER_FAMILY) + 1,
+                )
+                .ok_or(Error::InvalidScheme(value))?;
                 Ok(Self::ExtraDepth { family, depth })
             }
             _ => Err(Error::InvalidScheme(value)),
@@ -565,6 +472,15 @@ impl fmt::Display for XmssScheme {
             Self::XmssShake256_10_512 => f.write_str("XMSS-SHAKE_10_512"),
             Self::XmssShake256_16_512 => f.write_str("XMSS-SHAKE_16_512"),
             Self::XmssShake256_20_512 => f.write_str("XMSS-SHAKE_20_512"),
+            Self::XmssSha2_10_192 => f.write_str("XMSS-SHA2_10_192"),
+            Self::XmssSha2_16_192 => f.write_str("XMSS-SHA2_16_192"),
+            Self::XmssSha2_20_192 => f.write_str("XMSS-SHA2_20_192"),
+            Self::XmssShake128_10_256 => f.write_str("XMSS-SHAKE_10_256"),
+            Self::XmssShake128_16_256 => f.write_str("XMSS-SHAKE_16_256"),
+            Self::XmssShake128_20_256 => f.write_str("XMSS-SHAKE_20_256"),
+            Self::XmssShake256_10_192 => f.write_str("XMSS-SHAKE256_10_192"),
+            Self::XmssShake256_16_192 => f.write_str("XMSS-SHAKE256_16_192"),
+            Self::XmssShake256_20_192 => f.write_str("XMSS-SHAKE256_20_192"),
             #[cfg(feature = "xmss-extra-depths")]
             Self::ExtraDepth { family, depth } => {
                 let (hash, bits) = family.name_parts();
@@ -591,6 +507,15 @@ impl std::str::FromStr for XmssScheme {
             "XMSS-SHAKE_10_512" => Some(Self::XmssShake256_10_512),
             "XMSS-SHAKE_16_512" => Some(Self::XmssShake256_16_512),
             "XMSS-SHAKE_20_512" => Some(Self::XmssShake256_20_512),
+            "XMSS-SHA2_10_192" => Some(Self::XmssSha2_10_192),
+            "XMSS-SHA2_16_192" => Some(Self::XmssSha2_16_192),
+            "XMSS-SHA2_20_192" => Some(Self::XmssSha2_20_192),
+            "XMSS-SHAKE_10_256" => Some(Self::XmssShake128_10_256),
+            "XMSS-SHAKE_16_256" => Some(Self::XmssShake128_16_256),
+            "XMSS-SHAKE_20_256" => Some(Self::XmssShake128_20_256),
+            "XMSS-SHAKE256_10_192" => Some(Self::XmssShake256_10_192),
+            "XMSS-SHAKE256_16_192" => Some(Self::XmssShake256_16_192),
+            "XMSS-SHAKE256_20_192" => Some(Self::XmssShake256_20_192),
             _ => None,
         };
         if let Some(scheme) = standard {
@@ -621,8 +546,8 @@ fn parse_extra_depth_scheme(value: &str) -> Option<XmssScheme> {
         ("SHA2", 192) => XmssExtraDepthFamily::Sha2_192,
         ("SHA2", 256) => XmssExtraDepthFamily::Sha2_256,
         ("SHA2", 512) => XmssExtraDepthFamily::Sha2_512,
-        ("SHAKE", 256) => XmssExtraDepthFamily::Shake_256,
-        ("SHAKE", 512) => XmssExtraDepthFamily::Shake_512,
+        ("SHAKE", 256) => XmssExtraDepthFamily::Shake128_256,
+        ("SHAKE", 512) => XmssExtraDepthFamily::Shake256_512,
         ("SHAKE256", 192) => XmssExtraDepthFamily::Shake256_192,
         ("SHAKE256", 256) => XmssExtraDepthFamily::Shake256_256,
         _ => return None,
@@ -651,9 +576,18 @@ impl XmssScheme {
     /// Returns the seed size for this XMSS parameter set.
     pub const fn seed_size(&self) -> usize {
         match self {
+            Self::XmssSha2_10_192
+            | Self::XmssSha2_16_192
+            | Self::XmssSha2_20_192
+            | Self::XmssShake256_10_192
+            | Self::XmssShake256_16_192
+            | Self::XmssShake256_20_192 => 72,
             Self::XmssSha2_10_256
             | Self::XmssSha2_16_256
             | Self::XmssSha2_20_256
+            | Self::XmssShake128_10_256
+            | Self::XmssShake128_16_256
+            | Self::XmssShake128_20_256
             | Self::XmssShake256_10_256
             | Self::XmssShake256_16_256
             | Self::XmssShake256_20_256 => 96,
@@ -767,51 +701,87 @@ macro_rules! with_xmss_params {
     ($scheme:expr, |$P:ident| $body:block) => {{
         match $scheme {
             XmssScheme::XmssSha2_10_256 => {
-                type $P = pq_xmss::XmssSha2_10_256;
+                type $P = pq_xmss::XmssSha2_256<pq_xmss::H10>;
                 $body
             }
             XmssScheme::XmssSha2_16_256 => {
-                type $P = pq_xmss::XmssSha2_16_256;
+                type $P = pq_xmss::XmssSha2_256<pq_xmss::H16>;
                 $body
             }
             XmssScheme::XmssSha2_20_256 => {
-                type $P = pq_xmss::XmssSha2_20_256;
+                type $P = pq_xmss::XmssSha2_256<pq_xmss::H20>;
                 $body
             }
             XmssScheme::XmssSha2_10_512 => {
-                type $P = pq_xmss::XmssSha2_10_512;
+                type $P = pq_xmss::XmssSha2_512<pq_xmss::H10>;
                 $body
             }
             XmssScheme::XmssSha2_16_512 => {
-                type $P = pq_xmss::XmssSha2_16_512;
+                type $P = pq_xmss::XmssSha2_512<pq_xmss::H16>;
                 $body
             }
             XmssScheme::XmssSha2_20_512 => {
-                type $P = pq_xmss::XmssSha2_20_512;
+                type $P = pq_xmss::XmssSha2_512<pq_xmss::H20>;
                 $body
             }
             XmssScheme::XmssShake256_10_256 => {
-                type $P = pq_xmss::XmssShake256_10_256;
+                type $P = pq_xmss::XmssShake256_256<pq_xmss::H10>;
                 $body
             }
             XmssScheme::XmssShake256_16_256 => {
-                type $P = pq_xmss::XmssShake256_16_256;
+                type $P = pq_xmss::XmssShake256_256<pq_xmss::H16>;
                 $body
             }
             XmssScheme::XmssShake256_20_256 => {
-                type $P = pq_xmss::XmssShake256_20_256;
+                type $P = pq_xmss::XmssShake256_256<pq_xmss::H20>;
                 $body
             }
             XmssScheme::XmssShake256_10_512 => {
-                type $P = pq_xmss::XmssShake_10_512;
+                type $P = pq_xmss::XmssShake_512<pq_xmss::H10>;
                 $body
             }
             XmssScheme::XmssShake256_16_512 => {
-                type $P = pq_xmss::XmssShake_16_512;
+                type $P = pq_xmss::XmssShake_512<pq_xmss::H16>;
                 $body
             }
             XmssScheme::XmssShake256_20_512 => {
-                type $P = pq_xmss::XmssShake_20_512;
+                type $P = pq_xmss::XmssShake_512<pq_xmss::H20>;
+                $body
+            }
+            XmssScheme::XmssSha2_10_192 => {
+                type $P = pq_xmss::XmssSha2_192<pq_xmss::H10>;
+                $body
+            }
+            XmssScheme::XmssSha2_16_192 => {
+                type $P = pq_xmss::XmssSha2_192<pq_xmss::H16>;
+                $body
+            }
+            XmssScheme::XmssSha2_20_192 => {
+                type $P = pq_xmss::XmssSha2_192<pq_xmss::H20>;
+                $body
+            }
+            XmssScheme::XmssShake128_10_256 => {
+                type $P = pq_xmss::XmssShake_256<pq_xmss::H10>;
+                $body
+            }
+            XmssScheme::XmssShake128_16_256 => {
+                type $P = pq_xmss::XmssShake_256<pq_xmss::H16>;
+                $body
+            }
+            XmssScheme::XmssShake128_20_256 => {
+                type $P = pq_xmss::XmssShake_256<pq_xmss::H20>;
+                $body
+            }
+            XmssScheme::XmssShake256_10_192 => {
+                type $P = pq_xmss::XmssShake256_192<pq_xmss::H10>;
+                $body
+            }
+            XmssScheme::XmssShake256_16_192 => {
+                type $P = pq_xmss::XmssShake256_192<pq_xmss::H16>;
+                $body
+            }
+            XmssScheme::XmssShake256_20_192 => {
+                type $P = pq_xmss::XmssShake256_192<pq_xmss::H20>;
                 $body
             }
             #[cfg(feature = "xmss-extra-depths")]
@@ -822,10 +792,10 @@ macro_rules! with_xmss_params {
                 XmssExtraDepthFamily::Sha2_512 => {
                     with_extra_xmss_depth!(XmssSha2_512, depth, |$P| $body)
                 }
-                XmssExtraDepthFamily::Shake_256 => {
+                XmssExtraDepthFamily::Shake128_256 => {
                     with_extra_xmss_depth!(XmssShake_256, depth, |$P| $body)
                 }
-                XmssExtraDepthFamily::Shake_512 => {
+                XmssExtraDepthFamily::Shake256_512 => {
                     with_extra_xmss_depth!(XmssShake_512, depth, |$P| $body)
                 }
                 XmssExtraDepthFamily::Sha2_192 => {
@@ -1193,8 +1163,14 @@ impl XmssScheme {
 mod tests {
     use super::*;
 
+    use crate::test_utils::round_trip_all_formats;
     use pq_xmss::XmssParameter;
     use std::{str::FromStr, sync::OnceLock};
+
+    #[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
+    struct SchemeDocument {
+        scheme: XmssScheme,
+    }
 
     #[derive(Clone, Debug, Default)]
     struct MemoryStore {
@@ -1268,21 +1244,32 @@ mod tests {
         }
     }
 
+    const STANDARD_SCHEMES: [XmssScheme; 21] = [
+        XmssScheme::XmssSha2_10_256,
+        XmssScheme::XmssSha2_16_256,
+        XmssScheme::XmssSha2_20_256,
+        XmssScheme::XmssSha2_10_512,
+        XmssScheme::XmssSha2_16_512,
+        XmssScheme::XmssSha2_20_512,
+        XmssScheme::XmssShake256_10_256,
+        XmssScheme::XmssShake256_16_256,
+        XmssScheme::XmssShake256_20_256,
+        XmssScheme::XmssShake256_10_512,
+        XmssScheme::XmssShake256_16_512,
+        XmssScheme::XmssShake256_20_512,
+        XmssScheme::XmssSha2_10_192,
+        XmssScheme::XmssSha2_16_192,
+        XmssScheme::XmssSha2_20_192,
+        XmssScheme::XmssShake128_10_256,
+        XmssScheme::XmssShake128_16_256,
+        XmssScheme::XmssShake128_20_256,
+        XmssScheme::XmssShake256_10_192,
+        XmssScheme::XmssShake256_16_192,
+        XmssScheme::XmssShake256_20_192,
+    ];
+
     fn all_schemes() -> Vec<XmssScheme> {
-        let standard = vec![
-            XmssScheme::XmssSha2_10_256,
-            XmssScheme::XmssSha2_16_256,
-            XmssScheme::XmssSha2_20_256,
-            XmssScheme::XmssSha2_10_512,
-            XmssScheme::XmssSha2_16_512,
-            XmssScheme::XmssSha2_20_512,
-            XmssScheme::XmssShake256_10_256,
-            XmssScheme::XmssShake256_16_256,
-            XmssScheme::XmssShake256_20_256,
-            XmssScheme::XmssShake256_10_512,
-            XmssScheme::XmssShake256_16_512,
-            XmssScheme::XmssShake256_20_512,
-        ];
+        let standard = STANDARD_SCHEMES.to_vec();
 
         #[cfg(not(feature = "xmss-extra-depths"))]
         {
@@ -1407,13 +1394,15 @@ mod tests {
                 &fixture.verification_key,
             )
             .unwrap();
-        assert!(scheme
-            .verify(
-                TEST_MESSAGE,
-                &fixture.first_signature,
-                &other_verification_key,
-            )
-            .is_err());
+        assert!(
+            scheme
+                .verify(
+                    TEST_MESSAGE,
+                    &fixture.first_signature,
+                    &other_verification_key,
+                )
+                .is_err()
+        );
     }
 
     #[test]
@@ -1564,20 +1553,46 @@ mod tests {
     }
 
     #[test]
+    fn standard_wire_values_are_stable() {
+        let upstream_oids = [
+            1_u32, 2, 3, 4, 5, 6, 16, 17, 18, 10, 11, 12, 13, 14, 15, 7, 8, 9, 19, 20, 21,
+        ];
+
+        for (index, (scheme, expected_oid)) in
+            STANDARD_SCHEMES.into_iter().zip(upstream_oids).enumerate()
+        {
+            let wire = index as u8 + 1;
+            let oid = with_xmss_params!(scheme, |P| { P::OID });
+            assert_eq!(u8::from(scheme), wire);
+            assert_eq!(XmssScheme::try_from(wire).unwrap(), scheme);
+            assert_eq!(oid, expected_oid);
+        }
+    }
+
+    #[test]
     fn tree_height_and_max_signatures() {
         for scheme in all_schemes() {
             let height = match scheme {
                 XmssScheme::XmssSha2_10_256
+                | XmssScheme::XmssSha2_10_192
                 | XmssScheme::XmssSha2_10_512
+                | XmssScheme::XmssShake128_10_256
                 | XmssScheme::XmssShake256_10_256
+                | XmssScheme::XmssShake256_10_192
                 | XmssScheme::XmssShake256_10_512 => 10,
                 XmssScheme::XmssSha2_16_256
+                | XmssScheme::XmssSha2_16_192
                 | XmssScheme::XmssSha2_16_512
+                | XmssScheme::XmssShake128_16_256
                 | XmssScheme::XmssShake256_16_256
+                | XmssScheme::XmssShake256_16_192
                 | XmssScheme::XmssShake256_16_512 => 16,
                 XmssScheme::XmssSha2_20_256
+                | XmssScheme::XmssSha2_20_192
                 | XmssScheme::XmssSha2_20_512
+                | XmssScheme::XmssShake128_20_256
                 | XmssScheme::XmssShake256_20_256
+                | XmssScheme::XmssShake256_20_192
                 | XmssScheme::XmssShake256_20_512 => 20,
                 #[cfg(feature = "xmss-extra-depths")]
                 XmssScheme::ExtraDepth { depth, .. } => depth.height(),
@@ -1592,24 +1607,37 @@ mod tests {
     #[test]
     fn extra_depth_wire_values_and_names_are_stable() {
         assert_eq!(u8::from(XmssScheme::XmssShake256_20_512), 12);
+        assert_eq!(u8::from(XmssScheme::XmssSha2_10_192), 13);
+        assert_eq!(u8::from(XmssScheme::XmssShake256_20_192), 21);
 
         let first = XmssScheme::extra_depth(XmssExtraDepthFamily::Sha2_256, XmssExtraDepth::H1);
         let last = XmssScheme::extra_depth(XmssExtraDepthFamily::Shake256_192, XmssExtraDepth::H24);
 
-        assert_eq!(u8::from(first), 13);
-        assert_eq!(u8::from(last), 159);
+        assert_eq!(u8::from(first), 22);
+        assert_eq!(u8::from(last), 189);
         assert_eq!(first.to_string(), "XMSS-SHA2_1_256");
         assert_eq!(last.to_string(), "XMSS-SHAKE256_24_192");
         assert!(matches!(
-            XmssScheme::try_from(160),
-            Err(Error::InvalidScheme(160))
+            XmssScheme::try_from(190),
+            Err(Error::InvalidScheme(190))
         ));
-        assert!(matches!(
-            XmssScheme::from_str("XMSS-SHA2_10_192"),
-            Err(Error::InvalidSchemeStr(_))
-        ));
+        assert_eq!(
+            XmssScheme::from_str("XMSS-SHA2_10_192").unwrap(),
+            XmssScheme::XmssSha2_10_192
+        );
 
         for family in XmssExtraDepthFamily::ALL {
+            for standard_height in [10_u8, 16, 20] {
+                let reserved = XMSS_EXTRA_DEPTH_WIRE_START
+                    + family.wire_index() * XMSS_EXTRA_DEPTHS_PER_FAMILY
+                    + standard_height
+                    - 1;
+                assert!(matches!(
+                    XmssScheme::try_from(reserved),
+                    Err(Error::InvalidScheme(value)) if value == reserved
+                ));
+            }
+
             for depth in XmssExtraDepth::ALL {
                 let scheme = XmssScheme::extra_depth(family, depth);
                 let oid = with_xmss_params!(scheme, |P| { P::OID.to_be_bytes() });
@@ -1619,6 +1647,19 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[cfg(feature = "xmss-extra-depths")]
+    #[test]
+    fn extra_depth_params_distinguish_non_standard_schemes() {
+        let family = XmssExtraDepthFamily::Shake256_192;
+        let depth = XmssExtraDepth::H4;
+
+        assert_eq!(
+            XmssScheme::extra_depth(family, depth).extra_depth_params(),
+            Some((family, depth))
+        );
+        assert_eq!(XmssScheme::XmssSha2_10_192.extra_depth_params(), None);
     }
 
     #[cfg(feature = "xmss-extra-depths")]
@@ -1647,15 +1688,10 @@ mod tests {
         for scheme in all_schemes() {
             let via_u8 = XmssScheme::try_from(u8::from(scheme)).unwrap();
             let via_str = XmssScheme::from_str(&scheme.to_string()).unwrap();
-            let json = serde_json::to_string(&scheme).unwrap();
-            let json_round_trip: XmssScheme = serde_json::from_str(&json).unwrap();
-            let postcard = postcard::to_stdvec(&scheme).unwrap();
-            let postcard_round_trip: XmssScheme = postcard::from_bytes(&postcard).unwrap();
 
             assert_eq!(via_u8, scheme);
             assert_eq!(via_str, scheme);
-            assert_eq!(json_round_trip, scheme);
-            assert_eq!(postcard_round_trip, scheme);
+            round_trip_all_formats(&SchemeDocument { scheme });
         }
 
         let fixture = test_fixture();
@@ -1663,32 +1699,9 @@ mod tests {
         let verification_key = &fixture.verification_key;
         let signature = &fixture.first_signature;
 
-        let signing_json = serde_json::to_string(&signing_key).unwrap();
-        let signing_key_round_trip: XmssSigningKey = serde_json::from_str(&signing_json).unwrap();
-        assert_eq!(&signing_key_round_trip, signing_key);
-
-        let signing_postcard = postcard::to_stdvec(&signing_key).unwrap();
-        let signing_key_postcard: XmssSigningKey = postcard::from_bytes(&signing_postcard).unwrap();
-        assert_eq!(&signing_key_postcard, signing_key);
-
-        let verification_json = serde_json::to_string(&verification_key).unwrap();
-        let verification_key_round_trip: XmssVerificationKey =
-            serde_json::from_str(&verification_json).unwrap();
-        assert_eq!(&verification_key_round_trip, verification_key);
-
-        let verification_postcard = postcard::to_stdvec(&verification_key).unwrap();
-        let verification_key_postcard: XmssVerificationKey =
-            postcard::from_bytes(&verification_postcard).unwrap();
-        assert_eq!(&verification_key_postcard, verification_key);
-
-        let signature_json = serde_json::to_string(&signature).unwrap();
-        let signature_round_trip: XmssSignature = serde_json::from_str(&signature_json).unwrap();
-        assert_eq!(&signature_round_trip, signature);
-
-        let signature_postcard = postcard::to_stdvec(&signature).unwrap();
-        let signature_postcard_round_trip: XmssSignature =
-            postcard::from_bytes(&signature_postcard).unwrap();
-        assert_eq!(&signature_postcard_round_trip, signature);
+        round_trip_all_formats(signing_key);
+        round_trip_all_formats(verification_key);
+        round_trip_all_formats(signature);
     }
 
     #[test]

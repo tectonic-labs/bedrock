@@ -122,7 +122,7 @@ impl FalconScheme {
     #[cfg(feature = "kgen")]
     /// Generates a new Falcon signing and verification keypair.
     pub fn keypair(&self) -> Result<(FalconVerificationKey, FalconSigningKey)> {
-        use fn_dsa_kgen::{sign_key_size, vrfy_key_size, KeyPairGenerator};
+        use fn_dsa_kgen::{KeyPairGenerator, sign_key_size, vrfy_key_size};
         let logn = logn(*self);
         let mut sk = vec![0u8; sign_key_size(logn)];
         let mut vk = vec![0u8; vrfy_key_size(logn)];
@@ -140,7 +140,7 @@ impl FalconScheme {
         if seed.len() < 32 || seed.len() > 64 {
             return Err(Error::InvalidSeedLength(seed.len()));
         }
-        use fn_dsa_kgen::{sign_key_size, vrfy_key_size, KeyPairGenerator};
+        use fn_dsa_kgen::{KeyPairGenerator, sign_key_size, vrfy_key_size};
         let logn = logn(*self);
         let mut sk = vec![0u8; sign_key_size(logn)];
         let mut vk = vec![0u8; vrfy_key_size(logn)];
@@ -175,7 +175,7 @@ impl FalconScheme {
         // convention), which fn-dsa exposes as `HASH_ID_ORIGINAL_FALCON` — NOT `HASH_ID_RAW`.
         // This is the convention the on-chain CATX precompiles verify against. When FIPS 206
         // (FN-DSA) is published this hash-to-point may change and will need to be revisited.
-        use fn_dsa_sign::{signature_size, SigningKey, DOMAIN_NONE, HASH_ID_ORIGINAL_FALCON};
+        use fn_dsa_sign::{DOMAIN_NONE, HASH_ID_ORIGINAL_FALCON, SigningKey, signature_size};
         let mut sk = fn_dsa_sign::SigningKeyStandard::decode(signing_key.0.value.as_slice())
             .ok_or_else(|| Error::FnDsaError("an invalid signing key".to_string()))?;
         let mut sig = vec![0u8; signature_size(sk.get_logn())];
@@ -208,7 +208,7 @@ impl FalconScheme {
     ) -> Result<()> {
         // Must match the signing convention: original-Falcon hash-to-point, for compatibility
         // with the signatures verified on-chain by the CATX precompiles (see `sign_inner`).
-        use fn_dsa_vrfy::{VerifyingKey, DOMAIN_NONE, HASH_ID_ORIGINAL_FALCON};
+        use fn_dsa_vrfy::{DOMAIN_NONE, HASH_ID_ORIGINAL_FALCON, VerifyingKey};
         let vk = fn_dsa_vrfy::VerifyingKeyStandard::decode(verification_key.0.value.as_slice())
             .ok_or_else(|| Error::FnDsaError("an invalid public key".to_string()))?;
         if vk.verify(

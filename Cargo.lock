@@ -1110,9 +1110,9 @@ dependencies = [
 
 [[package]]
 name = "pq-xmss"
-version = "0.1.2"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5ae7bad164404bcb44db88e485d0e54595a76c6a4d3b94e223aa44c52e02fe82"
+checksum = "ff80c6b3b64460499c5b5b0090a9cb8f62c0f3ea2d2772ead6f3a1a0226109fb"
 dependencies = [
  "digest 0.11.3",
  "hybrid-array",
