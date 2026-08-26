@@ -28,10 +28,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   do not break downstream exhaustive matches.
 - Updated `sntrup` to 0.4.0 for its SIMD-backed performance improvements and
   zeroization of secret temporaries; this raises the effective MSRV to Rust 1.95.
-- Updated `rand` and `rand_chacha` to 0.10, `hmac` to 0.13, `sha2` to 0.11,
-  `sha3` to 0.12, `shake` to 0.1, `curve25519-dalek` to 5.0, and `x25519-dalek`
-  to 3.0. FN-DSA's `rand_core` 0.6 compatibility boundary remains until its public
-  RNG traits migrate; newer backends use `rand_core` 0.10.
+- Updated `rand` and `rand_chacha` to 0.10; moved the hash and MAC stack to
+  Digest 0.11-compatible releases (`hmac` 0.13, `sha2` 0.11, `sha3` 0.12, and
+  `shake` 0.1); and updated `curve25519-dalek` to 5.0 and `x25519-dalek` to 3.0.
+  FN-DSA's `rand_core` 0.6 compatibility boundary remains until its public RNG
+  traits migrate; newer backends use `rand_core` 0.10.
 
 ## v0.4.0 - 2026-08-07
 

@@ -85,7 +85,17 @@ where
     serdect::slice::deserialize_hex_or_bin_vec(d)
 }
 
-#[cfg(test)]
+#[cfg(all(
+    test,
+    any(
+        feature = "frodo",
+        feature = "hqc",
+        feature = "mceliece",
+        feature = "ml-kem",
+        feature = "sntrup",
+        feature = "xmss"
+    )
+))]
 #[allow(clippy::unwrap_used)]
 mod test_utils {
     /// Round-trips a value through every serialization format required by the
