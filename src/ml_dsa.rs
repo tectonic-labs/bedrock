@@ -1,6 +1,6 @@
 //! ML-DSA key and signature methods.
 
-#[cfg(feature = "kgen")]
+#[cfg(any(feature = "kgen", feature = "sign"))]
 use crate::os_rng;
 use crate::{deserialize_hex_or_bin, error::*, serialize_hex_or_bin};
 use serde::{Deserialize, Serialize};
@@ -198,6 +198,37 @@ impl MlDsaScheme {
         })
     }
 
+    #[cfg(feature = "sign")]
+    /// Signs a message with the specified signing key using the FIPS 204 hedged
+    /// (randomized) variant with an empty context, drawing fresh randomness per call.
+    ///
+    /// Prefer this over [`MlDsaScheme::sign`] wherever the signer may be exposed to
+    /// fault or side-channel adversaries: deterministic ML-DSA lets a single induced
+    /// fault over a known message recover the signing key, and lets a side-channel
+    /// attacker replay the identical secret-dependent computation. The signature is a
+    /// valid ML-DSA signature verifiable by [`MlDsaScheme::verify`]; only the signing
+    /// randomness differs, so two calls over the same message produce different bytes.
+    pub fn sign_randomized(
+        &self,
+        message: &[u8],
+        signing_key: &MlDsaSigningKey,
+    ) -> Result<MlDsaSignature> {
+        use ml_dsa::{ExpandedSigningKey, ExpandedSigningKeyBytes};
+        with_ml_dsa_params!(self, |P| {
+            let enc = ExpandedSigningKeyBytes::<P>::try_from(signing_key.0.value.as_slice())
+                .map_err(|_| Error::MlDsaError("an invalid signing key".to_string()))?;
+            let sk = ExpandedSigningKey::<P>::from_expanded(&enc);
+            let signature = sk
+                .sign_randomized(message, &[], &mut os_rng())
+                .map_err(|e| Error::MlDsaError(e.to_string()))?;
+            Ok(InnerMlDsa {
+                scheme: *self,
+                value: signature.encode().to_vec(),
+            }
+            .into())
+        })
+    }
+
     #[cfg(feature = "vrfy")]
     /// Verifies a signature.
     pub fn verify(
@@ -328,6 +359,32 @@ mod tests {
 
         let res = pk.0.scheme.verify(&[1u8; 8], &signature, &pk);
         assert!(res.is_err());
+    }
+
+    #[cfg(all(feature = "kgen", feature = "sign", feature = "vrfy"))]
+    #[rstest]
+    #[case::mldsa44(MlDsaScheme::Dsa44)]
+    #[case::mldsa65(MlDsaScheme::Dsa65)]
+    #[case::mldsa87(MlDsaScheme::Dsa87)]
+    fn hedged_flow(#[case] scheme: MlDsaScheme) {
+        const MSG: &[u8] = &[0u8; 8];
+        let (pk, sk) = scheme.keypair().unwrap();
+
+        // A hedged signature verifies like any valid ML-DSA signature.
+        let signature = sk.0.scheme.sign_randomized(MSG, &sk).unwrap();
+        assert!(pk.0.scheme.verify(MSG, &signature, &pk).is_ok());
+        assert!(pk.0.scheme.verify(&[1u8; 8], &signature, &pk).is_err());
+
+        // Two hedged signatures over the same message differ (fresh randomness per
+        // call) — the property deterministic signing lacked. Both still verify.
+        let signature2 = sk.0.scheme.sign_randomized(MSG, &sk).unwrap();
+        assert_ne!(signature.as_ref(), signature2.as_ref());
+        assert!(pk.0.scheme.verify(MSG, &signature2, &pk).is_ok());
+
+        // The deterministic path remains deterministic (unchanged for other callers).
+        let det1 = sk.0.scheme.sign(MSG, &sk).unwrap();
+        let det2 = sk.0.scheme.sign(MSG, &sk).unwrap();
+        assert_eq!(det1.as_ref(), det2.as_ref());
     }
 
     #[cfg(all(feature = "kgen", feature = "sign", feature = "vrfy"))]
