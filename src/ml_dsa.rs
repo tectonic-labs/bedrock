@@ -129,13 +129,13 @@ impl MlDsaScheme {
     // expanded key, so we keep using it.
     #[allow(deprecated)]
     pub fn keypair(&self) -> Result<(MlDsaVerificationKey, MlDsaSigningKey)> {
-        use ml_dsa::{KeyGen, signature::Keypair};
+        use ml_dsa::{Generate, SigningKey, signature::Keypair};
         with_ml_dsa_params!(self, |P| {
-            let mut rng = os_rng();
-            let sk = P::key_gen(&mut rng);
+            let sk = SigningKey::<P>::try_generate_from_rng(&mut os_rng())
+                .map_err(|_| Error::MlDsaError("ML-DSA key generation failed".to_string()))?;
             Ok(self.pack_keypair(
                 sk.verifying_key().encode().to_vec(),
-                sk.signing_key().to_expanded().to_vec(),
+                sk.expanded_key().to_expanded().to_vec(),
             ))
         })
     }
@@ -150,13 +150,13 @@ impl MlDsaScheme {
         if seed.len() != self.seed_size() {
             return Err(Error::InvalidSeedLength(seed.len()));
         }
-        use ml_dsa::{B32, KeyGen, signature::Keypair};
+        use ml_dsa::{B32, SigningKey, signature::Keypair};
         with_ml_dsa_params!(self, |P| {
             let xi = B32::try_from(seed).map_err(|_| Error::InvalidSeedLength(seed.len()))?;
-            let sk = P::from_seed(&xi);
+            let sk = SigningKey::<P>::from_seed(&xi);
             Ok(self.pack_keypair(
                 sk.verifying_key().encode().to_vec(),
-                sk.signing_key().to_expanded().to_vec(),
+                sk.expanded_key().to_expanded().to_vec(),
             ))
         })
     }
@@ -208,6 +208,7 @@ impl MlDsaScheme {
     /// attacker replay the identical secret-dependent computation. The signature is a
     /// valid ML-DSA signature verifiable by [`MlDsaScheme::verify`]; only the signing
     /// randomness differs, so two calls over the same message produce different bytes.
+    #[allow(deprecated)]
     pub fn sign_randomized(
         &self,
         message: &[u8],

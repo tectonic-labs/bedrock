@@ -864,16 +864,16 @@ checksum = "cf8baf1c55e62ffcace7a9f06f4bd9cd3f0c4beb022d3b367256b91b87513d98"
 
 [[package]]
 name = "ml-dsa"
-version = "0.1.0-rc.9"
+version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e3a596bd65985e2b343c3fd6cc4ade15cdd76da66b15936cfbce72ea661cdbb2"
+checksum = "add6b9d92e496f16f4526d68ff29da1483aba4b119baeab8bed3b9e3544a6f3d"
 dependencies = [
+ "crypto-common 0.2.2",
  "ctutils",
  "hybrid-array",
  "module-lattice",
  "pkcs8",
- "rand_core 0.10.1",
- "sha3 0.11.0",
+ "shake",
  "signature 3.0.0",
  "zeroize",
 ]
@@ -1630,7 +1630,7 @@ dependencies = [
 
 [[package]]
 name = "tectonic-bedrock"
-version = "0.5.0"
+version = "0.5.1"
 dependencies = [
  "bip32",
  "ciborium",
