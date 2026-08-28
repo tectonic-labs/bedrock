@@ -12,7 +12,7 @@ name = "tectonic-bedrock"
 readme = "README.md"
 repository = "https://github.com/tectonic-labs/bedrock"
 rust-version = "1.95"
-version = "0.5.0"
+version = "0.5.1"
 
 [features]
 bird-of-prey = ["dep:curve25519-dalek", "falcon", "hmac", "ml-dsa", "sha2", "zeroize", "kgen", "sign", "vrfy"]
@@ -45,7 +45,7 @@ getrandom_v04 = { package = "getrandom", version = "0.4", features = ["sys_rng"]
 hex = "0.4"
 hmac = { version = "0.13", optional = true }
 hqc-kem = { version = "=0.1.0-rc.0", default-features = false, features = ["alloc", "dcap", "ecap", "kgen"], optional = true }
-ml-dsa = { version = "=0.1.0-rc.9", default-features = false, features = ["alloc", "rand_core", "zeroize"], optional = true }
+ml-dsa = { version = "0.1.1", default-features = false, features = ["alloc", "rand_core", "zeroize"], optional = true }
 ml-kem = { version = "0.3.2", default-features = false, features = ["alloc", "zeroize", "getrandom"], optional = true }
 pq-mayo = { version = "0.5.0", optional = true }
 pq-xmss = { version = "0.2.0", optional = true }
