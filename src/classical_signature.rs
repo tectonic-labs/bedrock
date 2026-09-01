@@ -14,6 +14,7 @@ use p384::ecdsa::{
 };
 use rsa::pkcs1::{DecodeRsaPrivateKey, DecodeRsaPublicKey, EncodeRsaPublicKey};
 use rsa::pkcs8::{DecodePrivateKey, EncodePublicKey};
+use rsa::pss::{Signature as RsaPssSignature, VerifyingKey as RsaPssVerifyingKey};
 use rsa::traits::{PublicKeyParts, SignatureScheme as RsaSignatureScheme};
 use rsa::{Pkcs1v15Sign, Pss, RsaPrivateKey, RsaPublicKey};
 use sha2::{Digest as _, Sha256, Sha384, Sha512};
@@ -361,24 +362,15 @@ pub fn verify(
             key.verify_strict(message, &signature)
                 .map_err(|_| ClassicalSignatureError::InvalidSignature)
         }
-        ClassicalVerificationAlgorithm::RsaPssSha256 => verify_rsa(
-            public_key,
-            Pss::<Sha256>::new(),
-            &Sha256::digest(message),
-            signature,
-        ),
-        ClassicalVerificationAlgorithm::RsaPssSha384 => verify_rsa(
-            public_key,
-            Pss::<Sha384>::new(),
-            &Sha384::digest(message),
-            signature,
-        ),
-        ClassicalVerificationAlgorithm::RsaPssSha512 => verify_rsa(
-            public_key,
-            Pss::<Sha512>::new(),
-            &Sha512::digest(message),
-            signature,
-        ),
+        ClassicalVerificationAlgorithm::RsaPssSha256 => {
+            verify_rsa_pss::<Sha256>(public_key, &Sha256::digest(message), signature)
+        }
+        ClassicalVerificationAlgorithm::RsaPssSha384 => {
+            verify_rsa_pss::<Sha384>(public_key, &Sha384::digest(message), signature)
+        }
+        ClassicalVerificationAlgorithm::RsaPssSha512 => {
+            verify_rsa_pss::<Sha512>(public_key, &Sha512::digest(message), signature)
+        }
         ClassicalVerificationAlgorithm::RsaPkcs1Sha256 => verify_rsa(
             public_key,
             Pkcs1v15Sign::new::<Sha256>(),
@@ -400,6 +392,7 @@ pub fn verify(
     }
 }
 
+/// Signs a message with the requested RSA scheme.
 fn sign_rsa(
     key: &RsaPrivateKey,
     scheme: ClassicalSignatureScheme,
@@ -430,6 +423,7 @@ fn sign_rsa(
     result.map_err(|_| ClassicalSignatureError::SigningFailed)
 }
 
+/// Verifies an ECDSA signature with a P-256 public key and caller-selected digest.
 fn verify_p256<D>(
     public_key: &[u8],
     message: &[u8],
@@ -446,6 +440,7 @@ where
         .map_err(|_| ClassicalSignatureError::InvalidSignature)
 }
 
+/// Verifies an ECDSA signature with a P-384 public key and caller-selected digest.
 fn verify_p384<D>(
     public_key: &[u8],
     message: &[u8],
@@ -462,6 +457,24 @@ where
         .map_err(|_| ClassicalSignatureError::InvalidSignature)
 }
 
+/// Verifies an RSA-PSS signature while accepting its encoded salt length.
+fn verify_rsa_pss<D>(
+    public_key: &[u8],
+    digest: &[u8],
+    signature: &[u8],
+) -> Result<(), ClassicalSignatureError>
+where
+    D: sha2::Digest + sha2::digest::FixedOutputReset,
+{
+    let key = parse_rsa_public_key(public_key)?;
+    let signature = RsaPssSignature::try_from(signature)
+        .map_err(|_| ClassicalSignatureError::InvalidSignature)?;
+    RsaPssVerifyingKey::<D>::new_with_auto_salt_len(key)
+        .verify_prehash(digest, &signature)
+        .map_err(|_| ClassicalSignatureError::InvalidSignature)
+}
+
+/// Verifies an RSA signature using a caller-selected padding scheme.
 fn verify_rsa<S>(
     public_key: &[u8],
     scheme: S,
@@ -471,13 +484,19 @@ fn verify_rsa<S>(
 where
     S: rsa::traits::SignatureScheme,
 {
+    let key = parse_rsa_public_key(public_key)?;
+    key.verify(scheme, digest, signature)
+        .map_err(|_| ClassicalSignatureError::InvalidSignature)
+}
+
+/// Decodes a PKCS#1 RSA public key and enforces the minimum key size.
+fn parse_rsa_public_key(public_key: &[u8]) -> Result<RsaPublicKey, ClassicalSignatureError> {
     let key = RsaPublicKey::from_pkcs1_der(public_key)
         .map_err(|_| ClassicalSignatureError::InvalidPublicKey)?;
     if key.n().bits() < RSA_MINIMUM_BITS {
         return Err(ClassicalSignatureError::InvalidPublicKey);
     }
-    key.verify(scheme, digest, signature)
-        .map_err(|_| ClassicalSignatureError::InvalidSignature)
+    Ok(key)
 }
 
 #[cfg(test)]
@@ -601,6 +620,47 @@ mod tests {
                 .unwrap()
                 .algorithm(),
             ClassicalSignatureAlgorithm::Rsa
+        );
+    }
+
+    #[test]
+    fn rsa_pss_verification_accepts_non_default_salt_length() {
+        let mut rng = rand_core_010::UnwrapErr(getrandom_v04::SysRng);
+        let rsa = RsaPrivateKey::new(&mut rng, 2048).unwrap();
+        let public_key = rsa.as_public_key().to_pkcs1_der().unwrap();
+        let signature = Pss::<Sha256>::new_with_salt(20)
+            .sign(Some(&mut rng), &rsa, &Sha256::digest(b"message"))
+            .unwrap();
+
+        verify(
+            ClassicalVerificationAlgorithm::RsaPssSha256,
+            public_key.as_bytes(),
+            b"message",
+            &signature,
+        )
+        .unwrap();
+    }
+
+    #[test]
+    fn undersized_rsa_keys_are_rejected() {
+        let mut rng = rand_core_010::UnwrapErr(getrandom_v04::SysRng);
+        let rsa = RsaPrivateKey::new(&mut rng, 1024).unwrap();
+        let private_pkcs1 = rsa.to_pkcs1_der().unwrap();
+        assert_eq!(
+            ClassicalSigningKey::from_pkcs1_der(private_pkcs1.as_bytes()).unwrap_err(),
+            ClassicalSignatureError::InvalidPrivateKey
+        );
+
+        let public_pkcs1 = rsa.as_public_key().to_pkcs1_der().unwrap();
+        assert_eq!(
+            verify(
+                ClassicalVerificationAlgorithm::RsaPkcs1Sha256,
+                public_pkcs1.as_bytes(),
+                b"message",
+                &[0; 128],
+            )
+            .unwrap_err(),
+            ClassicalSignatureError::InvalidPublicKey
         );
     }
 

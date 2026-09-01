@@ -579,23 +579,22 @@ X-Wing hybrid KEM only:
 tectonic-bedrock = { version = "0.4", default-features = false, features = ["ml-kem", "xwing", "kgen", "encp", "decp"] }
 ```
 
-Current unreleased transport APIs from a sibling checkout, with symmetric
-primitives only:
+Transport APIs introduced in v0.5.2, with symmetric primitives only:
 
 ```toml
-tectonic-bedrock = { path = "../bedrock", default-features = false, features = ["symmetric"] }
+tectonic-bedrock = { version = "0.5.2", default-features = false, features = ["symmetric"] }
 ```
 
 Ephemeral key agreement only:
 
 ```toml
-tectonic-bedrock = { path = "../bedrock", default-features = false, features = ["key-agreement"] }
+tectonic-bedrock = { version = "0.5.2", default-features = false, features = ["key-agreement"] }
 ```
 
 Conventional signature operations and private-key loading only:
 
 ```toml
-tectonic-bedrock = { path = "../bedrock", default-features = false, features = ["classical-signatures"] }
+tectonic-bedrock = { version = "0.5.2", default-features = false, features = ["classical-signatures"] }
 ```
 
 ## Error Handling
