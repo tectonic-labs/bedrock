@@ -12,10 +12,11 @@ name = "tectonic-bedrock"
 readme = "README.md"
 repository = "https://github.com/tectonic-labs/bedrock"
 rust-version = "1.95"
-version = "0.5.1"
+version = "0.5.2"
 
 [features]
 bird-of-prey = ["dep:curve25519-dalek", "falcon", "hmac", "ml-dsa", "sha2", "zeroize", "kgen", "sign", "vrfy"]
+classical-signatures = ["dep:ed25519-dalek", "dep:p256", "dep:p384", "dep:rsa", "dep:signature", "p256/ecdsa", "p256/pkcs8", "p384/ecdsa", "p384/pkcs8", "random", "rand_core_010", "sha2", "zeroize"]
 decp = []
 default = ["eth_falcon", "falcon", "ml-dsa", "slh-dsa", "mayo", "decp", "encp", "kgen", "sign", "vrfy", "hhd"]
 encp = []
@@ -24,29 +25,40 @@ falcon = ["fn-dsa-comm"]
 frodo = ["dep:frodo-kem-rs", "rand_core_010", "getrandom_v04"]
 hhd = ["zeroize", "bip32", "hmac", "sha2", "tiny-bip39", "rand_core", "kgen"]
 hqc = ["dep:hqc-kem", "rand_core_010", "getrandom_v04"]
+key-agreement = ["dep:p256", "dep:p384", "random", "x25519-dalek", "x25519-dalek/zeroize", "zeroize"]
 kgen = ["fn-dsa-comm", "fn-dsa-kgen", "rand_core", "rand_core/getrandom"]
 mayo = ["dep:pq-mayo", "dep:signature", "rand_core_010", "getrandom_v04"]
 mceliece = ["dep:pq-mceliece", "rand_core_010", "getrandom_v04"]
 ml-dsa = ["dep:ml-dsa", "rand_core_010", "getrandom_v04"]
 ml-kem = ["dep:ml-kem"]
+random = ["getrandom_v04"]
 sign = ["fn-dsa-comm", "fn-dsa-sign", "rand_core", "rand_core/getrandom"]
 slh-dsa = ["dep:slh-dsa", "rand_core_010", "getrandom_v04"]
 sntrup = ["dep:sntrup", "rand_core_010", "getrandom_v04"]
+symmetric = ["dep:aes", "dep:aes-gcm", "dep:chacha20", "dep:chacha20poly1305", "dep:hkdf", "hmac", "sha2", "zeroize"]
 vrfy = ["fn-dsa-comm", "fn-dsa-vrfy"]
 xmss = ["dep:pq-xmss", "rand_core_010", "getrandom_v04", "zeroize"]
 xmss-extra-depths = ["xmss", "pq-xmss/extra-depths"]
 xwing = ["rand_core_010", "getrandom_v04", "sha3", "shake", "x25519-dalek"]
 
 [dependencies]
+aes = { version = "0.9.3", default-features = false, features = ["zeroize"], optional = true }
+aes-gcm = { version = "0.11.1", default-features = false, features = ["aes", "zeroize"], optional = true }
 bip32 = { version = "0.5.3", features = ["std", "secp256k1"], optional = true }
+chacha20 = { version = "0.10.2", default-features = false, features = ["cipher", "zeroize"], optional = true }
+chacha20poly1305 = { version = "0.11.0", default-features = false, features = ["zeroize"], optional = true }
 curve25519-dalek = { version = "5", default-features = false, features = ["alloc", "zeroize"], optional = true }
+ed25519-dalek = { version = "3.0.0", default-features = false, features = ["alloc", "fast", "pkcs8", "signature", "zeroize"], optional = true }
 frodo-kem-rs = { version = "0.9", default-features = false, features = ["frodo"], optional = true }
 getrandom_v04 = { package = "getrandom", version = "0.4", features = ["sys_rng"], optional = true }
 hex = "0.4"
-hmac = { version = "0.13", optional = true }
+hkdf = { version = "0.13.0", optional = true }
+hmac = { version = "0.13", features = ["zeroize"], optional = true }
 hqc-kem = { version = "=0.1.0-rc.0", default-features = false, features = ["alloc", "dcap", "ecap", "kgen"], optional = true }
 ml-dsa = { version = "0.1.1", default-features = false, features = ["alloc", "rand_core", "zeroize"], optional = true }
 ml-kem = { version = "0.3.2", default-features = false, features = ["alloc", "zeroize", "getrandom"], optional = true }
+p256 = { version = "0.14.0", default-features = false, features = ["alloc", "arithmetic", "ecdh", "std"], optional = true }
+p384 = { version = "0.14.0", default-features = false, features = ["alloc", "arithmetic", "ecdh", "std"], optional = true }
 pq-mayo = { version = "0.5.0", optional = true }
 pq-xmss = { version = "0.2.0", optional = true }
 rand_chacha = { version = "0.10", optional = true }
@@ -54,6 +66,7 @@ rand_chacha = { version = "0.10", optional = true }
 # that API migrates while newer cryptographic backends use rand_core_010.
 rand_core = { version = "0.6", features = ["std"], optional = true }
 rand_core_010 = { package = "rand_core", version = "0.10", optional = true }
+rsa = { version = "0.10.0-rc.18", default-features = false, features = ["encoding", "sha2", "std"], optional = true }
 serde = { version = "1.0", features = ["derive"] }
 serdect = "0.4"
 sha2 = { version = "0.11", optional = true }

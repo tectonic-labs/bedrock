@@ -528,11 +528,18 @@ Control which algorithms and operations are enabled:
 - `mceliece` - Enable Classic McEliece key encapsulation
 - `frodo` - Enable FrodoKEM key encapsulation
 - `hqc` - Enable HQC key encapsulation and, with `hhd`, HQC HD derivation
+- `classical-signatures` - Enable transport-neutral RSA, P-256 ECDSA, P-384
+  ECDSA, and Ed25519 signing, verification, and private-key loading
+- `key-agreement` - Enable ephemeral X25519, P-256, and P-384 key agreement
+  (also enables `random`)
 - `sntrup` - Enable Streamlined NTRU Prime key encapsulation
 - `xmss` - Enable XMSS stateful signatures
 - `xmss-extra-depths` - Enable all 147 non-standard `pq-xmss` tree-depth parameter sets
 - `bird-of-prey` - Enable Bird-of-Prey-2 hybrid signatures
 - `xwing` - Enable X-Wing hybrid KEM (requires `ml-kem` or `mceliece`)
+- `symmetric` - Enable transport-neutral AES-GCM, ChaCha20-Poly1305, SHA-2,
+  HMAC/HKDF, AES block, and ChaCha20 stream primitives
+- `random` - Enable operating-system cryptographic randomness
 - `hhd` - Enable hierarchical deterministic wallet support (default)
 
 ### Operation Features
@@ -572,10 +579,31 @@ X-Wing hybrid KEM only:
 tectonic-bedrock = { version = "0.4", default-features = false, features = ["ml-kem", "xwing", "kgen", "encp", "decp"] }
 ```
 
+Current unreleased transport APIs from a sibling checkout, with symmetric
+primitives only:
+
+```toml
+tectonic-bedrock = { path = "../bedrock", default-features = false, features = ["symmetric"] }
+```
+
+Ephemeral key agreement only:
+
+```toml
+tectonic-bedrock = { path = "../bedrock", default-features = false, features = ["key-agreement"] }
+```
+
+Conventional signature operations and private-key loading only:
+
+```toml
+tectonic-bedrock = { path = "../bedrock", default-features = false, features = ["classical-signatures"] }
+```
+
 ## Error Handling
 
-All fallible operations return `Result<T, tectonic_bedrock::error::Error>`. The `Error`
-enum includes, among others:
+Scheme APIs return `Result<T, tectonic_bedrock::error::Error>`. The transport-neutral
+modules expose focused `ClassicalSignatureError`, `SymmetricError`,
+`KeyAgreementError`, and `RandomError` types. The scheme-level `Error` enum includes,
+among others:
 
 - `McElieceError(String)` - Errors from the Classic McEliece KEM.
 - `InvalidScheme(u8)` / `InvalidSchemeStr(String)` - Invalid scheme identifiers.
