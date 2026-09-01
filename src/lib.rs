@@ -21,6 +21,8 @@ mod macros;
 
 #[cfg(feature = "bird-of-prey")]
 pub mod bird_of_prey;
+#[cfg(feature = "classical-signatures")]
+pub mod classical_signature;
 #[cfg(feature = "bird-of-prey")]
 pub mod det_rng;
 pub mod error;
@@ -38,14 +40,20 @@ pub mod hhd;
     feature = "sntrup"
 ))]
 pub mod kem;
+#[cfg(feature = "key-agreement")]
+pub mod key_agreement;
 #[cfg(feature = "mayo")]
 pub mod mayo;
 #[cfg(feature = "ml-dsa")]
 // The module implements deprecated compatibility APIs; downstream uses still warn.
 #[allow(deprecated)]
 pub mod ml_dsa;
+#[cfg(feature = "random")]
+pub mod random;
 #[cfg(feature = "slh-dsa")]
 pub mod slh_dsa;
+#[cfg(feature = "symmetric")]
+pub mod symmetric;
 #[cfg(feature = "xmss")]
 pub mod xmss;
 #[cfg(feature = "xwing")]

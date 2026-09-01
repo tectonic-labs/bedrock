@@ -5,6 +5,28 @@ All notable changes to this crate will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+
+## v0.5.2 - 2026-09-01
+
+### Added
+
+- Added the optional `symmetric` feature with transport-neutral AES-GCM,
+  ChaCha20-Poly1305, SHA-2, HMAC/HKDF, AES block, and ChaCha20 stream
+  primitives for protocol adapters such as bedrock-tls.
+- Added optional `random` and `key-agreement` features for operating-system
+  CSPRNG access and ephemeral X25519, P-256, and P-384 agreement.
+- Added the optional `classical-signatures` feature with transport-neutral RSA,
+  P-256 ECDSA, P-384 ECDSA, and Ed25519 verification, signing, public-key
+  encoding, and PKCS#8/PKCS#1/SEC1 private-key loading.
+
+## v0.5.1 - 2026-08-31
+
+### Fixed
+
+- Updated ML-DSA seeded and randomized key generation for the `ml-dsa` 0.1.1
+  API used by the published package.
+
 ## v0.5.0 - 2026-08-25
 
 ### Added
