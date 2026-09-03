@@ -12,13 +12,15 @@ name = "tectonic-bedrock"
 readme = "README.md"
 repository = "https://github.com/tectonic-labs/bedrock"
 rust-version = "1.95"
-version = "0.5.2"
+version = "0.5.3"
 
 [features]
 bird-of-prey = ["dep:curve25519-dalek", "falcon", "hmac", "ml-dsa", "sha2", "zeroize", "kgen", "sign", "vrfy"]
-classical-signatures = ["dep:ed25519-dalek", "dep:p256", "dep:p384", "dep:rsa", "dep:signature", "p256/ecdsa", "p256/pkcs8", "p384/ecdsa", "p384/pkcs8", "random", "rand_core_010", "sha2", "zeroize"]
+classical-signatures = ["ecdsa-signatures", "ed25519-signatures", "rsa-signatures"]
 decp = []
 default = ["eth_falcon", "falcon", "ml-dsa", "slh-dsa", "mayo", "decp", "encp", "kgen", "sign", "vrfy", "hhd"]
+ecdsa-signatures = ["dep:p256", "dep:p384", "dep:signature", "p256/ecdsa", "p256/pkcs8", "p384/ecdsa", "p384/pkcs8", "sha2", "zeroize"]
+ed25519-signatures = ["dep:ed25519-dalek", "dep:signature", "zeroize"]
 encp = []
 eth_falcon = ["falcon", "rand_chacha", "rand_core", "fn-dsa-comm/eth_falcon", "fn-dsa-sign?/eth_falcon", "fn-dsa-vrfy?/eth_falcon", "zeroize"]
 falcon = ["fn-dsa-comm"]
@@ -32,6 +34,7 @@ mceliece = ["dep:pq-mceliece", "rand_core_010", "getrandom_v04"]
 ml-dsa = ["dep:ml-dsa", "rand_core_010", "getrandom_v04"]
 ml-kem = ["dep:ml-kem"]
 random = ["getrandom_v04"]
+rsa-signatures = ["dep:rsa", "dep:signature", "random", "rand_core_010", "sha2", "zeroize"]
 sign = ["fn-dsa-comm", "fn-dsa-sign", "rand_core", "rand_core/getrandom"]
 slh-dsa = ["dep:slh-dsa", "rand_core_010", "getrandom_v04"]
 sntrup = ["dep:sntrup", "rand_core_010", "getrandom_v04"]
@@ -51,7 +54,6 @@ curve25519-dalek = { version = "5", default-features = false, features = ["alloc
 ed25519-dalek = { version = "3.0.0", default-features = false, features = ["alloc", "fast", "pkcs8", "signature", "zeroize"], optional = true }
 frodo-kem-rs = { version = "0.9", default-features = false, features = ["frodo"], optional = true }
 getrandom_v04 = { package = "getrandom", version = "0.4", features = ["sys_rng"], optional = true }
-hex = "0.4"
 hkdf = { version = "0.13.0", optional = true }
 hmac = { version = "0.13", features = ["zeroize"], optional = true }
 hqc-kem = { version = "=0.1.0-rc.0", default-features = false, features = ["alloc", "dcap", "ecap", "kgen"], optional = true }
@@ -118,7 +120,7 @@ version = "0.3.0"
 ciborium = "0.2.2"
 criterion = "0.8"
 falcon-rust = "0.1.3"
-hex = { version = "0.4", features = ["serde"] }
+hex = "0.4"
 postcard = { version = "1.0", default-features = false, features = ["use-std"] }
 rand = "0.10"
 rand_chacha = "0.10"

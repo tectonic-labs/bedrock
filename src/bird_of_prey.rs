@@ -24,7 +24,7 @@
 use crate::det_rng::DetRng;
 use crate::error::{Error, Result};
 use crate::ml_dsa::{MlDsaScheme, MlDsaSignature, MlDsaSigningKey, MlDsaVerificationKey};
-use crate::{deserialize_hex_or_bin, os_rng, serialize_hex_or_bin};
+use crate::os_rng;
 use curve25519_dalek::EdwardsPoint;
 use curve25519_dalek::edwards::CompressedEdwardsY;
 use curve25519_dalek::scalar::Scalar;
@@ -128,8 +128,8 @@ serde_impl!(BirdOfPreyScheme);
 pub(crate) struct InnerBirdOfPrey {
     scheme: BirdOfPreyScheme,
     #[serde(
-        serialize_with = "serialize_hex_or_bin",
-        deserialize_with = "deserialize_hex_or_bin"
+        serialize_with = "serdect::slice::serialize_hex_lower_or_bin",
+        deserialize_with = "serdect::slice::deserialize_hex_or_bin_vec"
     )]
     value: Vec<u8>,
 }

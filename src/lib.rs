@@ -21,7 +21,11 @@ mod macros;
 
 #[cfg(feature = "bird-of-prey")]
 pub mod bird_of_prey;
-#[cfg(feature = "classical-signatures")]
+#[cfg(any(
+    feature = "ecdsa-signatures",
+    feature = "ed25519-signatures",
+    feature = "rsa-signatures"
+))]
 pub mod classical_signature;
 #[cfg(feature = "bird-of-prey")]
 pub mod det_rng;
@@ -77,20 +81,6 @@ compiler_error!(
 ))]
 pub(crate) fn os_rng() -> rand_core_010::UnwrapErr<getrandom_v04::SysRng> {
     rand_core_010::UnwrapErr(getrandom_v04::SysRng)
-}
-
-pub(crate) fn serialize_hex_or_bin<S>(bytes: &Vec<u8>, s: S) -> Result<S::Ok, S::Error>
-where
-    S: serde::Serializer,
-{
-    serdect::slice::serialize_hex_lower_or_bin(&bytes, s)
-}
-
-pub(crate) fn deserialize_hex_or_bin<'de, D>(d: D) -> Result<Vec<u8>, D::Error>
-where
-    D: serde::Deserializer<'de>,
-{
-    serdect::slice::deserialize_hex_or_bin_vec(d)
 }
 
 #[cfg(all(

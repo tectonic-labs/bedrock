@@ -2,26 +2,49 @@
 
 use core::fmt;
 
+#[cfg(feature = "ed25519-signatures")]
 use ed25519_dalek::{
     Signature as Ed25519Signature, SigningKey as Ed25519SigningKey,
     VerifyingKey as Ed25519VerifyingKey,
 };
+#[cfg(feature = "ecdsa-signatures")]
 use p256::ecdsa::{
     Signature as P256Signature, SigningKey as P256SigningKey, VerifyingKey as P256VerifyingKey,
 };
+#[cfg(feature = "ecdsa-signatures")]
 use p384::ecdsa::{
     Signature as P384Signature, SigningKey as P384SigningKey, VerifyingKey as P384VerifyingKey,
 };
+#[cfg(feature = "rsa-signatures")]
 use rsa::pkcs1::{DecodeRsaPrivateKey, DecodeRsaPublicKey, EncodeRsaPublicKey};
-use rsa::pkcs8::{DecodePrivateKey, EncodePublicKey};
+#[cfg(feature = "rsa-signatures")]
 use rsa::pss::{Signature as RsaPssSignature, VerifyingKey as RsaPssVerifyingKey};
+#[cfg(feature = "rsa-signatures")]
 use rsa::traits::{PublicKeyParts, SignatureScheme as RsaSignatureScheme};
+#[cfg(feature = "rsa-signatures")]
 use rsa::{Pkcs1v15Sign, Pss, RsaPrivateKey, RsaPublicKey};
-use sha2::{Digest as _, Sha256, Sha384, Sha512};
+#[cfg(feature = "rsa-signatures")]
+use sha2::Digest as _;
+#[cfg(any(feature = "ecdsa-signatures", feature = "rsa-signatures"))]
+use sha2::{Sha256, Sha384, Sha512};
+#[cfg(any(feature = "ecdsa-signatures", feature = "ed25519-signatures"))]
 use signature::Signer as _;
+#[cfg(any(feature = "ecdsa-signatures", feature = "rsa-signatures"))]
 use signature::hazmat::PrehashVerifier;
 use thiserror::Error as ThisError;
 
+#[cfg(all(not(feature = "ecdsa-signatures"), feature = "ed25519-signatures"))]
+use ed25519_dalek::pkcs8::{DecodePrivateKey as _, EncodePublicKey as _};
+#[cfg(feature = "ecdsa-signatures")]
+use p256::pkcs8::{DecodePrivateKey as _, EncodePublicKey as _};
+#[cfg(all(
+    not(feature = "ecdsa-signatures"),
+    not(feature = "ed25519-signatures"),
+    feature = "rsa-signatures"
+))]
+use rsa::pkcs8::{DecodePrivateKey as _, EncodePublicKey as _};
+
+#[cfg(feature = "rsa-signatures")]
 const RSA_MINIMUM_BITS: u32 = 2048;
 
 /// Errors returned by conventional signature operations.
@@ -119,9 +142,13 @@ pub enum ClassicalVerificationAlgorithm {
 }
 
 enum SigningKeyInner {
+    #[cfg(feature = "rsa-signatures")]
     Rsa(RsaPrivateKey),
+    #[cfg(feature = "ecdsa-signatures")]
     EcdsaP256(P256SigningKey),
+    #[cfg(feature = "ecdsa-signatures")]
     EcdsaP384(P384SigningKey),
+    #[cfg(feature = "ed25519-signatures")]
     Ed25519(Ed25519SigningKey),
 }
 
@@ -133,17 +160,21 @@ pub struct ClassicalSigningKey {
 }
 
 impl ClassicalSigningKey {
-    /// Loads RSA, P-256, P-384, or Ed25519 key material from PKCS#8 DER.
+    /// Loads enabled conventional key material from PKCS#8 DER.
     pub fn from_pkcs8_der(der: &[u8]) -> Result<Self, ClassicalSignatureError> {
+        #[cfg(feature = "rsa-signatures")]
         if let Ok(key) = RsaPrivateKey::from_pkcs8_der(der) {
             return Self::from_rsa(key);
         }
+        #[cfg(feature = "ecdsa-signatures")]
         if let Ok(key) = p256::SecretKey::from_pkcs8_der(der) {
             return Self::from_p256(P256SigningKey::from(key));
         }
+        #[cfg(feature = "ecdsa-signatures")]
         if let Ok(key) = p384::SecretKey::from_pkcs8_der(der) {
             return Self::from_p384(P384SigningKey::from(key));
         }
+        #[cfg(feature = "ed25519-signatures")]
         if let Ok(key) = Ed25519SigningKey::from_pkcs8_der(der) {
             return Self::from_ed25519(key);
         }
@@ -151,6 +182,7 @@ impl ClassicalSigningKey {
     }
 
     /// Loads an RSA private key from PKCS#1 DER.
+    #[cfg(feature = "rsa-signatures")]
     pub fn from_pkcs1_der(der: &[u8]) -> Result<Self, ClassicalSignatureError> {
         RsaPrivateKey::from_pkcs1_der(der)
             .map_err(|_| ClassicalSignatureError::InvalidPrivateKey)
@@ -158,6 +190,7 @@ impl ClassicalSigningKey {
     }
 
     /// Loads a P-256 or P-384 private key from SEC1 DER.
+    #[cfg(feature = "ecdsa-signatures")]
     pub fn from_sec1_der(der: &[u8]) -> Result<Self, ClassicalSignatureError> {
         if let Ok(key) = p256::SecretKey::from_sec1_der(der) {
             return Self::from_p256(P256SigningKey::from(key));
@@ -171,9 +204,13 @@ impl ClassicalSigningKey {
     /// Returns the key's public-key family.
     pub const fn algorithm(&self) -> ClassicalSignatureAlgorithm {
         match self.inner {
+            #[cfg(feature = "rsa-signatures")]
             SigningKeyInner::Rsa(_) => ClassicalSignatureAlgorithm::Rsa,
+            #[cfg(feature = "ecdsa-signatures")]
             SigningKeyInner::EcdsaP256(_) => ClassicalSignatureAlgorithm::EcdsaP256,
+            #[cfg(feature = "ecdsa-signatures")]
             SigningKeyInner::EcdsaP384(_) => ClassicalSignatureAlgorithm::EcdsaP384,
+            #[cfg(feature = "ed25519-signatures")]
             SigningKeyInner::Ed25519(_) => ClassicalSignatureAlgorithm::Ed25519,
         }
     }
@@ -226,29 +263,40 @@ impl ClassicalSigningKey {
             return Err(ClassicalSignatureError::UnsupportedScheme);
         }
 
-        match (&self.inner, scheme) {
-            (SigningKeyInner::EcdsaP256(key), ClassicalSignatureScheme::EcdsaP256Sha256) => {
-                let signature: P256Signature = key
-                    .try_sign(message)
-                    .map_err(|_| ClassicalSignatureError::SigningFailed)?;
-                let signature = signature.normalize_s();
-                Ok(signature.to_der().as_bytes().to_vec())
-            }
-            (SigningKeyInner::EcdsaP384(key), ClassicalSignatureScheme::EcdsaP384Sha384) => {
-                let signature: P384Signature = key
-                    .try_sign(message)
-                    .map_err(|_| ClassicalSignatureError::SigningFailed)?;
-                let signature = signature.normalize_s();
-                Ok(signature.to_der().as_bytes().to_vec())
-            }
-            (SigningKeyInner::Ed25519(key), ClassicalSignatureScheme::Ed25519) => {
-                Ok(key.sign(message).to_bytes().to_vec())
-            }
-            (SigningKeyInner::Rsa(key), scheme) => sign_rsa(key, scheme, message),
-            _ => Err(ClassicalSignatureError::UnsupportedScheme),
+        match &self.inner {
+            #[cfg(feature = "ecdsa-signatures")]
+            SigningKeyInner::EcdsaP256(key) => match scheme {
+                ClassicalSignatureScheme::EcdsaP256Sha256 => {
+                    let signature: P256Signature = key
+                        .try_sign(message)
+                        .map_err(|_| ClassicalSignatureError::SigningFailed)?;
+                    let signature = signature.normalize_s();
+                    Ok(signature.to_der().as_bytes().to_vec())
+                }
+                _ => Err(ClassicalSignatureError::UnsupportedScheme),
+            },
+            #[cfg(feature = "ecdsa-signatures")]
+            SigningKeyInner::EcdsaP384(key) => match scheme {
+                ClassicalSignatureScheme::EcdsaP384Sha384 => {
+                    let signature: P384Signature = key
+                        .try_sign(message)
+                        .map_err(|_| ClassicalSignatureError::SigningFailed)?;
+                    let signature = signature.normalize_s();
+                    Ok(signature.to_der().as_bytes().to_vec())
+                }
+                _ => Err(ClassicalSignatureError::UnsupportedScheme),
+            },
+            #[cfg(feature = "ed25519-signatures")]
+            SigningKeyInner::Ed25519(key) => match scheme {
+                ClassicalSignatureScheme::Ed25519 => Ok(key.sign(message).to_bytes().to_vec()),
+                _ => Err(ClassicalSignatureError::UnsupportedScheme),
+            },
+            #[cfg(feature = "rsa-signatures")]
+            SigningKeyInner::Rsa(key) => sign_rsa(key, scheme, message),
         }
     }
 
+    #[cfg(feature = "rsa-signatures")]
     fn from_rsa(key: RsaPrivateKey) -> Result<Self, ClassicalSignatureError> {
         if key.n().bits() < RSA_MINIMUM_BITS {
             return Err(ClassicalSignatureError::InvalidPrivateKey);
@@ -272,6 +320,7 @@ impl ClassicalSigningKey {
         })
     }
 
+    #[cfg(feature = "ecdsa-signatures")]
     fn from_p256(key: P256SigningKey) -> Result<Self, ClassicalSignatureError> {
         let verifying_key = key.verifying_key();
         let public_key = verifying_key.to_sec1_point(false).as_bytes().to_vec();
@@ -287,6 +336,7 @@ impl ClassicalSigningKey {
         })
     }
 
+    #[cfg(feature = "ecdsa-signatures")]
     fn from_p384(key: P384SigningKey) -> Result<Self, ClassicalSignatureError> {
         let verifying_key = key.verifying_key();
         let public_key = verifying_key.to_sec1_point(false).as_bytes().to_vec();
@@ -302,6 +352,7 @@ impl ClassicalSigningKey {
         })
     }
 
+    #[cfg(feature = "ed25519-signatures")]
     fn from_ed25519(key: Ed25519SigningKey) -> Result<Self, ClassicalSignatureError> {
         let verifying_key = key.verifying_key();
         let public_key = verifying_key.to_bytes().to_vec();
@@ -336,24 +387,40 @@ pub fn verify(
     signature: &[u8],
 ) -> Result<(), ClassicalSignatureError> {
     match algorithm {
+        #[cfg(feature = "ecdsa-signatures")]
         ClassicalVerificationAlgorithm::EcdsaP256Sha256 => {
             verify_p256::<Sha256>(public_key, message, signature)
         }
+        #[cfg(feature = "ecdsa-signatures")]
         ClassicalVerificationAlgorithm::EcdsaP256Sha384 => {
             verify_p256::<Sha384>(public_key, message, signature)
         }
+        #[cfg(feature = "ecdsa-signatures")]
         ClassicalVerificationAlgorithm::EcdsaP256Sha512 => {
             verify_p256::<Sha512>(public_key, message, signature)
         }
+        #[cfg(feature = "ecdsa-signatures")]
         ClassicalVerificationAlgorithm::EcdsaP384Sha256 => {
             verify_p384::<Sha256>(public_key, message, signature)
         }
+        #[cfg(feature = "ecdsa-signatures")]
         ClassicalVerificationAlgorithm::EcdsaP384Sha384 => {
             verify_p384::<Sha384>(public_key, message, signature)
         }
+        #[cfg(feature = "ecdsa-signatures")]
         ClassicalVerificationAlgorithm::EcdsaP384Sha512 => {
             verify_p384::<Sha512>(public_key, message, signature)
         }
+        #[cfg(not(feature = "ecdsa-signatures"))]
+        ClassicalVerificationAlgorithm::EcdsaP256Sha256
+        | ClassicalVerificationAlgorithm::EcdsaP256Sha384
+        | ClassicalVerificationAlgorithm::EcdsaP256Sha512
+        | ClassicalVerificationAlgorithm::EcdsaP384Sha256
+        | ClassicalVerificationAlgorithm::EcdsaP384Sha384
+        | ClassicalVerificationAlgorithm::EcdsaP384Sha512 => {
+            Err(ClassicalSignatureError::UnsupportedScheme)
+        }
+        #[cfg(feature = "ed25519-signatures")]
         ClassicalVerificationAlgorithm::Ed25519 => {
             let key = Ed25519VerifyingKey::try_from(public_key)
                 .map_err(|_| ClassicalSignatureError::InvalidPublicKey)?;
@@ -362,37 +429,55 @@ pub fn verify(
             key.verify_strict(message, &signature)
                 .map_err(|_| ClassicalSignatureError::InvalidSignature)
         }
+        #[cfg(not(feature = "ed25519-signatures"))]
+        ClassicalVerificationAlgorithm::Ed25519 => Err(ClassicalSignatureError::UnsupportedScheme),
+        #[cfg(feature = "rsa-signatures")]
         ClassicalVerificationAlgorithm::RsaPssSha256 => {
             verify_rsa_pss::<Sha256>(public_key, &Sha256::digest(message), signature)
         }
+        #[cfg(feature = "rsa-signatures")]
         ClassicalVerificationAlgorithm::RsaPssSha384 => {
             verify_rsa_pss::<Sha384>(public_key, &Sha384::digest(message), signature)
         }
+        #[cfg(feature = "rsa-signatures")]
         ClassicalVerificationAlgorithm::RsaPssSha512 => {
             verify_rsa_pss::<Sha512>(public_key, &Sha512::digest(message), signature)
         }
+        #[cfg(feature = "rsa-signatures")]
         ClassicalVerificationAlgorithm::RsaPkcs1Sha256 => verify_rsa(
             public_key,
             Pkcs1v15Sign::new::<Sha256>(),
             &Sha256::digest(message),
             signature,
         ),
+        #[cfg(feature = "rsa-signatures")]
         ClassicalVerificationAlgorithm::RsaPkcs1Sha384 => verify_rsa(
             public_key,
             Pkcs1v15Sign::new::<Sha384>(),
             &Sha384::digest(message),
             signature,
         ),
+        #[cfg(feature = "rsa-signatures")]
         ClassicalVerificationAlgorithm::RsaPkcs1Sha512 => verify_rsa(
             public_key,
             Pkcs1v15Sign::new::<Sha512>(),
             &Sha512::digest(message),
             signature,
         ),
+        #[cfg(not(feature = "rsa-signatures"))]
+        ClassicalVerificationAlgorithm::RsaPssSha256
+        | ClassicalVerificationAlgorithm::RsaPssSha384
+        | ClassicalVerificationAlgorithm::RsaPssSha512
+        | ClassicalVerificationAlgorithm::RsaPkcs1Sha256
+        | ClassicalVerificationAlgorithm::RsaPkcs1Sha384
+        | ClassicalVerificationAlgorithm::RsaPkcs1Sha512 => {
+            Err(ClassicalSignatureError::UnsupportedScheme)
+        }
     }
 }
 
 /// Signs a message with the requested RSA scheme.
+#[cfg(feature = "rsa-signatures")]
 fn sign_rsa(
     key: &RsaPrivateKey,
     scheme: ClassicalSignatureScheme,
@@ -424,6 +509,7 @@ fn sign_rsa(
 }
 
 /// Verifies an ECDSA signature with a P-256 public key and caller-selected digest.
+#[cfg(feature = "ecdsa-signatures")]
 fn verify_p256<D>(
     public_key: &[u8],
     message: &[u8],
@@ -441,6 +527,7 @@ where
 }
 
 /// Verifies an ECDSA signature with a P-384 public key and caller-selected digest.
+#[cfg(feature = "ecdsa-signatures")]
 fn verify_p384<D>(
     public_key: &[u8],
     message: &[u8],
@@ -458,6 +545,7 @@ where
 }
 
 /// Verifies an RSA-PSS signature while accepting its encoded salt length.
+#[cfg(feature = "rsa-signatures")]
 fn verify_rsa_pss<D>(
     public_key: &[u8],
     digest: &[u8],
@@ -475,6 +563,7 @@ where
 }
 
 /// Verifies an RSA signature using a caller-selected padding scheme.
+#[cfg(feature = "rsa-signatures")]
 fn verify_rsa<S>(
     public_key: &[u8],
     scheme: S,
@@ -490,6 +579,7 @@ where
 }
 
 /// Decodes a PKCS#1 RSA public key and enforces the minimum key size.
+#[cfg(feature = "rsa-signatures")]
 fn parse_rsa_public_key(public_key: &[u8]) -> Result<RsaPublicKey, ClassicalSignatureError> {
     let key = RsaPublicKey::from_pkcs1_der(public_key)
         .map_err(|_| ClassicalSignatureError::InvalidPublicKey)?;
@@ -502,12 +592,22 @@ fn parse_rsa_public_key(public_key: &[u8]) -> Result<RsaPublicKey, ClassicalSign
 #[cfg(test)]
 #[allow(clippy::unwrap_used)]
 mod tests {
+    #[cfg(feature = "ed25519-signatures")]
     use ed25519_dalek::pkcs8::EncodePrivateKey as _;
+    #[cfg(all(feature = "ecdsa-signatures", not(feature = "ed25519-signatures")))]
+    use p256::pkcs8::EncodePrivateKey as _;
+    #[cfg(feature = "rsa-signatures")]
     use rsa::pkcs1::EncodeRsaPrivateKey as _;
+    #[cfg(all(not(feature = "ecdsa-signatures"), feature = "rsa-signatures"))]
+    use rsa::pkcs8::EncodePrivateKey as _;
+    #[cfg(all(feature = "ecdsa-signatures", not(feature = "rsa-signatures")))]
+    use sha2::Digest as _;
+    #[cfg(feature = "ecdsa-signatures")]
     use signature::hazmat::PrehashSigner as _;
 
     use super::*;
 
+    #[cfg(feature = "ecdsa-signatures")]
     #[test]
     fn p256_pkcs8_and_sec1_round_trip() {
         let secret = p256::SecretKey::from_slice(&[0x11; 32]).unwrap();
@@ -534,6 +634,7 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "ecdsa-signatures")]
     #[test]
     fn p384_cross_hash_verification_works() {
         let secret = p384::SecretKey::from_slice(&[0x22; 48]).unwrap();
@@ -559,6 +660,7 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "ed25519-signatures")]
     #[test]
     fn ed25519_pkcs8_round_trip() {
         let signing_key = Ed25519SigningKey::from_bytes(&[0x33; 32]);
@@ -577,6 +679,7 @@ mod tests {
         .unwrap();
     }
 
+    #[cfg(feature = "rsa-signatures")]
     #[test]
     fn rsa_pkcs1_and_pkcs8_support_all_schemes() {
         let mut rng = rand_core_010::UnwrapErr(getrandom_v04::SysRng);
@@ -623,6 +726,7 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "rsa-signatures")]
     #[test]
     fn rsa_pss_verification_accepts_non_default_salt_length() {
         let mut rng = rand_core_010::UnwrapErr(getrandom_v04::SysRng);
@@ -641,6 +745,7 @@ mod tests {
         .unwrap();
     }
 
+    #[cfg(feature = "rsa-signatures")]
     #[test]
     fn undersized_rsa_keys_are_rejected() {
         let mut rng = rand_core_010::UnwrapErr(getrandom_v04::SysRng);
@@ -664,6 +769,7 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "ed25519-signatures")]
     #[test]
     fn malformed_inputs_and_scheme_mismatches_fail_closed() {
         assert!(ClassicalSigningKey::from_pkcs8_der(&[0; 32]).is_err());
@@ -682,6 +788,20 @@ mod tests {
         assert!(
             key.sign(ClassicalSignatureScheme::EcdsaP256Sha256, b"message")
                 .is_err()
+        );
+    }
+
+    #[cfg(not(feature = "rsa-signatures"))]
+    #[test]
+    fn disabled_rsa_verification_fails_closed() {
+        assert_eq!(
+            verify(
+                ClassicalVerificationAlgorithm::RsaPkcs1Sha256,
+                &[0; 256],
+                b"message",
+                &[0; 256],
+            ),
+            Err(ClassicalSignatureError::UnsupportedScheme)
         );
     }
 }

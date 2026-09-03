@@ -1,8 +1,8 @@
 //! ML-DSA key and signature methods.
 
+use crate::error::*;
 #[cfg(any(feature = "kgen", feature = "sign"))]
 use crate::os_rng;
-use crate::{deserialize_hex_or_bin, error::*, serialize_hex_or_bin};
 use serde::{Deserialize, Serialize};
 
 macro_rules! impl_ml_dsa_struct {
@@ -271,8 +271,8 @@ impl_ml_dsa_struct!(MlDsaSignature, validate_signature, "a valid signature");
 pub(crate) struct InnerMlDsa {
     scheme: MlDsaScheme,
     #[serde(
-        serialize_with = "serialize_hex_or_bin",
-        deserialize_with = "deserialize_hex_or_bin"
+        serialize_with = "serdect::slice::serialize_hex_lower_or_bin",
+        deserialize_with = "serdect::slice::deserialize_hex_or_bin_vec"
     )]
     value: Vec<u8>,
 }

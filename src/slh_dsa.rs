@@ -1,8 +1,8 @@
 //! SLH-DSA key and signature methods.
 
+use crate::error::*;
 #[cfg(feature = "kgen")]
 use crate::os_rng;
-use crate::{deserialize_hex_or_bin, error::*, serialize_hex_or_bin};
 use serde::{Deserialize, Serialize};
 
 macro_rules! impl_slh_dsa_struct {
@@ -279,8 +279,8 @@ impl_slh_dsa_struct!(SlhDsaSignature, validate_signature, "a valid signature");
 pub(crate) struct InnerSlhDsa {
     scheme: SlhDsaScheme,
     #[serde(
-        serialize_with = "serialize_hex_or_bin",
-        deserialize_with = "deserialize_hex_or_bin"
+        serialize_with = "serdect::slice::serialize_hex_lower_or_bin",
+        deserialize_with = "serdect::slice::deserialize_hex_or_bin_vec"
     )]
     value: Vec<u8>,
 }
