@@ -57,8 +57,10 @@ jobs:
           - ed25519-signatures
           - rsa-signatures
     steps:
-      - uses: actions/checkout@v5
-      - uses: dtolnay/rust-toolchain@master
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@d1031067263f94b142dd6c0ce24c5eb9d02d52a0 # master
         with:
           toolchain: stable
           components: clippy
