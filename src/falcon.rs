@@ -3,11 +3,7 @@
 //! Because FIPS 206 (FN-DSA) has not been published, Falcon is not a stable DSA recommended for
 //! production. The signature and key formats here may change once the final standard lands.
 
-use crate::{
-    deserialize_hex_or_bin,
-    error::{Error, Result},
-    serialize_hex_or_bin,
-};
+use crate::error::{Error, Result};
 use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "eth_falcon")]
@@ -254,8 +250,8 @@ impl_falcon_struct!(FalconSignature, validate_signature, "a valid signature");
 pub(crate) struct InnerFalcon {
     pub(crate) scheme: FalconScheme,
     #[serde(
-        serialize_with = "serialize_hex_or_bin",
-        deserialize_with = "deserialize_hex_or_bin"
+        serialize_with = "serdect::slice::serialize_hex_lower_or_bin",
+        deserialize_with = "serdect::slice::deserialize_hex_or_bin_vec"
     )]
     pub(crate) value: Vec<u8>,
 }

@@ -5,7 +5,7 @@
 //! key. It is a general-purpose hybrid post-quantum KEM that combines X25519 with ML-KEM
 //! or Classic McEliece.
 
-use crate::{deserialize_hex_or_bin, error::*, kem::*, os_rng, serialize_hex_or_bin};
+use crate::{error::*, kem::*, os_rng};
 use rand_core_010::Rng;
 use serde::{Deserialize, Serialize};
 use sha3::{
@@ -288,8 +288,8 @@ impl Ciphertext {
 pub struct DecapsulationKey {
     scheme: XwingScheme,
     #[serde(
-        serialize_with = "serialize_hex_or_bin",
-        deserialize_with = "deserialize_hex_or_bin"
+        serialize_with = "serdect::slice::serialize_hex_lower_or_bin",
+        deserialize_with = "serdect::slice::deserialize_hex_or_bin_vec"
     )]
     seed: Vec<u8>,
 }
@@ -547,40 +547,36 @@ mod tests {
         #[allow(unused)]
         #[derive(serde::Deserialize)]
         struct TestVector {
-            #[serde(deserialize_with = "hex::serde::deserialize")]
-            seed: Vec<u8>,
-            #[serde(deserialize_with = "hex::serde::deserialize")]
-            eseed: Vec<u8>,
-            #[serde(deserialize_with = "hex::serde::deserialize")]
-            ss: [u8; 32],
-            #[serde(deserialize_with = "hex::serde::deserialize")]
-            sk: [u8; 32],
-            #[serde(deserialize_with = "hex::serde::deserialize")]
-            pk: Vec<u8>,
-            #[serde(deserialize_with = "hex::serde::deserialize")]
-            ct: Vec<u8>,
+            seed: serdect::slice::HexLowerOrBin,
+            eseed: serdect::slice::HexLowerOrBin,
+            ss: serdect::array::HexLowerOrBin<32>,
+            sk: serdect::array::HexLowerOrBin<32>,
+            pk: serdect::slice::HexLowerOrBin,
+            ct: serdect::slice::HexLowerOrBin,
         }
 
         let test_vectors = serde_json::from_str::<Vec<TestVector>>(vectors).unwrap();
 
         for test in &test_vectors {
             let (pk, sk) = XwingScheme::X25519MlKem768
-                .keypair_from_seed(&test.seed)
+                .keypair_from_seed(&test.seed.0)
                 .unwrap();
             let mut out_pk_bytes = pk.pk_m.to_raw_bytes();
             out_pk_bytes.extend_from_slice(pk.pk_x.as_bytes());
-            assert_eq!(test.pk, out_pk_bytes);
-            assert_eq!(test.sk, sk.seed.as_slice());
+            assert_eq!(test.pk.0, out_pk_bytes);
+            assert_eq!(test.sk.0, sk.seed.as_slice());
 
-            let ct_m =
-                KemCiphertext::from_raw_bytes(KemScheme::MlKem768, &test.ct[..test.ct.len() - 32])
-                    .unwrap();
-            let ct_x_bytes: [u8; 32] = (&test.ct[test.ct.len() - 32..]).try_into().unwrap();
+            let ct_m = KemCiphertext::from_raw_bytes(
+                KemScheme::MlKem768,
+                &test.ct.0[..test.ct.0.len() - 32],
+            )
+            .unwrap();
+            let ct_x_bytes: [u8; 32] = (&test.ct.0[test.ct.0.len() - 32..]).try_into().unwrap();
             let ct_x = PublicKey::from(ct_x_bytes);
             let ct = Ciphertext { ct_m, ct_x };
 
             let ss = sk.decapsulate(&ct).unwrap();
-            assert_eq!(ss, test.ss);
+            assert_eq!(ss, test.ss.0);
         }
     }
 

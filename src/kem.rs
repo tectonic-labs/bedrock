@@ -2,6 +2,7 @@
 //!
 //! Supports the KEM families enabled through Cargo features.
 
+use crate::error::*;
 #[cfg(any(
     feature = "frodo",
     feature = "hqc",
@@ -9,7 +10,6 @@
     feature = "sntrup"
 ))]
 use crate::os_rng;
-use crate::{deserialize_hex_or_bin, error::*, serialize_hex_or_bin};
 use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "mceliece")]
@@ -939,8 +939,8 @@ impl zeroize::ZeroizeOnDrop for KemSharedSecret {}
 pub(crate) struct InnerKem {
     scheme: KemScheme,
     #[serde(
-        serialize_with = "serialize_hex_or_bin",
-        deserialize_with = "deserialize_hex_or_bin"
+        serialize_with = "serdect::slice::serialize_hex_lower_or_bin",
+        deserialize_with = "serdect::slice::deserialize_hex_or_bin_vec"
     )]
     value: Vec<u8>,
 }

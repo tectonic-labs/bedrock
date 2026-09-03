@@ -528,8 +528,16 @@ Control which algorithms and operations are enabled:
 - `mceliece` - Enable Classic McEliece key encapsulation
 - `frodo` - Enable FrodoKEM key encapsulation
 - `hqc` - Enable HQC key encapsulation and, with `hhd`, HQC HD derivation
-- `classical-signatures` - Enable transport-neutral RSA, P-256 ECDSA, P-384
-  ECDSA, and Ed25519 signing, verification, and private-key loading
+- `ecdsa-signatures` - Enable transport-neutral P-256 and P-384 ECDSA signing,
+  verification, and private-key loading
+- `ed25519-signatures` - Enable transport-neutral Ed25519 signing,
+  verification, and private-key loading
+- `rsa-signatures` - Enable transport-neutral RSA signing, verification, and
+  private-key loading. This feature is independently opt-in because the current
+  RustCrypto RSA implementation is affected by
+  [RUSTSEC-2023-0071](https://rustsec.org/advisories/RUSTSEC-2023-0071.html).
+- `classical-signatures` - Compatibility umbrella enabling `ecdsa-signatures`,
+  `ed25519-signatures`, and `rsa-signatures`
 - `key-agreement` - Enable ephemeral X25519, P-256, and P-384 key agreement
   (also enables `random`)
 - `sntrup` - Enable Streamlined NTRU Prime key encapsulation
@@ -594,7 +602,13 @@ tectonic-bedrock = { version = "0.5.2", default-features = false, features = ["k
 Conventional signature operations and private-key loading only:
 
 ```toml
-tectonic-bedrock = { version = "0.5.2", default-features = false, features = ["classical-signatures"] }
+tectonic-bedrock = { version = "0.5.3", default-features = false, features = ["classical-signatures"] }
+```
+
+RSA-free conventional signature operations:
+
+```toml
+tectonic-bedrock = { version = "0.5.3", default-features = false, features = ["ecdsa-signatures", "ed25519-signatures"] }
 ```
 
 ## Error Handling

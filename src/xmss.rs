@@ -20,7 +20,7 @@ use core::fmt;
 
 use serde::{Deserialize, Serialize};
 
-use crate::{deserialize_hex_or_bin, error::*, os_rng, serialize_hex_or_bin};
+use crate::{error::*, os_rng};
 
 const OID_LEN: usize = 4;
 const INDEX_LEN: usize = 4;
@@ -816,8 +816,8 @@ macro_rules! with_xmss_params {
 pub(crate) struct InnerXmss {
     scheme: XmssScheme,
     #[serde(
-        serialize_with = "serialize_hex_or_bin",
-        deserialize_with = "deserialize_hex_or_bin"
+        serialize_with = "serdect::slice::serialize_hex_lower_or_bin",
+        deserialize_with = "serdect::slice::deserialize_hex_or_bin_vec"
     )]
     value: Vec<u8>,
 }

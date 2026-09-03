@@ -48,6 +48,22 @@ jobs:
           components: clippy
       - run: cargo clippy --all-features -- -D warnings
 
+  conventional-signature-features:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        feature:
+          - ecdsa-signatures
+          - ed25519-signatures
+          - rsa-signatures
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: stable
+          components: clippy
+      - run: cargo clippy --lib --no-default-features --features "${{ matrix.feature }}" -- -D warnings
+
   doc:
     runs-on: ubuntu-latest
     steps:

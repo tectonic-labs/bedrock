@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Added
+
+- Added independent `ecdsa-signatures`, `ed25519-signatures`, and
+  `rsa-signatures` feature flags for conventional signature operations.
+
+### Changed
+
+- Replaced crate-local byte serialization wrappers with direct `serdect`
+  adapters and limited `hex` to test-only formatting and vector decoding.
+- Retained `classical-signatures` as a compatibility umbrella while allowing
+  downstream consumers to omit the RSA implementation affected by
+  RUSTSEC-2023-0071.
+
 ## v0.5.2 - 2026-09-01
 
 ### Added
