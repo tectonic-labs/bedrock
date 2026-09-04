@@ -49,6 +49,8 @@ jobs:
       - run: cargo clippy --all-features -- -D warnings
 
   conventional-signature-features:
+    permissions:
+      contents: read
     runs-on: ubuntu-latest
     strategy:
       matrix:
