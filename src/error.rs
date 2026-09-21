@@ -15,7 +15,9 @@ impl core::fmt::Display for LeavesCount {
 /// Error type for the library.
 #[derive(ThisError, Debug)]
 pub enum Error {
-    /// Classic McEliece error.
+    /// Failure from a deprecated Classic McEliece scheme retained for legacy use.
+    ///
+    /// This error remains available so callers can handle legacy operation failures.
     #[error("Classic McEliece error: {0}")]
     McElieceError(String),
     /// ML-DSA error.

@@ -68,6 +68,26 @@ jobs:
           components: clippy
       - run: cargo clippy --lib --no-default-features --features "${{ matrix.feature }}" -- -D warnings
 
+  hashing-features:
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        toolchain: ["1.95", stable]
+        features: [hashing, "hashing,symmetric"]
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@d1031067263f94b142dd6c0ce24c5eb9d02d52a0 # master
+        with:
+          toolchain: ${{ matrix.toolchain }}
+          components: clippy
+      - run: cargo clippy --locked --lib --no-default-features --features "${{ matrix.features }}" -- -D warnings
+      - run: cargo test --locked --lib --no-default-features --features "${{ matrix.features }}"
+      - run: cargo test --locked --doc --no-default-features --features "${{ matrix.features }}"
+
   doc:
     runs-on: ubuntu-latest
     steps:

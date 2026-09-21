@@ -8,6 +8,7 @@
     feature = "falcon",
     feature = "frodo",
     feature = "hqc",
+    feature = "hashing",
     feature = "ml-dsa",
     feature = "slh-dsa",
     feature = "mceliece",
@@ -32,6 +33,8 @@ pub mod det_rng;
 pub mod error;
 #[cfg(feature = "falcon")]
 pub mod falcon;
+#[cfg(feature = "hashing")]
+pub mod hashing;
 #[cfg(feature = "hhd")]
 // The module implements deprecated compatibility APIs; downstream uses still warn.
 #[allow(deprecated)]
@@ -43,6 +46,13 @@ pub mod hhd;
     feature = "ml-kem",
     feature = "sntrup"
 ))]
+#[cfg_attr(
+    feature = "mceliece",
+    expect(
+        deprecated,
+        reason = "implements and tests intentional McEliece legacy compatibility; downstream uses still warn"
+    )
+)]
 pub mod kem;
 #[cfg(feature = "key-agreement")]
 pub mod key_agreement;
@@ -61,6 +71,13 @@ pub mod symmetric;
 #[cfg(feature = "xmss")]
 pub mod xmss;
 #[cfg(feature = "xwing")]
+#[cfg_attr(
+    feature = "mceliece",
+    expect(
+        deprecated,
+        reason = "implements and tests intentional McEliece legacy compatibility; downstream uses still warn"
+    )
+)]
 pub mod xwing;
 
 #[cfg(all(feature = "xwing", not(any(feature = "ml-kem", feature = "mceliece"))))]

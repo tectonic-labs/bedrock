@@ -13,9 +13,9 @@ McEliece).
 - **Falcon/FN-DSA**: Fast Fourier lattice-based compact signatures
 - **MAYO**: Multivariate oil-and-vinegar signatures with compact public keys
 - **ML-KEM (FIPS 203)**: Module-lattice-based key-encapsulation mechanism
-- **Classic McEliece**: Code-based key-encapsulation mechanism
+- **Classic McEliece**: Deprecated; retained only for legacy interoperability
 - **ETHFALCON**: Ethereum-compatible Falcon variant with Keccak-256 XOF
-- **X-Wing**: Hybrid KEM combining X25519 with ML-KEM or Classic McEliece
+- **X-Wing**: Hybrid KEM combining X25519 with ML-KEM (McEliece combinations are deprecated)
 - **HQC**: Code-based key-encapsulation mechanism over quasi-cyclic codes,
   [selected by NIST for standardization](https://csrc.nist.gov/Projects/Post-Quantum-Cryptography/Post_Quantum_Cryptography-Standardization)
 - **Streamlined NTRU Prime**: Lattice-based KEM avoiding ring structure, all six sizes
@@ -63,16 +63,37 @@ Two security levels following NIST standards:
 - **ML-KEM-768** (NIST Level 3) - Default when the `ml-kem` feature is enabled
 - **ML-KEM-1024** (NIST Level 5)
 
-### Classic McEliece (Key Encapsulation)
+### Classic McEliece (Deprecated Legacy Key Encapsulation)
 
-- **ClassicMcEliece-348864** (legacy NIST Level 1; not part of ISO)
-- **ClassicMcEliece-460896** (NIST Level 3) - Default when only `mceliece` is enabled
-- **ClassicMcEliece-6688128** (NIST Level 5)
-- **ClassicMcEliece-6960119** (NIST Level 5)
-- **ClassicMcEliece-8192128** (NIST Level 5)
+All five parameter sets remain operational, but are deprecated for new deployments:
 
-The four larger sizes are ISO standardized; 348864 remains available for legacy
-interoperability. Every size supports deterministic key generation from a 32-byte seed.
+- **ClassicMcEliece-348864**
+- **ClassicMcEliece-460896** - Unchanged legacy default when `mceliece` is enabled without `ml-kem`
+- **ClassicMcEliece-6688128**
+- **ClassicMcEliece-6960119**
+- **ClassicMcEliece-8192128**
+
+Recent [key-recovery research](https://eprint.iacr.org/2026/1984) lowers estimated
+security margins under partly heuristic assumptions; it does not demonstrate practical
+key recovery at production parameter sizes. A separate
+[challenge-key recovery](https://eprint.iacr.org/2026/1986) demonstrates progress on
+small challenge parameters, not a break of Bedrock's production parameter sets.
+Bedrock conservatively deprecates the entire family, including McEliece-based X-Wing.
+Previously listed security levels are historical targets, not current assurances.
+
+Rust emits deprecation warnings for direct references to these variants. Key generation,
+seed derivation, encapsulation, decapsulation, raw imports, and serialization remain
+available with unchanged names and wire IDs. Dynamic parsing/deserialization and
+`Default::default()` do not emit runtime warnings or return `DeprecatedScheme`.
+The `mceliece` Cargo feature remains opt-in; Cargo features cannot carry Rust
+deprecation attributes. Its legacy-only defaults are intentionally unchanged.
+
+For new deployments, enable `ml-kem` and explicitly select `KemScheme::MlKem768`
+or `KemScheme::MlKem1024`; for hybrid use select `XwingScheme::X25519MlKem768`
+or `XwingScheme::X25519MlKem1024`. Migration requires new keys and explicit protocol
+agreement, not relabeling existing keys or ciphertexts.
+
+Every legacy size continues to support deterministic key generation from a 32-byte seed.
 
 ### X-Wing (Hybrid Key Encapsulation)
 
@@ -80,7 +101,7 @@ Hybrid KEM combining X25519 with post-quantum KEMs:
 
 - **X25519-ML-KEM-768** (X25519 + ML-KEM-768) - Default
 - **X25519-ML-KEM-1024** (X25519 + ML-KEM-1024)
-- **X25519-ClassicMcEliece348864** (X25519 + Classic McEliece)
+- **X25519-ClassicMcEliece348864** (deprecated; legacy interoperability only)
 
 ### HQC (Key Encapsulation)
 
@@ -218,8 +239,9 @@ anything that may already have used these schemes a clear, actionable migration 
 instead of a silent or confusing failure. The discriminants are never reassigned to other
 schemes.
 
-> **Note:** ClassicMcEliece-348864 remains available for legacy interoperability; new
-> applications should select one of the ISO-standardized sizes.
+> **Note:** All Classic McEliece parameter sets and McEliece-based X-Wing are
+> deprecated but operational for legacy interoperability. Unlike the removed
+> schemes above, their names and wire IDs still resolve successfully.
 
 ## API Reference
 
@@ -458,12 +480,13 @@ let shared_secret_receiver = scheme.decapsulate(&ciphertext, &decapsulation_key)
 assert_eq!(shared_secret_sender.as_ref(), shared_secret_receiver.as_ref());
 ```
 
-### Classic McEliece
+### Classic McEliece (Deprecated Legacy Example)
 
 ```rust
 use tectonic_bedrock::kem::KemScheme;
 
-// Use Classic McEliece for code-based KEM
+// Legacy interoperability only: this variant emits a deprecation warning.
+// For new deployments, enable ml-kem and select MlKem768 or MlKem1024.
 let scheme = KemScheme::ClassicMcEliece6960119;
 let (ek, dk) = scheme.keypair()?;
 let (ct, ss) = scheme.encapsulate(&ek)?;
@@ -525,7 +548,7 @@ Control which algorithms and operations are enabled:
 - `falcon` - Enable Falcon/FN-DSA signature schemes (default)
 - `eth_falcon` - Enable ETHFALCON Ethereum-compatible variant (default, requires `falcon`)
 - `ml-kem` - Enable ML-KEM key encapsulation
-- `mceliece` - Enable Classic McEliece key encapsulation
+- `mceliece` - Enable deprecated Classic McEliece for legacy interoperability only
 - `frodo` - Enable FrodoKEM key encapsulation
 - `hqc` - Enable HQC key encapsulation and, with `hhd`, HQC HD derivation
 - `ecdsa-signatures` - Enable transport-neutral P-256 and P-384 ECDSA signing,
@@ -547,8 +570,61 @@ Control which algorithms and operations are enabled:
 - `xwing` - Enable X-Wing hybrid KEM (requires `ml-kem` or `mceliece`)
 - `symmetric` - Enable transport-neutral AES-GCM, ChaCha20-Poly1305, SHA-2,
   HMAC/HKDF, AES block, and ChaCha20 stream primitives
+- `hashing` - Enable additional standalone, unkeyed SHA-512, SHA3-256/384,
+  SHAKE128-256/SHAKE256-512, BLAKE2s-256/BLAKE2b-512 and BLAKE3-256 primitives.
+  This opt-in feature does not enable AEAD, signing or KEM features.
 - `random` - Enable operating-system cryptographic randomness
 - `hhd` - Enable hierarchical deterministic wallet support (default)
+
+### Incremental hashing (v0.6.0)
+
+With the `hashing` feature, `tectonic_bedrock::hashing` exposes:
+
+| One-shot function | Incremental context | Output bytes |
+|---|---|---:|
+| `sha512` | `Sha512Context` | 64 |
+| `sha3_256` | `Sha3_256Context` | 32 |
+| `sha3_384` | `Sha3_384Context` | 48 |
+| `shake128_256` | `Shake128_256Context` | 32 |
+| `shake256_512` | `Shake256_512Context` | 64 |
+| `blake2s256` | `Blake2s256Context` | 32 |
+| `blake2b512` | `Blake2b512Context` | 64 |
+| `blake3_256` | `Blake3_256Context` | 32 |
+
+Every context provides `new()`, `update(&[u8])`, consuming `finish()`, and
+non-consuming `fork_finish()`. Outputs are distinct fixed-width digest
+newtypes with checked slice conversions and array/byte access. SHAKE returns
+exactly the named prefix at output offset zero, not cSHAKE or a configurable
+XOF. BLAKE2 uses sequential mode without keys, salt or personalization; BLAKE3
+uses unkeyed hash mode, not keyed or derive-key mode.
+
+These APIs hash only the supplied bytes. File I/O (`Read` or asynchronous),
+domain separation, length checks, encoding, and operational limits remain with
+the caller. No hash context or digest serialization format is introduced.
+The existing `symmetric::{Sha256Context, Sha384Context, sha256, sha384}` APIs
+remain unchanged. Enable both features when all ten operations are needed.
+No algorithm is automatically admitted into a protocol or security profile.
+
+`blake2` and `blake3` are optional dependencies. BLAKE3 uses its `pure` feature
+with defaults disabled to avoid its C/assembly implementations. Its build-time
+`cc` dependency remains in Cargo's graph; `pure` does not remove that crate.
+
+```rust
+use tectonic_bedrock::hashing::{Blake3_256Context, blake3_256};
+
+let mut context = Blake3_256Context::new();
+context.update(b"first chunk");
+let prefix_digest = context.fork_finish();
+context.update(b"second chunk");
+assert_eq!(prefix_digest, blake3_256(b"first chunk"));
+assert_eq!(context.finish(), blake3_256(b"first chunksecond chunk"));
+```
+
+The hashing tests pin independent OpenSSL answers and
+[official BLAKE3 vectors](https://github.com/BLAKE3-team/BLAKE3/blob/1.8.7/test_vectors/test_vectors.json),
+including empty inputs, block/chunk/tree boundaries, split updates, digest
+width rejection and continuing after a fork. This coverage is not a production
+side-channel audit or an application-level file verification test.
 
 ### Operation Features
 
@@ -569,46 +645,52 @@ default = ["eth_falcon", "falcon", "ml-dsa", "slh-dsa", "mayo", "decp", "encp", 
 
 ### Minimal Configuration Examples
 
+Incremental hashing only:
+
+```toml
+tectonic-bedrock = { version = "0.6.0", default-features = false, features = ["hashing"] }
+```
+
 Verification only (no key generation or signing):
 
 ```toml
-tectonic-bedrock = { version = "0.4", default-features = false, features = ["ml-dsa", "vrfy"] }
+tectonic-bedrock = { version = "0.6.0", default-features = false, features = ["ml-dsa", "vrfy"] }
 ```
 
 ML-KEM only:
 
 ```toml
-tectonic-bedrock = { version = "0.4", default-features = false, features = ["ml-kem", "kgen", "encp", "decp"] }
+tectonic-bedrock = { version = "0.6.0", default-features = false, features = ["ml-kem", "kgen", "encp", "decp"] }
 ```
 
 X-Wing hybrid KEM only:
 
 ```toml
-tectonic-bedrock = { version = "0.4", default-features = false, features = ["ml-kem", "xwing", "kgen", "encp", "decp"] }
+tectonic-bedrock = { version = "0.6.0", default-features = false, features = ["ml-kem", "xwing", "kgen", "encp", "decp"] }
 ```
 
 Transport APIs introduced in v0.5.2, with symmetric primitives only:
 
 ```toml
-tectonic-bedrock = { version = "0.5.2", default-features = false, features = ["symmetric"] }
+tectonic-bedrock = { version = "0.6.0", default-features = false, features = ["symmetric"] }
 ```
 
 Ephemeral key agreement only:
 
 ```toml
-tectonic-bedrock = { version = "0.5.2", default-features = false, features = ["key-agreement"] }
+tectonic-bedrock = { version = "0.6.0", default-features = false, features = ["key-agreement"] }
 ```
 
 Conventional signature operations and private-key loading only:
 
 ```toml
-tectonic-bedrock = { version = "0.5.3", default-features = false, features = ["classical-signatures"] }
+tectonic-bedrock = { version = "0.6.0", default-features = false, features = ["classical-signatures"] }
 ```
 
 RSA-free conventional signature operations:
 
 ```toml
-tectonic-bedrock = { version = "0.5.3", default-features = false, features = ["ecdsa-signatures", "ed25519-signatures"] }
+tectonic-bedrock = { version = "0.6.0", default-features = false, features = ["ecdsa-signatures", "ed25519-signatures"] }
 ```
 
 ## Error Handling
@@ -631,7 +713,8 @@ among others:
 - ML-DSA and ML-KEM are standardized by NIST in FIPS 204 and FIPS 203, respectively.
 - Falcon provides smaller signatures than ML-DSA at comparable security levels.
 - ETHFALCON enables post-quantum signatures in Ethereum smart contracts.
-- Classic McEliece offers conservative code-based security.
+- Classic McEliece and its X-Wing combination are deprecated following recent
+  key-recovery research; retain only where required for legacy interoperability.
 - Use deterministic key generation (`keypair_from_seed`) only when necessary.
 - Protect private keys and seeds with appropriate key-management practices.
 
