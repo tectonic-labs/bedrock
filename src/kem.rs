@@ -1,6 +1,13 @@
 //! Key-encapsulation mechanism methods.
 //!
 //! Supports the KEM families enabled through Cargo features.
+//!
+//! All Classic McEliece schemes are deprecated for new use following recent
+//! key-recovery research (<https://eprint.iacr.org/2026/1984>). They remain
+//! operational for legacy interoperability, with unchanged names and wire IDs.
+//! Direct variant references warn; parsing, deserialization, and defaults do not
+//! emit runtime warnings. Enable `ml-kem` and select ML-KEM-768 or ML-KEM-1024
+//! explicitly for new deployments. Feature-dependent defaults are unchanged.
 
 use crate::error::*;
 #[cfg(any(
@@ -79,20 +86,55 @@ scheme_impl_pure!(
     /// ML-KEM 1024 (NIST Level 5).
     MlKem1024 => "ML-KEM-1024" ; 3 ; 64,
     @cfg(feature = "mceliece")
-    /// Classic McEliece 348864 (legacy NIST Level 1; not ISO standardized).
+    /// Classic McEliece 348864, retained only for legacy interoperability.
+    ///
+    /// Direct use produces a deprecation warning:
+    /// ```compile_fail
+    /// #![deny(deprecated)]
+    /// let _ = tectonic_bedrock::kem::KemScheme::ClassicMcEliece348864;
+    /// ```
+    #[deprecated(note = "Classic McEliece is retained only for legacy interoperability following key-recovery research; use ML-KEM-768 or ML-KEM-1024 for new deployments")]
     ClassicMcEliece348864 => "ClassicMcEliece-348864" ; 4 ; 32,
     @cfg(feature = "mceliece")
     #[cfg_attr(not(feature = "ml-kem"), default)]
-    /// Classic McEliece 460896 (NIST Level 3).
+    /// Classic McEliece 460896, retained only for legacy interoperability.
+    ///
+    /// Direct use produces a deprecation warning:
+    /// ```compile_fail
+    /// #![deny(deprecated)]
+    /// let _ = tectonic_bedrock::kem::KemScheme::ClassicMcEliece460896;
+    /// ```
+    #[deprecated(note = "Classic McEliece is retained only for legacy interoperability following key-recovery research; use ML-KEM-768 or ML-KEM-1024 for new deployments")]
     ClassicMcEliece460896 => "ClassicMcEliece-460896" ; 21 ; 32,
     @cfg(feature = "mceliece")
-    /// Classic McEliece 6688128 (NIST Level 5).
+    /// Classic McEliece 6688128, retained only for legacy interoperability.
+    ///
+    /// Direct use produces a deprecation warning:
+    /// ```compile_fail
+    /// #![deny(deprecated)]
+    /// let _ = tectonic_bedrock::kem::KemScheme::ClassicMcEliece6688128;
+    /// ```
+    #[deprecated(note = "Classic McEliece is retained only for legacy interoperability following key-recovery research; use ML-KEM-768 or ML-KEM-1024 for new deployments")]
     ClassicMcEliece6688128 => "ClassicMcEliece-6688128" ; 22 ; 32,
     @cfg(feature = "mceliece")
-    /// Classic McEliece 6960119 (NIST Level 5).
+    /// Classic McEliece 6960119, retained only for legacy interoperability.
+    ///
+    /// Direct use produces a deprecation warning:
+    /// ```compile_fail
+    /// #![deny(deprecated)]
+    /// let _ = tectonic_bedrock::kem::KemScheme::ClassicMcEliece6960119;
+    /// ```
+    #[deprecated(note = "Classic McEliece is retained only for legacy interoperability following key-recovery research; use ML-KEM-768 or ML-KEM-1024 for new deployments")]
     ClassicMcEliece6960119 => "ClassicMcEliece-6960119" ; 23 ; 32,
     @cfg(feature = "mceliece")
-    /// Classic McEliece 8192128 (NIST Level 5).
+    /// Classic McEliece 8192128, retained only for legacy interoperability.
+    ///
+    /// Direct use produces a deprecation warning:
+    /// ```compile_fail
+    /// #![deny(deprecated)]
+    /// let _ = tectonic_bedrock::kem::KemScheme::ClassicMcEliece8192128;
+    /// ```
+    #[deprecated(note = "Classic McEliece is retained only for legacy interoperability following key-recovery research; use ML-KEM-768 or ML-KEM-1024 for new deployments")]
     ClassicMcEliece8192128 => "ClassicMcEliece-8192128" ; 24 ; 32,
     @cfg(feature = "hqc")
     /// HQC-128 (NIST Level 1), selected by NIST for standardization.

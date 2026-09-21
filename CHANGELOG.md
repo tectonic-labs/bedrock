@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## v0.6.0
+
+### Added
+
+- Added the opt-in `hashing` feature with one-shot functions, incremental contexts,
+  and typed digests for SHA-512, SHA3-256/384, SHAKE128-256/SHAKE256-512,
+  BLAKE2s-256/BLAKE2b-512, and BLAKE3-256.
+- Hash contexts support chunked updates, consuming finalization, and non-consuming
+  prefix digests. File I/O and protocol framing remain caller responsibilities;
+  existing SHA-256/SHA-384 APIs in `symmetric` are unchanged.
+- Added independent hash vectors, chunk-boundary coverage, and hashing-only CI
+  checks on the MSRV and stable Rust.
+
+### Deprecated
+
+- All five Classic McEliece KEM variants and McEliece-based X-Wing now emit Rust
+  deprecation warnings on direct use, following
+  [recent key-recovery research](https://eprint.iacr.org/2026/1984).
+  Legacy operations, names, wire IDs, serialization, and feature-dependent defaults
+  remain unchanged. Parsing and deserialization still accept these schemes without
+  runtime warnings. Select ML-KEM-768/1024 or their X25519 hybrids for new deployments.
+
+## v0.5.3
+
 ### Added
 
 - Added independent `ecdsa-signatures`, `ed25519-signatures`, and

@@ -3,7 +3,10 @@
 //! X-Wing creates an encapsulation and decapsulation keypair. Anyone can use the
 //! encapsulation key to establish a shared secret with the holder of the decapsulation
 //! key. It is a general-purpose hybrid post-quantum KEM that combines X25519 with ML-KEM
-//! or Classic McEliece.
+//! or, for legacy interoperability only, deprecated Classic McEliece.
+//! Direct references to the McEliece variant warn; parsing and deserialization
+//! remain operational without runtime warnings. The legacy default when only
+//! `mceliece` is enabled is unchanged; select an ML-KEM combination for new use.
 
 use crate::{error::*, kem::*, os_rng};
 use rand_core_010::Rng;
@@ -49,7 +52,16 @@ pub enum XwingScheme {
     X25519MlKem1024,
     #[cfg(feature = "mceliece")]
     #[cfg_attr(not(feature = "ml-kem"), default)]
-    /// X25519 with Classic McEliece 348864.
+    /// X25519 with Classic McEliece 348864, retained only for legacy interoperability.
+    ///
+    /// Direct use produces a deprecation warning:
+    /// ```compile_fail
+    /// #![deny(deprecated)]
+    /// let _ = tectonic_bedrock::xwing::XwingScheme::X25519McEliece348864;
+    /// ```
+    #[deprecated(
+        note = "McEliece-based X-Wing is retained only for legacy interoperability following key-recovery research; use X25519MlKem768 or X25519MlKem1024 for new deployments"
+    )]
     X25519McEliece348864,
 }
 
@@ -451,6 +463,35 @@ where
 mod tests {
     use super::*;
     use rstest::*;
+
+    #[cfg(feature = "mceliece")]
+    #[test]
+    fn legacy_mceliece_wire_contract() {
+        let scheme = XwingScheme::X25519McEliece348864;
+        let name = "X25519-ClassicMcEliece348864";
+        assert_eq!(u8::from(scheme), 4);
+        assert_eq!(XwingScheme::try_from(4).unwrap(), scheme);
+        assert_eq!(name.parse::<XwingScheme>().unwrap(), scheme);
+        assert_eq!(scheme.to_string(), name);
+        assert_eq!(KemScheme::from(scheme), KemScheme::ClassicMcEliece348864);
+        let json = serde_json::to_string(&scheme).unwrap();
+        assert_eq!(json, format!("\"{name}\""));
+        assert_eq!(serde_json::from_str::<XwingScheme>(&json).unwrap(), scheme);
+        assert_eq!(postcard::to_stdvec(&scheme).unwrap(), [4]);
+        assert_eq!(postcard::from_bytes::<XwingScheme>(&[4]).unwrap(), scheme);
+    }
+
+    #[cfg(all(feature = "mceliece", not(feature = "ml-kem")))]
+    #[test]
+    fn legacy_mceliece_default_is_unchanged() {
+        assert_eq!(XwingScheme::default(), XwingScheme::X25519McEliece348864);
+    }
+
+    #[cfg(feature = "ml-kem")]
+    #[test]
+    fn mlkem_default_is_unchanged() {
+        assert_eq!(XwingScheme::default(), XwingScheme::X25519MlKem768);
+    }
 
     #[rstest]
     #[cfg_attr(feature = "ml-kem", case::mlkem768(XwingScheme::X25519MlKem768))]

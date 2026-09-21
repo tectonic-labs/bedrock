@@ -12,7 +12,7 @@ name = "tectonic-bedrock"
 readme = "README.md"
 repository = "https://github.com/tectonic-labs/bedrock"
 rust-version = "1.95"
-version = "0.5.3"
+version = "0.6.0"
 
 [features]
 bird-of-prey = ["dep:curve25519-dalek", "falcon", "hmac", "ml-dsa", "sha2", "zeroize", "kgen", "sign", "vrfy"]
@@ -25,11 +25,13 @@ encp = []
 eth_falcon = ["falcon", "rand_chacha", "rand_core", "fn-dsa-comm/eth_falcon", "fn-dsa-sign?/eth_falcon", "fn-dsa-vrfy?/eth_falcon", "zeroize"]
 falcon = ["fn-dsa-comm"]
 frodo = ["dep:frodo-kem-rs", "rand_core_010", "getrandom_v04"]
+hashing = ["dep:blake2", "dep:blake3", "sha2", "sha3", "shake"]
 hhd = ["zeroize", "bip32", "hmac", "sha2", "tiny-bip39", "rand_core", "kgen"]
 hqc = ["dep:hqc-kem", "rand_core_010", "getrandom_v04"]
 key-agreement = ["dep:p256", "dep:p384", "random", "x25519-dalek", "x25519-dalek/zeroize", "zeroize"]
 kgen = ["fn-dsa-comm", "fn-dsa-kgen", "rand_core", "rand_core/getrandom"]
 mayo = ["dep:pq-mayo", "dep:signature", "rand_core_010", "getrandom_v04"]
+# Deprecated: legacy interoperability only, including McEliece-based X-Wing.
 mceliece = ["dep:pq-mceliece", "rand_core_010", "getrandom_v04"]
 ml-dsa = ["dep:ml-dsa", "rand_core_010", "getrandom_v04"]
 ml-kem = ["dep:ml-kem"]
@@ -48,6 +50,8 @@ xwing = ["rand_core_010", "getrandom_v04", "sha3", "shake", "x25519-dalek"]
 aes = { version = "0.9.3", default-features = false, features = ["zeroize"], optional = true }
 aes-gcm = { version = "0.11.1", default-features = false, features = ["aes", "zeroize"], optional = true }
 bip32 = { version = "0.5.3", features = ["std", "secp256k1"], optional = true }
+blake2 = { default-features = false, optional = true, version = "0.11.0" }
+blake3 = { default-features = false, features = ["pure"], optional = true, version = "1.8.7" }
 chacha20 = { version = "0.10.2", default-features = false, features = ["cipher", "zeroize"], optional = true }
 chacha20poly1305 = { version = "0.11.0", default-features = false, features = ["zeroize"], optional = true }
 curve25519-dalek = { version = "5", default-features = false, features = ["alloc", "zeroize"], optional = true }
