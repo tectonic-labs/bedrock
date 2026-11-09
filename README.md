@@ -387,11 +387,76 @@ Common methods for all types:
 
 ### Serialization
 
-All key types, signatures, ciphertexts, and shared secrets implement `serde::Serialize`
-and `serde::Deserialize`:
+With the `multiformats` feature (on by default), keys serialize as a
+[Multikey](https://github.com/cryptidtech/multi-key) and signatures as a
+[Multisig](https://github.com/cryptidtech/multi-sig), so another multiformats reader can
+tell what the bytes are:
 
-- **Human-readable formats** (JSON, for example): Serialized as hex strings.
-- **Binary formats** (postcard and CBOR, for example): Serialized as compact byte arrays.
+- **Binary formats** (postcard and CBOR, for example): the Multikey or Multisig encoding.
+- **Human-readable formats** (JSON, for example): the Multikey or Multisig struct form, with
+  multibase-encoded attributes.
+
+Each key and signature also converts with `TryFrom` in both directions
+(`Multikey::try_from(&key)`, `MlDsaVerificationKey::try_from(&multikey)`), implements
+`CodecInfo`, and the `hashing` digests convert to and from `Multihash`. The multi-* crates are
+used with `default-features = false`, so they frame bytes but bring in no signature or KEM
+implementation; bedrock does all the cryptography. They do add `ssh-key` 0.7.0-rc.11 (which
+multi-key requires), `rand` 0.10, `serde_cbor_2` and a few small encoding crates.
+`tectonic_bedrock::multiformats` re-exports `Multikey`, `Multisig`, `Multihash` and `Codec`.
+
+A scheme whose standard multicodec defines the same byte format as bedrock uses that codec,
+with the raw bytes in the `key-data` or `sig-data` attribute. Every other scheme uses the
+`identity` codec: keys add `algorithm-name` (the scheme's display name, such as `ML-DSA-44`)
+and `key-type` (0 public, 1 secret), and signatures add `scheme` (the scheme's `u8` value).
+Decoding is strict: the codec must name the type being decoded, the attributes must be exactly
+these, comments and multisig messages must be empty, and binary input must be the one canonical
+encoding with no trailing bytes. Human-readable input goes through multi-key's and multi-sig's
+struct form, which also accepts other multibase prefixes for attribute values.
+
+Standard codecs are used only where a test against the fully featured multi-key and multi-sig
+showed they read bedrock's bytes the same way:
+
+| Scheme | Public key | Secret key | Signature |
+|---|---|---|---|
+| ML-DSA-65, ML-DSA-87 | standard | identity (bedrock stores the expanded key; the codec holds a seed) | standard |
+| ML-DSA-44 | identity | identity | identity |
+| FN-DSA-512/1024, ETHFALCON | identity (different key encoding from upstream `fn-dsa`) | identity | identity |
+| MAYO-1/2/3/5 | standard | standard | standard |
+| SLH-DSA, all 12 sets | standard | standard | standard |
+| XMSS-SHA2_10_256, XMSS-SHA2_16_256 | standard | standard | standard |
+| Other XMSS sets | identity | identity | identity |
+| Bird-of-Prey | identity (different hybrid layout) | identity | identity |
+| ML-KEM-768/1024, FrodoKEM (all 6) | standard | standard | — |
+| sntrup761/857/953/1013/1277, Classic McEliece 348864 | standard | identity (expanded key vs seed) | — |
+| HQC, sntrup653, other Classic McEliece sets | identity | identity | — |
+
+KEM ciphertexts and shared secrets have no multiformat type and keep the `{scheme, value}`
+shape, as do X-Wing keys and ciphertexts.
+
+**Raw bytes.** `to_raw_bytes()`, `from_raw_bytes()` and `AsRef<[u8]>` return exactly the
+algorithm's bytes, with no multiformat framing. For serde without framing, wrap a value in
+`plain::Plain` or put `#[serde(with = "tectonic_bedrock::plain")]` on a field;
+`#[serde(with = "tectonic_bedrock::multiformats")]` names the multiformat encoding the same
+way, so one struct can hold fields in both. That writes the
+`{scheme, value}` shape bedrock used before 0.8 (hex in human-readable formats, raw bytes in
+binary ones), so it also reads data stored by older releases:
+
+```rust
+use tectonic_bedrock::{ml_dsa::MlDsaVerificationKey, plain::Plain};
+
+// read a key stored by bedrock 0.6, then store it as a Multikey
+let old: Plain<MlDsaVerificationKey> = serde_json::from_str(&stored)?;
+let multikey_json = serde_json::to_string(&old.0)?;
+```
+
+Without the `multiformats` feature, keys and signatures have no serde impls of their own;
+`plain` still works.
+
+Two cautions. Writing a secret key in a human-readable format leaves unzeroized copies of it on
+the heap, because multi-key and multi-util build the multibase strings in plain buffers; the
+binary path and `plain` zeroize. And `plain` deserialization checks the bytes against the scheme,
+except XMSS signing keys, where it checks only the length and parameter set (a full check
+rebuilds the key's tree); signing still parses the key fully.
 
 Schemes implement the `Display` and `FromStr` traits for string parsing:
 
@@ -640,8 +705,11 @@ Bedrock is designed to allow selective features to minimize the dependency list.
 The default feature set is:
 
 ```toml
-default = ["eth_falcon", "falcon", "ml-dsa", "slh-dsa", "mayo", "decp", "encp", "kgen", "sign", "vrfy", "hhd"]
+default = ["eth_falcon", "falcon", "ml-dsa", "slh-dsa", "mayo", "decp", "encp", "kgen", "sign", "vrfy", "hhd", "multiformats"]
 ```
+
+`multiformats` makes Multikey and Multisig the serde encoding (see [Serialization](#serialization)).
+It needs Rust 1.99, the multi-* crates' minimum.
 
 ### Minimal Configuration Examples
 

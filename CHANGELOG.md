@@ -7,6 +7,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## v0.8.0
+
+### Changed
+
+- **Breaking:** keys now serialize as a Multikey and signatures as a Multisig, through the
+  new default `multiformats` feature. This covers ML-DSA, FN-DSA/ETHFALCON, MAYO, SLH-DSA,
+  Bird-of-Prey, XMSS, and the KEM encapsulation and decapsulation keys. Data written by
+  earlier releases does not decode with the new default; read it with `plain::Plain` (or
+  `#[serde(with = "tectonic_bedrock::plain")]`) and write it back to migrate.
+- **Breaking:** without `multiformats`, those keys and signatures have no serde impls.
+  The feature never switches the format, so another crate enabling it cannot change what
+  your build writes.
+- `plain` deserialization of XMSS signing keys checks the length and parameter set instead of
+  rebuilding the key's tree, so untrusted input cannot force minutes of hashing.
+- **Breaking:** the minimum supported Rust version is now 1.99, the multi-* crates' minimum.
+- **Breaking:** `Error` has a new `Multiformat` variant (with `multiformats`).
+- KEM ciphertexts and shared secrets, and X-Wing keys and ciphertexts, keep their
+  `{scheme, value}` serde shape: there is no multiformat type for them.
+
+### Added
+
+- `TryFrom` conversions between every key and `Multikey`, and every signature and
+  `Multisig`, plus `CodecInfo`. Schemes with a matching standard multicodec use it; the
+  rest use the `identity` codec with `algorithm-name` and `key-type` (keys) or `scheme`
+  (signatures). Decoding rejects other codecs, extra or missing attributes, comments,
+  multisig messages, and trailing bytes.
+- `TryFrom` conversions between the `hashing` digests and `Multihash`.
+- The `plain` module: `RawBytes`, the `Plain` wrapper, and `serialize`/`deserialize`
+  functions for the pre-0.8 `{scheme, value}` shape. `to_raw_bytes`, `from_raw_bytes` and
+  `AsRef<[u8]>` are unchanged.
+- `#[serde(with = "tectonic_bedrock::multiformats")]`, the counterpart of the `plain`
+  functions, so one struct can keep some fields in each encoding. The sealed
+  `multiformats::Multiformat` trait marks the types it accepts.
+- Dependencies `multi-codec` 2, `multi-hash` 4, `multi-key` 3.1, `multi-sig` 3,
+  `multi-trait` 1.1 and `multi-util` 2, optional behind `multiformats`, with
+  `default-features = false` so they bring in no signature or KEM implementation. They do
+  add `ssh-key` 0.7.0-rc.11 (required by multi-key), `rand` 0.10 and `serde_cbor_2`.
+  `multiformats` also turns on `zeroize`.
+
+### Known issues
+
+- Serializing a secret key to a human-readable format leaves unzeroized copies on the heap
+  inside multi-key and multi-util. Binary formats and `plain` are not affected.
+
 ## v0.6.0
 
 ### Added

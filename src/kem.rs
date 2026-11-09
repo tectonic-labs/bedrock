@@ -23,8 +23,9 @@ use serde::{Deserialize, Serialize};
 use pq_mceliece::Algorithm as McElieceAlgorithm;
 
 macro_rules! impl_kem_struct {
-    ($name:ident, $validate:ident) => {
-        #[derive(Clone, Serialize, Deserialize)]
+    ($(#[$attr:meta])* $name:ident, $validate:ident $(, $($multiformat:tt)+)?) => {
+        #[derive(Clone)]
+        $(#[$attr])*
         #[cfg_attr(test, derive(PartialEq, Eq))]
         #[doc = concat!("A byte-backed [`", stringify!($name), "`] value for a KEM.")]
         #[repr(transparent)]
@@ -72,6 +73,12 @@ macro_rules! impl_kem_struct {
                 .into())
             }
         }
+
+        raw_bytes_impl!($name, KemScheme);
+        $(
+            #[cfg(feature = "multiformats")]
+            $($multiformat)+;
+        )?
     };
 }
 
@@ -209,6 +216,57 @@ scheme_impl_pure!(
 );
 
 serde_impl!(KemScheme);
+
+// sntrup and McEliece decapsulation keys use identity: bedrock stores the expanded key and
+// their multicodecs hold a seed. HQC and the larger McEliece sets have codecs but no
+// multi-key implementation to check them against, so they use identity too.
+#[cfg(feature = "multiformats")]
+multicodec_table!(KemScheme {
+    #[cfg(feature = "ml-kem")]
+    MlKem768, PublicKey => Mlkem768Pub;
+    #[cfg(feature = "ml-kem")]
+    MlKem768, SecretKey => Mlkem768Priv;
+    #[cfg(feature = "ml-kem")]
+    MlKem1024, PublicKey => Mlkem1024Pub;
+    #[cfg(feature = "ml-kem")]
+    MlKem1024, SecretKey => Mlkem1024Priv;
+    #[cfg(feature = "mceliece")]
+    ClassicMcEliece348864, PublicKey => Mceliece348864Pub;
+    #[cfg(feature = "sntrup")]
+    Sntrup761, PublicKey => Sntrup761Pub;
+    #[cfg(feature = "sntrup")]
+    Sntrup857, PublicKey => Sntrup857Pub;
+    #[cfg(feature = "sntrup")]
+    Sntrup953, PublicKey => Sntrup953Pub;
+    #[cfg(feature = "sntrup")]
+    Sntrup1013, PublicKey => Sntrup1013Pub;
+    #[cfg(feature = "sntrup")]
+    Sntrup1277, PublicKey => Sntrup1277Pub;
+    #[cfg(feature = "frodo")]
+    FrodoKem640Aes, PublicKey => FrodoKem640AesPub;
+    #[cfg(feature = "frodo")]
+    FrodoKem640Aes, SecretKey => FrodoKem640AesPriv;
+    #[cfg(feature = "frodo")]
+    FrodoKem640Shake, PublicKey => FrodoKem640ShakePub;
+    #[cfg(feature = "frodo")]
+    FrodoKem640Shake, SecretKey => FrodoKem640ShakePriv;
+    #[cfg(feature = "frodo")]
+    FrodoKem976Aes, PublicKey => FrodoKem976AesPub;
+    #[cfg(feature = "frodo")]
+    FrodoKem976Aes, SecretKey => FrodoKem976AesPriv;
+    #[cfg(feature = "frodo")]
+    FrodoKem976Shake, PublicKey => FrodoKem976ShakePub;
+    #[cfg(feature = "frodo")]
+    FrodoKem976Shake, SecretKey => FrodoKem976ShakePriv;
+    #[cfg(feature = "frodo")]
+    FrodoKem1344Aes, PublicKey => FrodoKem1344AesPub;
+    #[cfg(feature = "frodo")]
+    FrodoKem1344Aes, SecretKey => FrodoKem1344AesPriv;
+    #[cfg(feature = "frodo")]
+    FrodoKem1344Shake, PublicKey => FrodoKem1344ShakePub;
+    #[cfg(feature = "frodo")]
+    FrodoKem1344Shake, SecretKey => FrodoKem1344ShakePriv;
+});
 
 /// Every Classic McEliece parameter size exposed by Bedrock.
 #[cfg(feature = "mceliece")]
@@ -951,10 +1009,27 @@ impl KemScheme {
     }
 }
 
-impl_kem_struct!(KemEncapsulationKey, validate_encapsulation_key);
-impl_kem_struct!(KemDecapsulationKey, validate_decapsulation_key);
-impl_kem_struct!(KemCiphertext, validate_ciphertext);
-impl_kem_struct!(KemSharedSecret, validate_shared_secret);
+impl_kem_struct!(
+    KemEncapsulationKey,
+    validate_encapsulation_key,
+    multikey_impl!(KemEncapsulationKey, PublicKey)
+);
+impl_kem_struct!(
+    KemDecapsulationKey,
+    validate_decapsulation_key,
+    multikey_impl!(KemDecapsulationKey, SecretKey)
+);
+// Ciphertexts and shared secrets have no multiformat type, so they keep the plain shape.
+impl_kem_struct!(
+    #[derive(Serialize, Deserialize)]
+    KemCiphertext,
+    validate_ciphertext
+);
+impl_kem_struct!(
+    #[derive(Serialize, Deserialize)]
+    KemSharedSecret,
+    validate_shared_secret
+);
 
 #[cfg(feature = "zeroize")]
 impl zeroize::Zeroize for KemDecapsulationKey {
@@ -1562,8 +1637,13 @@ mod tests {
         let (ek, dk) = scheme.keypair().unwrap();
         let (ct, ss) = scheme.encapsulate(&ek).unwrap();
 
-        round_trip_all_formats(&ek);
-        round_trip_all_formats(&dk);
+        round_trip_all_formats(&crate::plain::Plain(ek.clone()));
+        round_trip_all_formats(&crate::plain::Plain(dk.clone()));
+        #[cfg(feature = "multiformats")]
+        {
+            round_trip_all_formats(&ek);
+            round_trip_all_formats(&dk);
+        }
         round_trip_all_formats(&ct);
         round_trip_all_formats(&ss);
     }
@@ -1651,5 +1731,104 @@ mod tests {
                 ..
             })
         ));
+    }
+
+    #[cfg(all(feature = "kgen", feature = "encp"))]
+    #[rstest]
+    #[cfg_attr(feature = "hqc", case::hqc192(KemScheme::Hqc192))]
+    #[cfg_attr(feature = "sntrup", case::sntrup653(KemScheme::Sntrup653))]
+    #[cfg_attr(feature = "sntrup", case::sntrup761(KemScheme::Sntrup761))]
+    #[cfg_attr(feature = "frodo", case::frodo640aes(KemScheme::FrodoKem640Aes))]
+    #[cfg_attr(feature = "frodo", case::frodo976shake(KemScheme::FrodoKem976Shake))]
+    #[cfg_attr(feature = "ml-kem", case::mlkem768(KemScheme::MlKem768))]
+    #[cfg_attr(feature = "ml-kem", case::mlkem1024(KemScheme::MlKem1024))]
+    #[cfg_attr(
+        feature = "mceliece",
+        case::mceliece460896(KemScheme::ClassicMcEliece460896)
+    )]
+    fn plain_encoding_is_unchanged(#[case] scheme: KemScheme) {
+        let (pk, sk) = scheme.keypair().unwrap();
+        crate::test_utils::assert_plain_compatible(&pk, &pk.0);
+        crate::test_utils::assert_plain_compatible(&sk, &sk.0);
+    }
+
+    #[cfg(all(feature = "multiformats", feature = "kgen", feature = "encp"))]
+    #[rstest]
+    #[cfg_attr(
+        feature = "hqc",
+        case::hqc192(
+            KemScheme::Hqc192,
+            crate::multiformats::Codec::Identity,
+            crate::multiformats::Codec::Identity
+        )
+    )]
+    #[cfg_attr(
+        feature = "sntrup",
+        case::sntrup653(
+            KemScheme::Sntrup653,
+            crate::multiformats::Codec::Identity,
+            crate::multiformats::Codec::Identity
+        )
+    )]
+    #[cfg_attr(
+        feature = "sntrup",
+        case::sntrup761(
+            KemScheme::Sntrup761,
+            crate::multiformats::Codec::Sntrup761Pub,
+            crate::multiformats::Codec::Identity
+        )
+    )]
+    #[cfg_attr(
+        feature = "frodo",
+        case::frodo640aes(
+            KemScheme::FrodoKem640Aes,
+            crate::multiformats::Codec::FrodoKem640AesPub,
+            crate::multiformats::Codec::FrodoKem640AesPriv
+        )
+    )]
+    #[cfg_attr(
+        feature = "frodo",
+        case::frodo976shake(
+            KemScheme::FrodoKem976Shake,
+            crate::multiformats::Codec::FrodoKem976ShakePub,
+            crate::multiformats::Codec::FrodoKem976ShakePriv
+        )
+    )]
+    #[cfg_attr(
+        feature = "ml-kem",
+        case::mlkem768(
+            KemScheme::MlKem768,
+            crate::multiformats::Codec::Mlkem768Pub,
+            crate::multiformats::Codec::Mlkem768Priv
+        )
+    )]
+    #[cfg_attr(
+        feature = "ml-kem",
+        case::mlkem1024(
+            KemScheme::MlKem1024,
+            crate::multiformats::Codec::Mlkem1024Pub,
+            crate::multiformats::Codec::Mlkem1024Priv
+        )
+    )]
+    #[cfg_attr(
+        feature = "mceliece",
+        case::mceliece460896(
+            KemScheme::ClassicMcEliece460896,
+            crate::multiformats::Codec::Identity,
+            crate::multiformats::Codec::Identity
+        )
+    )]
+    fn multiformat_encoding(
+        #[case] scheme: KemScheme,
+        #[case] public: crate::multiformats::Codec,
+        #[case] secret: crate::multiformats::Codec,
+    ) {
+        use crate::{multiformats::Multikey, test_utils::*};
+        let (pk, sk) = scheme.keypair().unwrap();
+        assert_multikey(&pk, public);
+        assert_multikey(&sk, secret);
+        // a key never decodes as the other half of its pair
+        assert!(KemDecapsulationKey::try_from(&Multikey::try_from(&pk).unwrap()).is_err());
+        assert!(KemEncapsulationKey::try_from(&Multikey::try_from(&sk).unwrap()).is_err());
     }
 }

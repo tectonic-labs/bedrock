@@ -6,8 +6,8 @@ use crate::os_rng;
 use serde::{Deserialize, Serialize};
 
 macro_rules! impl_slh_dsa_struct {
-    ($name:ident, $validate:ident, $expect:expr) => {
-        #[derive(Clone, Serialize, Deserialize)]
+    ($name:ident, $validate:ident, $expect:expr, $($multiformat:tt)+) => {
+        #[derive(Clone)]
         #[cfg_attr(test, derive(PartialEq, Eq))]
         #[doc = concat!("A byte-backed [`", stringify!($name), "`] value for SLH-DSA.")]
         #[repr(transparent)]
@@ -55,6 +55,10 @@ macro_rules! impl_slh_dsa_struct {
                 .into())
             }
         }
+
+        raw_bytes_impl!($name, SlhDsaScheme);
+        #[cfg(feature = "multiformats")]
+        $($multiformat)+;
     };
 }
 
@@ -89,6 +93,46 @@ scheme_impl_pure!(
 );
 
 serde_impl!(SlhDsaScheme);
+
+#[cfg(feature = "multiformats")]
+multicodec_table!(SlhDsaScheme {
+    SlhDsaSha2128s, PublicKey => SlhDsaSha2128SPub;
+    SlhDsaSha2128s, SecretKey => SlhDsaSha2128SPriv;
+    SlhDsaSha2128s, Signature => SlhDsaSha2128SMsig;
+    SlhDsaSha2128f, PublicKey => SlhDsaSha2128FPub;
+    SlhDsaSha2128f, SecretKey => SlhDsaSha2128FPriv;
+    SlhDsaSha2128f, Signature => SlhDsaSha2128FMsig;
+    SlhDsaShake128s, PublicKey => SlhDsaShake128SPub;
+    SlhDsaShake128s, SecretKey => SlhDsaShake128SPriv;
+    SlhDsaShake128s, Signature => SlhDsaShake128SMsig;
+    SlhDsaShake128f, PublicKey => SlhDsaShake128FPub;
+    SlhDsaShake128f, SecretKey => SlhDsaShake128FPriv;
+    SlhDsaShake128f, Signature => SlhDsaShake128FMsig;
+    SlhDsaSha2192s, PublicKey => SlhDsaSha2192SPub;
+    SlhDsaSha2192s, SecretKey => SlhDsaSha2192SPriv;
+    SlhDsaSha2192s, Signature => SlhDsaSha2192SMsig;
+    SlhDsaSha2192f, PublicKey => SlhDsaSha2192FPub;
+    SlhDsaSha2192f, SecretKey => SlhDsaSha2192FPriv;
+    SlhDsaSha2192f, Signature => SlhDsaSha2192FMsig;
+    SlhDsaShake192s, PublicKey => SlhDsaShake192SPub;
+    SlhDsaShake192s, SecretKey => SlhDsaShake192SPriv;
+    SlhDsaShake192s, Signature => SlhDsaShake192SMsig;
+    SlhDsaShake192f, PublicKey => SlhDsaShake192FPub;
+    SlhDsaShake192f, SecretKey => SlhDsaShake192FPriv;
+    SlhDsaShake192f, Signature => SlhDsaShake192FMsig;
+    SlhDsaSha2256s, PublicKey => SlhDsaSha2256SPub;
+    SlhDsaSha2256s, SecretKey => SlhDsaSha2256SPriv;
+    SlhDsaSha2256s, Signature => SlhDsaSha2256SMsig;
+    SlhDsaSha2256f, PublicKey => SlhDsaSha2256FPub;
+    SlhDsaSha2256f, SecretKey => SlhDsaSha2256FPriv;
+    SlhDsaSha2256f, Signature => SlhDsaSha2256FMsig;
+    SlhDsaShake256s, PublicKey => SlhDsaShake256SPub;
+    SlhDsaShake256s, SecretKey => SlhDsaShake256SPriv;
+    SlhDsaShake256s, Signature => SlhDsaShake256SMsig;
+    SlhDsaShake256f, PublicKey => SlhDsaShake256FPub;
+    SlhDsaShake256f, SecretKey => SlhDsaShake256FPriv;
+    SlhDsaShake256f, Signature => SlhDsaShake256FMsig;
+});
 
 /// Dispatch a block generic over the concrete `slh_dsa` parameter type `$P` for each scheme.
 macro_rules! with_slh_dsa_params {
@@ -263,16 +307,23 @@ impl SlhDsaScheme {
 impl_slh_dsa_struct!(
     SlhDsaSigningKey,
     validate_signing_key,
-    "a valid signing key"
+    "a valid signing key",
+    multikey_impl!(SlhDsaSigningKey, SecretKey)
 );
 
 impl_slh_dsa_struct!(
     SlhDsaVerificationKey,
     validate_public_key,
-    "a valid verification key"
+    "a valid verification key",
+    multikey_impl!(SlhDsaVerificationKey, PublicKey)
 );
 
-impl_slh_dsa_struct!(SlhDsaSignature, validate_signature, "a valid signature");
+impl_slh_dsa_struct!(
+    SlhDsaSignature,
+    validate_signature,
+    "a valid signature",
+    multisig_impl!(SlhDsaSignature)
+);
 
 #[derive(Clone, Serialize, Deserialize)]
 #[cfg_attr(test, derive(PartialEq, Eq))]
@@ -332,7 +383,12 @@ mod tests {
             .unwrap();
     }
 
-    #[cfg(all(feature = "kgen", feature = "sign", feature = "vrfy"))]
+    #[cfg(all(
+        feature = "multiformats",
+        feature = "kgen",
+        feature = "sign",
+        feature = "vrfy"
+    ))]
     #[rstest]
     #[case::slh_dsa_sha2_128s(SlhDsaScheme::SlhDsaSha2128s)]
     #[case::slh_dsa_sha2_128f(SlhDsaScheme::SlhDsaSha2128f)]
@@ -350,7 +406,12 @@ mod tests {
         with_large_stack(move || serdes_inner(scheme));
     }
 
-    #[cfg(all(feature = "kgen", feature = "sign", feature = "vrfy"))]
+    #[cfg(all(
+        feature = "multiformats",
+        feature = "kgen",
+        feature = "sign",
+        feature = "vrfy"
+    ))]
     fn serdes_inner(scheme: SlhDsaScheme) {
         let (pk, sk) = scheme.keypair().unwrap();
 
@@ -449,5 +510,83 @@ mod tests {
         let seed = vec![0xABu8; seed_len];
         let result = scheme.keypair_from_seed(&seed);
         assert!(result.is_err());
+    }
+
+    #[cfg(all(feature = "kgen", feature = "sign", feature = "vrfy"))]
+    #[rstest]
+    #[case::sha2_128f(SlhDsaScheme::SlhDsaSha2128f)]
+    #[case::shake_256f(SlhDsaScheme::SlhDsaShake256f)]
+    fn plain_encoding_is_unchanged(#[case] scheme: SlhDsaScheme) {
+        with_large_stack(move || {
+            let (pk, sk) = scheme.keypair().unwrap();
+            crate::test_utils::assert_plain_compatible(&pk, &pk.0);
+            crate::test_utils::assert_plain_compatible(&sk, &sk.0);
+            let sig = scheme.sign(b"bedrock", &sk).unwrap();
+            crate::test_utils::assert_plain_compatible(&sig, &sig.0);
+        });
+    }
+
+    #[cfg(all(
+        feature = "multiformats",
+        feature = "kgen",
+        feature = "sign",
+        feature = "vrfy"
+    ))]
+    #[rstest]
+    #[case::sha2_128f(
+        SlhDsaScheme::SlhDsaSha2128f,
+        crate::multiformats::Codec::SlhDsaSha2128FPub,
+        crate::multiformats::Codec::SlhDsaSha2128FPriv,
+        crate::multiformats::Codec::SlhDsaSha2128FMsig
+    )]
+    #[case::shake_256f(
+        SlhDsaScheme::SlhDsaShake256f,
+        crate::multiformats::Codec::SlhDsaShake256FPub,
+        crate::multiformats::Codec::SlhDsaShake256FPriv,
+        crate::multiformats::Codec::SlhDsaShake256FMsig
+    )]
+    fn multiformat_encoding(
+        #[case] scheme: SlhDsaScheme,
+        #[case] public: crate::multiformats::Codec,
+        #[case] secret: crate::multiformats::Codec,
+        #[case] signature: crate::multiformats::Codec,
+    ) {
+        with_large_stack(move || {
+            use crate::{multiformats::Multikey, test_utils::*};
+            let (pk, sk) = scheme.keypair().unwrap();
+            assert_multikey(&pk, public);
+            assert_multikey(&sk, secret);
+            // a key never decodes as the other half of its pair
+            assert!(SlhDsaSigningKey::try_from(&Multikey::try_from(&pk).unwrap()).is_err());
+            assert!(SlhDsaVerificationKey::try_from(&Multikey::try_from(&sk).unwrap()).is_err());
+            let sig = scheme.sign(b"bedrock", &sk).unwrap();
+            assert_multisig(&sig, signature);
+        });
+    }
+
+    #[cfg(feature = "multiformats")]
+    #[test]
+    fn multicodec_table_is_invertible() {
+        use crate::multiformats::{Role, SchemeCodec};
+        for scheme in [
+            SlhDsaScheme::SlhDsaSha2128s,
+            SlhDsaScheme::SlhDsaSha2128f,
+            SlhDsaScheme::SlhDsaShake128s,
+            SlhDsaScheme::SlhDsaShake128f,
+            SlhDsaScheme::SlhDsaSha2192s,
+            SlhDsaScheme::SlhDsaSha2192f,
+            SlhDsaScheme::SlhDsaShake192s,
+            SlhDsaScheme::SlhDsaShake192f,
+            SlhDsaScheme::SlhDsaSha2256s,
+            SlhDsaScheme::SlhDsaSha2256f,
+            SlhDsaScheme::SlhDsaShake256s,
+            SlhDsaScheme::SlhDsaShake256f,
+        ] {
+            for role in [Role::PublicKey, Role::SecretKey, Role::Signature] {
+                if let Some(codec) = scheme.codec(role) {
+                    assert_eq!(SlhDsaScheme::from_codec(codec, role), Some(scheme));
+                }
+            }
+        }
     }
 }

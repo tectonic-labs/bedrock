@@ -52,6 +52,30 @@ where
         .map_err(xmss_err)
 }
 
+fn check_signing_key_shape_bytes<P>(bytes: &[u8]) -> Result<()>
+where
+    P: pq_xmss::XmssParameter,
+{
+    if bytes.len() != P::SK_LEN {
+        return Err(Error::XmssError(format!(
+            "signing key is {} bytes, expected {}",
+            bytes.len(),
+            P::SK_LEN
+        )));
+    }
+    let oid = bytes
+        .first_chunk::<4>()
+        .map(|oid| u32::from_be_bytes(*oid))
+        .ok_or_else(|| Error::XmssError("signing key is too short".to_string()))?;
+    if oid != P::OID {
+        return Err(Error::XmssError(format!(
+            "signing key OID {oid:#x} does not match {}",
+            P::NAME
+        )));
+    }
+    Ok(())
+}
+
 fn validate_verification_key_bytes<P>(bytes: &[u8]) -> Result<()>
 where
     P: pq_xmss::XmssParameter,
@@ -605,6 +629,18 @@ impl XmssScheme {
 
 serde_impl!(XmssScheme);
 
+// XMSS-SHA2_20_256 also has codecs, but its interoperability is unproven (key generation
+// is too slow to test), so it uses identity until it is checked.
+#[cfg(feature = "multiformats")]
+multicodec_table!(XmssScheme {
+    XmssSha2_10_256, PublicKey => XmssSha210256Pub;
+    XmssSha2_10_256, SecretKey => XmssSha210256Priv;
+    XmssSha2_10_256, Signature => XmssSha210256Msig;
+    XmssSha2_16_256, PublicKey => XmssSha216256Pub;
+    XmssSha2_16_256, SecretKey => XmssSha216256Priv;
+    XmssSha2_16_256, Signature => XmssSha216256Msig;
+});
+
 #[cfg(feature = "xmss-extra-depths")]
 macro_rules! with_extra_xmss_depth {
     ($family:ident, $depth:expr, |$P:ident| $body:block) => {{
@@ -829,7 +865,7 @@ impl InnerXmss {
 }
 
 macro_rules! impl_xmss_wrapper {
-    ($name:ident, $validate:ident, $raw_doc:literal, $from_doc:literal) => {
+    ($name:ident, $validate:ident, $serde_check:ident, $raw_doc:literal, $from_doc:literal, $($multiformat:tt)+) => {
         impl fmt::Debug for $name {
             fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
                 f.debug_struct(stringify!($name))
@@ -868,6 +904,24 @@ macro_rules! impl_xmss_wrapper {
                 Ok(Self(InnerXmss::new(scheme, bytes.to_vec())))
             }
         }
+
+        impl crate::plain::sealed::Sealed for $name {}
+
+        impl crate::plain::RawBytes for $name {
+            type Scheme = XmssScheme;
+
+            fn scheme(&self) -> XmssScheme {
+                <$name>::scheme(self)
+            }
+
+            fn from_raw_bytes(scheme: XmssScheme, bytes: &[u8]) -> Result<Self> {
+                scheme.$serde_check(bytes)?;
+                Ok(Self(InnerXmss::new(scheme, bytes.to_vec())))
+            }
+        }
+
+        #[cfg(feature = "multiformats")]
+        $($multiformat)+;
     };
 }
 
@@ -904,14 +958,16 @@ pub trait XmssStateStore {
 /// index. Reusing a consumed leaf reveals the secret key, so callers must
 /// persist advanced state durably before releasing signatures.
 #[repr(transparent)]
-#[derive(Clone, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Eq, PartialEq)]
 pub struct XmssSigningKey(pub(crate) InnerXmss);
 
 impl_xmss_wrapper!(
     XmssSigningKey,
     validate_signing_key,
+    check_signing_key_shape,
     "Returns a copy of the raw serialized signing state.",
-    "Reconstructs a signing key from serialized bytes for a specific scheme. Callers must reject stale or rewound state because it can cause one-time leaf reuse."
+    "Reconstructs a signing key from serialized bytes for a specific scheme. Callers must reject stale or rewound state because it can cause one-time leaf reuse.",
+    multikey_impl!(XmssSigningKey, SecretKey)
 );
 
 #[cfg(feature = "zeroize")]
@@ -939,14 +995,16 @@ impl Drop for XmssSigningKey {
 /// Verification keys are scheme-bound. Mismatching the stored scheme is always
 /// rejected because byte length is not a safe discriminator.
 #[repr(transparent)]
-#[derive(Clone, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Eq, PartialEq)]
 pub struct XmssVerificationKey(pub(crate) InnerXmss);
 
 impl_xmss_wrapper!(
     XmssVerificationKey,
     validate_verification_key,
+    validate_verification_key,
     "Returns a copy of the raw serialized verification key bytes.",
-    "Reconstructs a verification key from serialized bytes for a scheme."
+    "Reconstructs a verification key from serialized bytes for a scheme.",
+    multikey_impl!(XmssVerificationKey, PublicKey)
 );
 
 /// Serialized detached XMSS signature.
@@ -955,19 +1013,28 @@ impl_xmss_wrapper!(
 /// unique consumed leaf. Releasing two signatures from the same leaf reveals
 /// the secret key.
 #[repr(transparent)]
-#[derive(Clone, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Eq, PartialEq)]
 pub struct XmssSignature(pub(crate) InnerXmss);
 
 impl_xmss_wrapper!(
     XmssSignature,
     validate_signature,
+    validate_signature,
     "Returns a copy of the raw detached signature bytes.",
-    "Reconstructs a detached signature from serialized bytes for a scheme."
+    "Reconstructs a detached signature from serialized bytes for a scheme.",
+    multisig_impl!(XmssSignature)
 );
 
 impl XmssScheme {
     fn validate_signing_key(&self, bytes: &[u8]) -> Result<()> {
         with_xmss_params!(*self, |P| { validate_signing_key_bytes::<P>(bytes) })
+    }
+
+    /// Checks a signing key's length and parameter-set identifier without rebuilding its
+    /// tree, which costs about as much as key generation. Serde uses this so untrusted
+    /// input cannot force that work; signing parses the key fully.
+    fn check_signing_key_shape(&self, bytes: &[u8]) -> Result<()> {
+        with_xmss_params!(*self, |P| { check_signing_key_shape_bytes::<P>(bytes) })
     }
 
     fn validate_verification_key(&self, bytes: &[u8]) -> Result<()> {
@@ -1699,9 +1766,63 @@ mod tests {
         let verification_key = &fixture.verification_key;
         let signature = &fixture.first_signature;
 
-        round_trip_all_formats(signing_key);
-        round_trip_all_formats(verification_key);
-        round_trip_all_formats(signature);
+        crate::test_utils::assert_plain_compatible(signing_key, &signing_key.0);
+        crate::test_utils::assert_plain_compatible(verification_key, &verification_key.0);
+        crate::test_utils::assert_plain_compatible(signature, &signature.0);
+    }
+
+    #[test]
+    fn deserializing_a_signing_key_does_not_rebuild_its_tree() {
+        use crate::plain::{Plain, RawBytes};
+        // rebuilding a 2^20-leaf tree takes minutes; the structural check takes microseconds
+        let scheme = XmssScheme::XmssSha2_20_256;
+        let bytes = with_xmss_params!(scheme, |P| {
+            let mut bytes = vec![0u8; P::SK_LEN];
+            bytes[..4].copy_from_slice(&P::OID.to_be_bytes());
+            bytes
+        });
+        let started = std::time::Instant::now();
+        let key = <XmssSigningKey as RawBytes>::from_raw_bytes(scheme, &bytes).unwrap();
+        let json = serde_json::to_string(&Plain(key.clone())).unwrap();
+        let decoded = serde_json::from_str::<Plain<XmssSigningKey>>(&json).unwrap();
+        assert!(started.elapsed() < std::time::Duration::from_secs(5));
+        assert_eq!(decoded.0, key);
+        // the wrong parameter set or length is still refused
+        assert!(
+            <XmssSigningKey as RawBytes>::from_raw_bytes(XmssScheme::XmssSha2_10_256, &bytes)
+                .is_err()
+        );
+        assert!(<XmssSigningKey as RawBytes>::from_raw_bytes(scheme, &bytes[1..]).is_err());
+    }
+
+    #[cfg(feature = "multiformats")]
+    #[test]
+    fn multiformat_encoding() {
+        use crate::{
+            multiformats::{Codec, Multikey},
+            test_utils::{assert_multikey, assert_multisig},
+        };
+        let fixture = test_fixture();
+        assert_multikey(&fixture.verification_key, Codec::XmssSha210256Pub);
+        assert_multikey(&fixture.initial_signing_key, Codec::XmssSha210256Priv);
+        assert_multisig(&fixture.first_signature, Codec::XmssSha210256Msig);
+        let public = Multikey::try_from(&fixture.verification_key).unwrap();
+        assert!(XmssSigningKey::try_from(&public).is_err());
+        let secret = Multikey::try_from(&fixture.initial_signing_key).unwrap();
+        assert!(XmssVerificationKey::try_from(&secret).is_err());
+    }
+
+    #[cfg(feature = "multiformats")]
+    #[test]
+    fn multicodec_table_is_invertible() {
+        use crate::multiformats::{Role, SchemeCodec};
+        for scheme in all_schemes() {
+            for role in [Role::PublicKey, Role::SecretKey, Role::Signature] {
+                if let Some(codec) = scheme.codec(role) {
+                    assert_eq!(XmssScheme::from_codec(codec, role), Some(scheme));
+                }
+            }
+        }
     }
 
     #[test]

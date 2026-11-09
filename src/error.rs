@@ -110,6 +110,10 @@ pub enum Error {
     /// ETHFALCON signature error.
     #[error("An error occurred with eth-falcon: {0}")]
     FnDsaError(String),
+    /// A Multikey, Multisig or Multihash does not hold a valid value of the requested type.
+    #[cfg(feature = "multiformats")]
+    #[error("multiformat error: {0}")]
+    Multiformat(#[from] crate::multiformats::MultiformatError),
     /// SLIP-0010 derivation errors.
     #[cfg(feature = "hhd")]
     #[error("SLIP-0010 error: {0}")]

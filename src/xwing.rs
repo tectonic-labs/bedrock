@@ -206,6 +206,8 @@ impl XwingScheme {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[cfg_attr(test, derive(PartialEq, Eq))]
 pub struct EncapsulationKey {
+    // X-Wing keeps its own serde shape, so the inner KEM key stays in the plain shape.
+    #[serde(with = "crate::plain")]
     pk_m: KemEncapsulationKey,
     #[serde(
         serialize_with = "serialize_public_key_bin_or_hex",
