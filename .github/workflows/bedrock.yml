@@ -74,7 +74,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        toolchain: ["1.95", stable]
+        toolchain: ["1.99", stable]
         features: [hashing, "hashing,symmetric"]
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5

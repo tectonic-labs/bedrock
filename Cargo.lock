@@ -82,6 +82,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f2032f911046de80f0a198e0901378627c33f59ea0ac00e363d481118bd70a53"
 
 [[package]]
+name = "base-x"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c88e1890b4717f1cce48d42b0836d6b9c6c96136f5ab8922ae4626f4eaf69638"
+
+[[package]]
 name = "base16ct"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -264,6 +270,7 @@ dependencies = [
  "block-buffer 0.12.1",
  "crypto-common 0.2.2",
  "inout",
+ "zeroize",
 ]
 
 [[package]]
@@ -323,6 +330,15 @@ name = "constant_time_eq"
 version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3d52eff69cd5e647efe296129160853a42795992097e8af39800e1060caeea9b"
+
+[[package]]
+name = "convert_case"
+version = "0.12.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1af709f1f33454bf52eadfc8c78b3b9ef9cb26fb54d16dc9cd9a7299f899fd1b"
+dependencies = [
+ "unicode-segmentation",
+]
 
 [[package]]
 name = "cpubits"
@@ -475,6 +491,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "csv"
+version = "1.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "52cd9d68cf7efc6ddfaaee42e7288d3a99d613d4b50f76ce9827ae0c6e14f938"
+dependencies = [
+ "csv-core",
+ "itoa",
+ "ryu",
+ "serde_core",
+]
+
+[[package]]
+name = "csv-core"
+version = "0.1.13"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "704a3c26996a80471189265814dbc2c257598b96b8a7feae2d31ace646bb9782"
+dependencies = [
+ "memchr",
+]
+
+[[package]]
 name = "ctr"
 version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -521,6 +558,32 @@ dependencies = [
 ]
 
 [[package]]
+name = "data-encoding"
+version = "2.11.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4583a4551df46e2792f82ceeac45e850d2e2d5debba0b91f102385cda5b11f06"
+
+[[package]]
+name = "data-encoding-macro"
+version = "0.1.21"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c6a127ecbb3c4632e1525380e04c0c3fcf8dcb44d32a79ea290d8a36906edcd8"
+dependencies = [
+ "data-encoding",
+ "data-encoding-macro-internal",
+]
+
+[[package]]
+name = "data-encoding-macro-internal"
+version = "0.1.19"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c54e03a951783e8b327515db3f2a2fd0e3bed362a96b066f341ce66ed49b4ead"
+dependencies = [
+ "data-encoding",
+ "syn 3.0.4",
+]
+
+[[package]]
 name = "der"
 version = "0.7.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -539,6 +602,15 @@ dependencies = [
  "const-oid 0.10.2",
  "pem-rfc7468",
  "zeroize",
+]
+
+[[package]]
+name = "des"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "916a94e407b54f9034d71dd748234cd1e516ced6284009906ae246f177eafe5a"
+dependencies = [
+ "cipher",
 ]
 
 [[package]]
@@ -1112,6 +1184,114 @@ dependencies = [
 ]
 
 [[package]]
+name = "multi-base"
+version = "1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a04a7d4bcbc88dff3e4bba93fef588444794a56516e8b0be9a061915aa752df2"
+dependencies = [
+ "base-x",
+ "data-encoding",
+ "data-encoding-macro",
+ "thiserror 2.0.20",
+]
+
+[[package]]
+name = "multi-codec"
+version = "2.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8ae296f414b16c4d4949ce10ce5490ed80b1f82ca3911f60d05e5887ed3de96b"
+dependencies = [
+ "convert_case",
+ "csv",
+ "multi-trait",
+ "serde",
+ "serde_derive",
+ "thiserror 2.0.20",
+]
+
+[[package]]
+name = "multi-hash"
+version = "4.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ce5e90fecd466ffe066417fc29874130159cb4335e9491ab2067439edbd30850"
+dependencies = [
+ "hex",
+ "multi-base",
+ "multi-codec",
+ "multi-trait",
+ "multi-util",
+ "serde",
+ "subtle",
+ "thiserror 2.0.20",
+ "unsigned-varint",
+]
+
+[[package]]
+name = "multi-key"
+version = "3.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0536bbab5cbcc88961293493152d301f5f29f1729fc4429b9ce31c9228c1c80d"
+dependencies = [
+ "hex",
+ "multi-base",
+ "multi-codec",
+ "multi-hash",
+ "multi-sig",
+ "multi-trait",
+ "multi-util",
+ "rand 0.10.2",
+ "rand_core 0.10.1",
+ "serde",
+ "ssh-encoding",
+ "ssh-key",
+ "subtle",
+ "thiserror 2.0.20",
+ "unsigned-varint",
+ "zeroize",
+]
+
+[[package]]
+name = "multi-sig"
+version = "3.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8ee86d008b7888d5ac7ff0a034b2b4d8a42b78e7128072f679ba82071b9c3af8"
+dependencies = [
+ "multi-base",
+ "multi-codec",
+ "multi-trait",
+ "multi-util",
+ "serde",
+ "serde_cbor_2",
+ "ssh-encoding",
+ "ssh-key",
+ "thiserror 2.0.20",
+ "unsigned-varint",
+]
+
+[[package]]
+name = "multi-trait"
+version = "1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "87e9b05062168dcec4308b6b2649c8f429d0a3f8dca560d219cc2d059d017a18"
+dependencies = [
+ "thiserror 2.0.20",
+ "unsigned-varint",
+]
+
+[[package]]
+name = "multi-util"
+version = "2.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a38c80b7709cb52da9457dbd77ab891b5608a5827c55c44ac4cd3bd43854ff2a"
+dependencies = [
+ "multi-base",
+ "multi-codec",
+ "multi-trait",
+ "serde",
+ "thiserror 2.0.20",
+]
+
+[[package]]
 name = "num"
 version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1314,6 +1494,7 @@ checksum = "6e2d0073b297041425c7c3df6eb4792d598a15323fe63346852b092eca02904c"
 dependencies = [
  "cpufeatures 0.3.0",
  "universal-hash",
+ "zeroize",
 ]
 
 [[package]]
@@ -1756,6 +1937,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "serde_bare"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "51c55386eed0f1ae957b091dc2ca8122f287b60c79c774cbe3d5f2b69fded660"
+dependencies = [
+ "serde",
+]
+
+[[package]]
+name = "serde_cbor_2"
+version = "0.13.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "34aec2709de9078e077090abd848e967abab63c9fb3fdb5d4799ad359d8d482c"
+dependencies = [
+ "half",
+ "serde",
+]
+
+[[package]]
 name = "serde_core"
 version = "1.0.229"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1945,6 +2145,49 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3a0219bd7d979d58245a4f41f695e1ac9f8befdffadd7f61f1bae9e39abc6620"
 
 [[package]]
+name = "ssh-cipher"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d801accda99469cde6d73da741422610fdf6508a72d9a69d1b55cb241c720597"
+dependencies = [
+ "aes",
+ "aes-gcm",
+ "chacha20",
+ "cipher",
+ "des",
+ "poly1305",
+ "ssh-encoding",
+ "zeroize",
+]
+
+[[package]]
+name = "ssh-encoding"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7b54d0ed0498daf3f78d82e00e28c8eec9d75a067c4cfbcc7a0f7d0f4077749e"
+dependencies = [
+ "base64ct",
+ "ctutils",
+ "digest 0.11.3",
+ "pem-rfc7468",
+ "zeroize",
+]
+
+[[package]]
+name = "ssh-key"
+version = "0.7.0-rc.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f9a32fae177b74a22aa9c5b01bf7e68b33545be32d9e381e248058d2adc15ce3"
+dependencies = [
+ "ctutils",
+ "sha2 0.11.0",
+ "signature 3.0.0",
+ "ssh-cipher",
+ "ssh-encoding",
+ "zeroize",
+]
+
+[[package]]
 name = "subtle"
 version = "2.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1974,7 +2217,7 @@ dependencies = [
 
 [[package]]
 name = "tectonic-bedrock"
-version = "0.6.0"
+version = "0.8.0"
 dependencies = [
  "aes",
  "aes-gcm",
@@ -1983,7 +2226,6 @@ dependencies = [
  "blake3",
  "chacha20",
  "chacha20poly1305",
- "ciborium",
  "criterion",
  "curve25519-dalek",
  "ed25519-dalek",
@@ -1996,6 +2238,12 @@ dependencies = [
  "hqc-kem",
  "ml-dsa",
  "ml-kem",
+ "multi-codec",
+ "multi-hash",
+ "multi-key",
+ "multi-sig",
+ "multi-trait",
+ "multi-util",
  "p256",
  "p384",
  "postcard",
@@ -2009,6 +2257,8 @@ dependencies = [
  "rsa",
  "rstest",
  "serde",
+ "serde_bare",
+ "serde_cbor_2",
  "serde_json",
  "serdect",
  "sha2 0.11.0",
@@ -2268,6 +2518,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "unicode-segmentation"
+version = "1.13.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c6f5d3c3b1bf09027a88a6bc961fc00497d651009560b5463668dc81b0fa87a8"
+
+[[package]]
 name = "universal-hash"
 version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2276,6 +2532,12 @@ dependencies = [
  "crypto-common 0.2.2",
  "ctutils",
 ]
+
+[[package]]
+name = "unsigned-varint"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "eb066959b24b5196ae73cb057f45598450d2c5f71460e98c49b738086eff9c06"
 
 [[package]]
 name = "version_check"

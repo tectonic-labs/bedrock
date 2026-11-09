@@ -6,8 +6,8 @@ use crate::os_rng;
 use serde::{Deserialize, Serialize};
 
 macro_rules! impl_ml_dsa_struct {
-    ($name:ident, $validate:ident, $expect:expr) => {
-        #[derive(Clone, Serialize, Deserialize)]
+    ($name:ident, $validate:ident, $expect:expr, $($multiformat:tt)+) => {
+        #[derive(Clone)]
         #[cfg_attr(test, derive(PartialEq, Eq))]
         #[doc = concat!("A byte-backed [`", stringify!($name), "`] value for ML-DSA.")]
         #[repr(transparent)]
@@ -55,6 +55,10 @@ macro_rules! impl_ml_dsa_struct {
                 .into())
             }
         }
+
+        raw_bytes_impl!($name, MlDsaScheme);
+        #[cfg(feature = "multiformats")]
+        $($multiformat)+;
     };
 }
 
@@ -72,6 +76,16 @@ scheme_impl_pure!(
 );
 
 serde_impl!(MlDsaScheme);
+
+// Signing keys use identity: bedrock stores the expanded FIPS 204 key, and the ML-DSA
+// private-key multicodecs hold the 32-byte seed.
+#[cfg(feature = "multiformats")]
+multicodec_table!(MlDsaScheme {
+    Dsa65, PublicKey => MlDsa65Pub;
+    Dsa65, Signature => MlDsa65Msig;
+    Dsa87, PublicKey => MlDsa87Pub;
+    Dsa87, Signature => MlDsa87Msig;
+});
 
 /// Dispatch a block generic over the concrete `ml_dsa` parameter type `$P` for each scheme.
 macro_rules! with_ml_dsa_params {
@@ -256,15 +270,26 @@ impl MlDsaScheme {
     }
 }
 
-impl_ml_dsa_struct!(MlDsaSigningKey, validate_signing_key, "a valid signing key");
+impl_ml_dsa_struct!(
+    MlDsaSigningKey,
+    validate_signing_key,
+    "a valid signing key",
+    multikey_impl!(MlDsaSigningKey, SecretKey)
+);
 
 impl_ml_dsa_struct!(
     MlDsaVerificationKey,
     validate_public_key,
-    "a valid public key"
+    "a valid public key",
+    multikey_impl!(MlDsaVerificationKey, PublicKey)
 );
 
-impl_ml_dsa_struct!(MlDsaSignature, validate_signature, "a valid signature");
+impl_ml_dsa_struct!(
+    MlDsaSignature,
+    validate_signature,
+    "a valid signature",
+    multisig_impl!(MlDsaSignature)
+);
 
 #[derive(Clone, Serialize, Deserialize)]
 #[cfg_attr(test, derive(PartialEq, Eq))]
@@ -309,7 +334,7 @@ mod tests {
     use super::*;
     use rstest::*;
 
-    #[cfg(all(feature = "kgen", feature = "sign"))]
+    #[cfg(all(feature = "multiformats", feature = "kgen", feature = "sign"))]
     #[rstest]
     #[case::mldsa44(MlDsaScheme::Dsa44)]
     #[case::mldsa65(MlDsaScheme::Dsa65)]
@@ -425,5 +450,68 @@ mod tests {
     fn ml_dsa_44_is_deprecated() {
         assert!(matches!(MlDsaScheme::try_from(1), Ok(MlDsaScheme::Dsa44)));
         assert!(matches!("ML-DSA-44".parse(), Ok(MlDsaScheme::Dsa44)));
+    }
+
+    #[cfg(all(feature = "kgen", feature = "sign"))]
+    #[rstest]
+    #[case::mldsa44(MlDsaScheme::Dsa44)]
+    #[case::mldsa65(MlDsaScheme::Dsa65)]
+    #[case::mldsa87(MlDsaScheme::Dsa87)]
+    fn plain_encoding_is_unchanged(#[case] scheme: MlDsaScheme) {
+        let (pk, sk) = scheme.keypair().unwrap();
+        crate::test_utils::assert_plain_compatible(&pk, &pk.0);
+        crate::test_utils::assert_plain_compatible(&sk, &sk.0);
+        let sig = scheme.sign(b"bedrock", &sk).unwrap();
+        crate::test_utils::assert_plain_compatible(&sig, &sig.0);
+    }
+
+    #[cfg(all(feature = "multiformats", feature = "kgen", feature = "sign"))]
+    #[rstest]
+    #[case::mldsa44(
+        MlDsaScheme::Dsa44,
+        crate::multiformats::Codec::Identity,
+        crate::multiformats::Codec::Identity,
+        crate::multiformats::Codec::Identity
+    )]
+    #[case::mldsa65(
+        MlDsaScheme::Dsa65,
+        crate::multiformats::Codec::MlDsa65Pub,
+        crate::multiformats::Codec::Identity,
+        crate::multiformats::Codec::MlDsa65Msig
+    )]
+    #[case::mldsa87(
+        MlDsaScheme::Dsa87,
+        crate::multiformats::Codec::MlDsa87Pub,
+        crate::multiformats::Codec::Identity,
+        crate::multiformats::Codec::MlDsa87Msig
+    )]
+    fn multiformat_encoding(
+        #[case] scheme: MlDsaScheme,
+        #[case] public: crate::multiformats::Codec,
+        #[case] secret: crate::multiformats::Codec,
+        #[case] signature: crate::multiformats::Codec,
+    ) {
+        use crate::{multiformats::Multikey, test_utils::*};
+        let (pk, sk) = scheme.keypair().unwrap();
+        assert_multikey(&pk, public);
+        assert_multikey(&sk, secret);
+        // a key never decodes as the other half of its pair
+        assert!(MlDsaSigningKey::try_from(&Multikey::try_from(&pk).unwrap()).is_err());
+        assert!(MlDsaVerificationKey::try_from(&Multikey::try_from(&sk).unwrap()).is_err());
+        let sig = scheme.sign(b"bedrock", &sk).unwrap();
+        assert_multisig(&sig, signature);
+    }
+
+    #[cfg(feature = "multiformats")]
+    #[test]
+    fn multicodec_table_is_invertible() {
+        use crate::multiformats::{Role, SchemeCodec};
+        for scheme in [MlDsaScheme::Dsa44, MlDsaScheme::Dsa65, MlDsaScheme::Dsa87] {
+            for role in [Role::PublicKey, Role::SecretKey, Role::Signature] {
+                if let Some(codec) = scheme.codec(role) {
+                    assert_eq!(MlDsaScheme::from_codec(codec, role), Some(scheme));
+                }
+            }
+        }
     }
 }

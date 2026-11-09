@@ -59,8 +59,8 @@ const ML_DSA_65_SK_LEN: usize = 4032;
 const ML_DSA_65_SIG_LEN: usize = 3309;
 
 macro_rules! impl_bird_of_prey_struct {
-    ($name:ident, $validate:ident) => {
-        #[derive(Clone, Serialize, Deserialize)]
+    ($name:ident, $validate:ident, $($multiformat:tt)+) => {
+        #[derive(Clone)]
         #[cfg_attr(test, derive(PartialEq, Eq))]
         #[doc = concat!("A byte-backed [`", stringify!($name), "`] value for the Bird-of-Prey-2 combiner.")]
         #[repr(transparent)]
@@ -108,6 +108,10 @@ macro_rules! impl_bird_of_prey_struct {
                 .into())
             }
         }
+
+        raw_bytes_impl!($name, BirdOfPreyScheme);
+        #[cfg(feature = "multiformats")]
+        $($multiformat)+;
     };
 }
 
@@ -122,6 +126,11 @@ scheme_impl_pure!(
 );
 
 serde_impl!(BirdOfPreyScheme);
+
+// No standard codec: the Ed25519 hybrid multicodecs use a plain Ed25519 signature and seed
+// keys, while Bird-of-Prey uses its own classical part and expanded keys.
+#[cfg(feature = "multiformats")]
+no_multicodecs!(BirdOfPreyScheme);
 
 #[derive(Clone, Serialize, Deserialize)]
 #[cfg_attr(test, derive(PartialEq, Eq))]
@@ -143,9 +152,21 @@ impl core::fmt::Debug for InnerBirdOfPrey {
     }
 }
 
-impl_bird_of_prey_struct!(BirdOfPreySigningKey, validate_signing_key_bytes);
-impl_bird_of_prey_struct!(BirdOfPreyVerificationKey, validate_verification_key_bytes);
-impl_bird_of_prey_struct!(BirdOfPreySignature, validate_signature_bytes);
+impl_bird_of_prey_struct!(
+    BirdOfPreySigningKey,
+    validate_signing_key_bytes,
+    multikey_impl!(BirdOfPreySigningKey, SecretKey)
+);
+impl_bird_of_prey_struct!(
+    BirdOfPreyVerificationKey,
+    validate_verification_key_bytes,
+    multikey_impl!(BirdOfPreyVerificationKey, PublicKey)
+);
+impl_bird_of_prey_struct!(
+    BirdOfPreySignature,
+    validate_signature_bytes,
+    multisig_impl!(BirdOfPreySignature)
+);
 
 #[cfg(feature = "zeroize")]
 impl zeroize::Zeroize for InnerBirdOfPrey {
@@ -659,6 +680,7 @@ mod tests {
         ));
     }
 
+    #[cfg(feature = "multiformats")]
     #[rstest]
     #[case(BirdOfPreyScheme::Ed25519MlDsa65)]
     #[case(BirdOfPreyScheme::Ed25519FnDsa512)]
@@ -740,5 +762,63 @@ mod tests {
 
         assert!(BirdOfPreyScheme::try_from(99u8).is_err());
         assert!(BirdOfPreyScheme::from_str("unknown-scheme").is_err());
+    }
+
+    #[rstest]
+    #[case::ed25519_mldsa65(BirdOfPreyScheme::Ed25519MlDsa65)]
+    #[case::ed25519_fndsa512(BirdOfPreyScheme::Ed25519FnDsa512)]
+    fn plain_encoding_is_unchanged(#[case] scheme: BirdOfPreyScheme) {
+        let (pk, sk) = scheme.keypair_from_seed(&sample_seed(20)).unwrap();
+        crate::test_utils::assert_plain_compatible(&pk, &pk.0);
+        crate::test_utils::assert_plain_compatible(&sk, &sk.0);
+        let sig = scheme.sign(b"bedrock", &sk).unwrap();
+        crate::test_utils::assert_plain_compatible(&sig, &sig.0);
+    }
+
+    #[cfg(feature = "multiformats")]
+    #[rstest]
+    #[case::ed25519_mldsa65(
+        BirdOfPreyScheme::Ed25519MlDsa65,
+        crate::multiformats::Codec::Identity,
+        crate::multiformats::Codec::Identity,
+        crate::multiformats::Codec::Identity
+    )]
+    #[case::ed25519_fndsa512(
+        BirdOfPreyScheme::Ed25519FnDsa512,
+        crate::multiformats::Codec::Identity,
+        crate::multiformats::Codec::Identity,
+        crate::multiformats::Codec::Identity
+    )]
+    fn multiformat_encoding(
+        #[case] scheme: BirdOfPreyScheme,
+        #[case] public: crate::multiformats::Codec,
+        #[case] secret: crate::multiformats::Codec,
+        #[case] signature: crate::multiformats::Codec,
+    ) {
+        use crate::{multiformats::Multikey, test_utils::*};
+        let (pk, sk) = scheme.keypair_from_seed(&sample_seed(20)).unwrap();
+        assert_multikey(&pk, public);
+        assert_multikey(&sk, secret);
+        // a key never decodes as the other half of its pair
+        assert!(BirdOfPreySigningKey::try_from(&Multikey::try_from(&pk).unwrap()).is_err());
+        assert!(BirdOfPreyVerificationKey::try_from(&Multikey::try_from(&sk).unwrap()).is_err());
+        let sig = scheme.sign(b"bedrock", &sk).unwrap();
+        assert_multisig(&sig, signature);
+    }
+
+    #[cfg(feature = "multiformats")]
+    #[test]
+    fn multicodec_table_is_invertible() {
+        use crate::multiformats::{Role, SchemeCodec};
+        for scheme in [
+            BirdOfPreyScheme::Ed25519MlDsa65,
+            BirdOfPreyScheme::Ed25519FnDsa512,
+        ] {
+            for role in [Role::PublicKey, Role::SecretKey, Role::Signature] {
+                if let Some(codec) = scheme.codec(role) {
+                    assert_eq!(BirdOfPreyScheme::from_codec(codec, role), Some(scheme));
+                }
+            }
+        }
     }
 }

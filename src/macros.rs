@@ -81,6 +81,7 @@ macro_rules! incremental_hash {
 
         impl TryFrom<&[u8]> for $digest {
             type Error = core::array::TryFromSliceError;
+
             fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
                 <[u8; $length]>::try_from(value).map(Self)
             }
@@ -343,5 +344,246 @@ macro_rules! scheme_common_impl {
             }
         }
 
+    };
+}
+
+/// Implements [`crate::plain::RawBytes`] by delegating to the type's inherent methods.
+#[cfg(any(
+    feature = "bird-of-prey",
+    feature = "falcon",
+    feature = "frodo",
+    feature = "hqc",
+    feature = "mayo",
+    feature = "mceliece",
+    feature = "ml-dsa",
+    feature = "ml-kem",
+    feature = "slh-dsa",
+    feature = "sntrup"
+))]
+macro_rules! raw_bytes_impl {
+    ($name:ty, $scheme:ty) => {
+        impl crate::plain::sealed::Sealed for $name {}
+
+        impl crate::plain::RawBytes for $name {
+            type Scheme = $scheme;
+
+            fn scheme(&self) -> $scheme {
+                <$name>::scheme(self)
+            }
+
+            fn from_raw_bytes(scheme: $scheme, bytes: &[u8]) -> crate::error::Result<Self> {
+                <$name>::from_raw_bytes(scheme, bytes)
+            }
+        }
+    };
+}
+
+/// Maps a scheme enum's variants to standard multicodecs, one `variant, role => codec`
+/// row each. Variant and role pairs without a row use the identity codec.
+#[cfg(all(
+    feature = "multiformats",
+    any(
+        feature = "frodo",
+        feature = "hqc",
+        feature = "mayo",
+        feature = "mceliece",
+        feature = "ml-dsa",
+        feature = "ml-kem",
+        feature = "slh-dsa",
+        feature = "sntrup",
+        feature = "xmss"
+    )
+))]
+macro_rules! multicodec_table {
+    ($scheme:ty { $( $(#[$meta:meta])* $variant:ident, $role:ident => $codec:ident; )+ }) => {
+        impl $scheme {
+            /// Each row pairs a scheme and role with its standard multicodec.
+            const MULTICODECS: &[(
+                $scheme,
+                crate::multiformats::Role,
+                crate::multiformats::Codec,
+            )] = &[
+                $(
+                    $(#[$meta])*
+                    (
+                        Self::$variant,
+                        crate::multiformats::Role::$role,
+                        crate::multiformats::Codec::$codec,
+                    ),
+                )+
+            ];
+        }
+
+        impl crate::multiformats::SchemeCodec for $scheme {
+            fn codec(
+                self,
+                role: crate::multiformats::Role,
+            ) -> Option<crate::multiformats::Codec> {
+                Self::MULTICODECS
+                    .iter()
+                    .find(|(scheme, row_role, _)| *scheme == self && *row_role == role)
+                    .map(|(_, _, codec)| *codec)
+            }
+
+            fn from_codec(
+                codec: crate::multiformats::Codec,
+                role: crate::multiformats::Role,
+            ) -> Option<Self> {
+                Self::MULTICODECS
+                    .iter()
+                    .find(|(_, row_role, row_codec)| *row_codec == codec && *row_role == role)
+                    .map(|(scheme, _, _)| *scheme)
+            }
+        }
+    };
+}
+
+/// Implements [`crate::multiformats::SchemeCodec`] for a scheme with no matching standard
+/// multicodec, so all of its values use the identity codec.
+#[cfg(all(
+    feature = "multiformats",
+    any(feature = "bird-of-prey", feature = "falcon")
+))]
+macro_rules! no_multicodecs {
+    ($scheme:ty) => {
+        impl crate::multiformats::SchemeCodec for $scheme {
+            fn codec(self, _role: crate::multiformats::Role) -> Option<crate::multiformats::Codec> {
+                None
+            }
+
+            fn from_codec(
+                _codec: crate::multiformats::Codec,
+                _role: crate::multiformats::Role,
+            ) -> Option<Self> {
+                None
+            }
+        }
+    };
+}
+
+/// Implements the Multikey conversions, `CodecInfo`, and serde through them for a key.
+#[cfg(all(
+    feature = "multiformats",
+    any(
+        feature = "bird-of-prey",
+        feature = "falcon",
+        feature = "frodo",
+        feature = "hqc",
+        feature = "mayo",
+        feature = "mceliece",
+        feature = "ml-dsa",
+        feature = "ml-kem",
+        feature = "slh-dsa",
+        feature = "sntrup",
+        feature = "xmss"
+    )
+))]
+macro_rules! multikey_impl {
+    ($name:ty, $role:ident) => {
+        impl crate::multiformats::Multiformat for $name {}
+
+        impl TryFrom<&$name> for crate::multiformats::Multikey {
+            type Error = crate::error::Error;
+
+            fn try_from(value: &$name) -> crate::error::Result<Self> {
+                crate::multiformats::to_multikey(value, crate::multiformats::Role::$role)
+            }
+        }
+
+        impl TryFrom<&crate::multiformats::Multikey> for $name {
+            type Error = crate::error::Error;
+
+            fn try_from(mk: &crate::multiformats::Multikey) -> crate::error::Result<Self> {
+                crate::multiformats::from_multikey(mk, crate::multiformats::Role::$role)
+            }
+        }
+
+        impl multi_util::CodecInfo for $name {
+            fn preferred_codec() -> crate::multiformats::Codec {
+                crate::multiformats::Codec::Multikey
+            }
+
+            fn codec(&self) -> crate::multiformats::Codec {
+                crate::multiformats::codec_of(self, crate::multiformats::Role::$role)
+            }
+        }
+
+        impl serde::Serialize for $name {
+            fn serialize<S: serde::Serializer>(
+                &self,
+                s: S,
+            ) -> std::result::Result<S::Ok, S::Error> {
+                crate::multiformats::serialize_key(self, crate::multiformats::Role::$role, s)
+            }
+        }
+
+        impl<'de> serde::Deserialize<'de> for $name {
+            fn deserialize<D: serde::Deserializer<'de>>(
+                d: D,
+            ) -> std::result::Result<Self, D::Error> {
+                crate::multiformats::deserialize_key(d, crate::multiformats::Role::$role)
+            }
+        }
+    };
+}
+
+/// Implements the Multisig conversions, `CodecInfo`, and serde through them for a signature.
+#[cfg(all(
+    feature = "multiformats",
+    any(
+        feature = "bird-of-prey",
+        feature = "falcon",
+        feature = "mayo",
+        feature = "ml-dsa",
+        feature = "slh-dsa",
+        feature = "xmss"
+    )
+))]
+macro_rules! multisig_impl {
+    ($name:ty) => {
+        impl crate::multiformats::Multiformat for $name {}
+
+        impl TryFrom<&$name> for crate::multiformats::Multisig {
+            type Error = crate::error::Error;
+
+            fn try_from(value: &$name) -> crate::error::Result<Self> {
+                crate::multiformats::to_multisig(value)
+            }
+        }
+
+        impl TryFrom<&crate::multiformats::Multisig> for $name {
+            type Error = crate::error::Error;
+
+            fn try_from(ms: &crate::multiformats::Multisig) -> crate::error::Result<Self> {
+                crate::multiformats::from_multisig(ms)
+            }
+        }
+
+        impl multi_util::CodecInfo for $name {
+            fn preferred_codec() -> crate::multiformats::Codec {
+                crate::multiformats::Codec::Multisig
+            }
+
+            fn codec(&self) -> crate::multiformats::Codec {
+                crate::multiformats::codec_of(self, crate::multiformats::Role::Signature)
+            }
+        }
+
+        impl serde::Serialize for $name {
+            fn serialize<S: serde::Serializer>(
+                &self,
+                s: S,
+            ) -> std::result::Result<S::Ok, S::Error> {
+                crate::multiformats::serialize_signature(self, s)
+            }
+        }
+
+        impl<'de> serde::Deserialize<'de> for $name {
+            fn deserialize<D: serde::Deserializer<'de>>(
+                d: D,
+            ) -> std::result::Result<Self, D::Error> {
+                crate::multiformats::deserialize_signature(d)
+            }
+        }
     };
 }

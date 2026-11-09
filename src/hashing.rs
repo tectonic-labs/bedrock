@@ -117,6 +117,56 @@ incremental_hash!(
     |state: blake3::Hasher| *state.finalize().as_bytes()
 );
 
+/// Converts each digest to and from the [`Multihash`](crate::multiformats::Multihash) value
+/// with its codec. The SHAKE and BLAKE3 codecs are extendable-output, so the digest
+/// length is checked on the way back in.
+#[cfg(feature = "multiformats")]
+macro_rules! digest_multihash {
+    ($($digest:ident => $codec:ident),+ $(,)?) => {$(
+        impl TryFrom<&$digest> for crate::multiformats::Multihash {
+            type Error = crate::error::Error;
+
+            fn try_from(digest: &$digest) -> crate::error::Result<Self> {
+                use crate::multiformats::{Codec, MultiformatError};
+                Ok(multi_hash::Builder::new(Codec::$codec)
+                    .map_err(MultiformatError::from)?
+                    .with_hash(digest.as_ref())
+                    .try_build()
+                    .map_err(MultiformatError::from)?)
+            }
+        }
+
+        impl TryFrom<&crate::multiformats::Multihash> for $digest {
+            type Error = crate::error::Error;
+
+            fn try_from(mh: &crate::multiformats::Multihash) -> crate::error::Result<Self> {
+                use crate::multiformats::{Codec, MultiformatError};
+                use multi_util::CodecInfo;
+                if mh.codec() != Codec::$codec {
+                    return Err(MultiformatError::UnexpectedCodec {
+                        codec: mh.codec(),
+                        expected: stringify!($digest),
+                    }
+                    .into());
+                }
+                Self::try_from(mh.as_ref()).map_err(|_| crate::error::Error::InvalidLength(mh.as_ref().len()))
+            }
+        }
+    )+};
+}
+
+#[cfg(feature = "multiformats")]
+digest_multihash!(
+    Sha512Digest => Sha2512,
+    Sha3_256Digest => Sha3256,
+    Sha3_384Digest => Sha3384,
+    Shake128_256Digest => Shake128,
+    Shake256_512Digest => Shake256,
+    Blake2s256Digest => Blake2S256,
+    Blake2b512Digest => Blake2B512,
+    Blake3_256Digest => Blake3,
+);
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -279,5 +329,54 @@ mod tests {
             format!("{:?}", Blake3_256Context::new()),
             "Blake3_256Context { .. }"
         );
+    }
+
+    #[cfg(feature = "multiformats")]
+    #[test]
+    fn multihash_conversions() {
+        use crate::{
+            error::Error,
+            multiformats::{Codec, Multihash},
+        };
+        use multi_util::CodecInfo;
+
+        macro_rules! check {
+            ($digest:expr, $ty:ty, $codec:expr) => {{
+                let digest = $digest;
+                let mh = Multihash::try_from(&digest).unwrap();
+                assert_eq!(mh.codec(), $codec);
+                assert_eq!(mh.as_ref(), digest.as_ref());
+                assert_eq!(<$ty>::try_from(&mh).unwrap(), digest);
+                let bytes = Vec::<u8>::from(&mh);
+                let decoded = Multihash::try_from(bytes.as_slice()).unwrap();
+                assert_eq!(<$ty>::try_from(&decoded).unwrap(), digest);
+            }};
+        }
+
+        check!(sha512(b"abc"), Sha512Digest, Codec::Sha2512);
+        check!(sha3_256(b"abc"), Sha3_256Digest, Codec::Sha3256);
+        check!(sha3_384(b"abc"), Sha3_384Digest, Codec::Sha3384);
+        check!(shake128_256(b"abc"), Shake128_256Digest, Codec::Shake128);
+        check!(shake256_512(b"abc"), Shake256_512Digest, Codec::Shake256);
+        check!(blake2s256(b"abc"), Blake2s256Digest, Codec::Blake2S256);
+        check!(blake2b512(b"abc"), Blake2b512Digest, Codec::Blake2B512);
+        check!(blake3_256(b"abc"), Blake3_256Digest, Codec::Blake3);
+
+        // another algorithm's digest of the same length is refused
+        let mh = Multihash::try_from(&blake2s256(b"abc")).unwrap();
+        assert!(matches!(
+            Sha3_256Digest::try_from(&mh),
+            Err(Error::Multiformat(_))
+        ));
+        // an extendable-output digest of the wrong length is refused
+        let short = multi_hash::Builder::new(Codec::Shake128)
+            .unwrap()
+            .with_hash(vec![7u8; 16])
+            .try_build()
+            .unwrap();
+        assert!(matches!(
+            Shake128_256Digest::try_from(&short),
+            Err(Error::InvalidLength(16))
+        ));
     }
 }

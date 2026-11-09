@@ -6,8 +6,8 @@ use crate::os_rng;
 use serde::{Deserialize, Serialize};
 
 macro_rules! impl_mayo_struct {
-    ($name:ident, $validate:ident, $expect:expr) => {
-        #[derive(Clone, Serialize, Deserialize)]
+    ($name:ident, $validate:ident, $expect:expr, $($multiformat:tt)+) => {
+        #[derive(Clone)]
         #[cfg_attr(test, derive(PartialEq, Eq))]
         #[doc = concat!("A byte-backed [`", stringify!($name), "`] value for MAYO.")]
         #[repr(transparent)]
@@ -55,6 +55,10 @@ macro_rules! impl_mayo_struct {
                 .into())
             }
         }
+
+        raw_bytes_impl!($name, MayoScheme);
+        #[cfg(feature = "multiformats")]
+        $($multiformat)+;
     };
 }
 
@@ -73,6 +77,22 @@ scheme_impl_pure!(
 );
 
 serde_impl!(MayoScheme);
+
+#[cfg(feature = "multiformats")]
+multicodec_table!(MayoScheme {
+    Mayo1, PublicKey => Mayo1Pub;
+    Mayo1, SecretKey => Mayo1Priv;
+    Mayo1, Signature => Mayo1Msig;
+    Mayo2, PublicKey => Mayo2Pub;
+    Mayo2, SecretKey => Mayo2Priv;
+    Mayo2, Signature => Mayo2Msig;
+    Mayo3, PublicKey => Mayo3Pub;
+    Mayo3, SecretKey => Mayo3Priv;
+    Mayo3, Signature => Mayo3Msig;
+    Mayo5, PublicKey => Mayo5Pub;
+    Mayo5, SecretKey => Mayo5Priv;
+    Mayo5, Signature => Mayo5Msig;
+});
 
 /// Dispatch a block generic over the concrete `pq_mayo` parameter type `$P` for each scheme.
 macro_rules! with_mayo_params {
@@ -226,15 +246,26 @@ impl MayoScheme {
     }
 }
 
-impl_mayo_struct!(MayoSigningKey, validate_signing_key, "a valid signing key");
+impl_mayo_struct!(
+    MayoSigningKey,
+    validate_signing_key,
+    "a valid signing key",
+    multikey_impl!(MayoSigningKey, SecretKey)
+);
 
 impl_mayo_struct!(
     MayoVerificationKey,
     validate_public_key,
-    "a valid public key"
+    "a valid public key",
+    multikey_impl!(MayoVerificationKey, PublicKey)
 );
 
-impl_mayo_struct!(MayoSignature, validate_signature, "a valid signature");
+impl_mayo_struct!(
+    MayoSignature,
+    validate_signature,
+    "a valid signature",
+    multisig_impl!(MayoSignature)
+);
 
 #[derive(Clone, Serialize, Deserialize)]
 #[cfg_attr(test, derive(PartialEq, Eq))]
@@ -279,7 +310,7 @@ mod tests {
     use super::*;
     use rstest::*;
 
-    #[cfg(all(feature = "kgen", feature = "sign"))]
+    #[cfg(all(feature = "multiformats", feature = "kgen", feature = "sign"))]
     #[rstest]
     #[case::mayo1(MayoScheme::Mayo1)]
     #[case::mayo2(MayoScheme::Mayo2)]
@@ -384,5 +415,80 @@ mod tests {
         assert_eq!(pk1.as_ref(), pk2.as_ref());
         assert_eq!(sk1.as_ref(), sk2.as_ref());
         assert!(scheme.keypair_from_seed(&vec![0u8; seed_len - 1]).is_err());
+    }
+
+    #[cfg(all(feature = "kgen", feature = "sign"))]
+    #[rstest]
+    #[case::mayo1(MayoScheme::Mayo1)]
+    #[case::mayo2(MayoScheme::Mayo2)]
+    #[case::mayo3(MayoScheme::Mayo3)]
+    #[case::mayo5(MayoScheme::Mayo5)]
+    fn plain_encoding_is_unchanged(#[case] scheme: MayoScheme) {
+        let (pk, sk) = scheme.keypair().unwrap();
+        crate::test_utils::assert_plain_compatible(&pk, &pk.0);
+        crate::test_utils::assert_plain_compatible(&sk, &sk.0);
+        let sig = scheme.sign(b"bedrock", &sk).unwrap();
+        crate::test_utils::assert_plain_compatible(&sig, &sig.0);
+    }
+
+    #[cfg(all(feature = "multiformats", feature = "kgen", feature = "sign"))]
+    #[rstest]
+    #[case::mayo1(
+        MayoScheme::Mayo1,
+        crate::multiformats::Codec::Mayo1Pub,
+        crate::multiformats::Codec::Mayo1Priv,
+        crate::multiformats::Codec::Mayo1Msig
+    )]
+    #[case::mayo2(
+        MayoScheme::Mayo2,
+        crate::multiformats::Codec::Mayo2Pub,
+        crate::multiformats::Codec::Mayo2Priv,
+        crate::multiformats::Codec::Mayo2Msig
+    )]
+    #[case::mayo3(
+        MayoScheme::Mayo3,
+        crate::multiformats::Codec::Mayo3Pub,
+        crate::multiformats::Codec::Mayo3Priv,
+        crate::multiformats::Codec::Mayo3Msig
+    )]
+    #[case::mayo5(
+        MayoScheme::Mayo5,
+        crate::multiformats::Codec::Mayo5Pub,
+        crate::multiformats::Codec::Mayo5Priv,
+        crate::multiformats::Codec::Mayo5Msig
+    )]
+    fn multiformat_encoding(
+        #[case] scheme: MayoScheme,
+        #[case] public: crate::multiformats::Codec,
+        #[case] secret: crate::multiformats::Codec,
+        #[case] signature: crate::multiformats::Codec,
+    ) {
+        use crate::{multiformats::Multikey, test_utils::*};
+        let (pk, sk) = scheme.keypair().unwrap();
+        assert_multikey(&pk, public);
+        assert_multikey(&sk, secret);
+        // a key never decodes as the other half of its pair
+        assert!(MayoSigningKey::try_from(&Multikey::try_from(&pk).unwrap()).is_err());
+        assert!(MayoVerificationKey::try_from(&Multikey::try_from(&sk).unwrap()).is_err());
+        let sig = scheme.sign(b"bedrock", &sk).unwrap();
+        assert_multisig(&sig, signature);
+    }
+
+    #[cfg(feature = "multiformats")]
+    #[test]
+    fn multicodec_table_is_invertible() {
+        use crate::multiformats::{Role, SchemeCodec};
+        for scheme in [
+            MayoScheme::Mayo1,
+            MayoScheme::Mayo2,
+            MayoScheme::Mayo3,
+            MayoScheme::Mayo5,
+        ] {
+            for role in [Role::PublicKey, Role::SecretKey, Role::Signature] {
+                if let Some(codec) = scheme.codec(role) {
+                    assert_eq!(MayoScheme::from_codec(codec, role), Some(scheme));
+                }
+            }
+        }
     }
 }
