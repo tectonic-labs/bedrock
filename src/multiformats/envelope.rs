@@ -26,9 +26,11 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::collections::BTreeMap;
 
 /// What a byte-backed value is, which selects its codec.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, strum::IntoStaticStr)]
 pub(crate) enum Role {
+    #[strum(serialize = "public key")]
     PublicKey,
+    #[strum(serialize = "secret key")]
     SecretKey,
     #[cfg(any(
         feature = "bird-of-prey",
@@ -38,26 +40,11 @@ pub(crate) enum Role {
         feature = "slh-dsa",
         feature = "xmss"
     ))]
+    #[strum(serialize = "signature")]
     Signature,
 }
 
 impl Role {
-    const fn name(self) -> &'static str {
-        match self {
-            Self::PublicKey => "public key",
-            Self::SecretKey => "secret key",
-            #[cfg(any(
-                feature = "bird-of-prey",
-                feature = "falcon",
-                feature = "mayo",
-                feature = "ml-dsa",
-                feature = "slh-dsa",
-                feature = "xmss"
-            ))]
-            Self::Signature => "signature",
-        }
-    }
-
     /// The `key-type` attribute byte: 0 public, 1 secret.
     const fn key_type(self) -> u8 {
         match self {
@@ -204,14 +191,14 @@ where
             .ok_or(MultiformatError::AlgorithmName)?;
         let key_type = mk.attributes.get(&AttrId::KeyType).map(|k| k.as_slice());
         if key_type != Some([role.key_type()].as_slice()) {
-            return Err(MultiformatError::KeyType(role.name()).into());
+            return Err(MultiformatError::KeyType(role.into()).into());
         }
         reject_standard(name.parse::<T::Scheme>()?, role)?
     } else {
         expect_attributes(&mk.attributes, &[AttrId::KeyData])?;
         T::Scheme::from_codec(codec, role).ok_or(MultiformatError::UnexpectedCodec {
             codec,
-            expected: role.name(),
+            expected: role.into(),
         })?
     };
     let bytes = mk
@@ -283,7 +270,7 @@ where
         expect_attributes(&ms.attributes, &[AttrId::SigData])?;
         T::Scheme::from_codec(codec, Role::Signature).ok_or(MultiformatError::UnexpectedCodec {
             codec,
-            expected: Role::Signature.name(),
+            expected: Role::Signature.into(),
         })?
     };
     let bytes = ms
@@ -370,12 +357,20 @@ mod tests {
     use multi_key::AttrId as KeyAttr;
     use multi_sig::AttrId as SigAttr;
 
-    fn keys(scheme: MlDsaScheme) -> (MlDsaVerificationKey, MlDsaSigningKey, MlDsaSignature) {
-        let (pk, sk) = scheme.keypair().unwrap();
-        let sig = scheme.sign(b"envelope", &sk).unwrap();
-        (pk, sk, sig)
+    struct Fixture {
+        pk: MlDsaVerificationKey,
+        sk: MlDsaSigningKey,
+        sig: MlDsaSignature,
     }
 
+    /// Generates a keypair for `scheme` and signs a fixed message with it.
+    fn fixture(scheme: MlDsaScheme) -> Fixture {
+        let (pk, sk) = scheme.keypair().unwrap();
+        let sig = scheme.sign(b"envelope", &sk).unwrap();
+        Fixture { pk, sk, sig }
+    }
+
+    /// Unwraps the error, failing the test unless it is a [`MultiformatError`].
     fn multiformat_err<T: std::fmt::Debug>(result: Result<T>) -> MultiformatError {
         match result {
             Err(Error::Multiformat(e)) => e,
@@ -385,7 +380,7 @@ mod tests {
 
     #[test]
     fn rejects_comments_and_messages() {
-        let (pk, _, sig) = keys(MlDsaScheme::Dsa65);
+        let Fixture { pk, sig, .. } = fixture(MlDsaScheme::Dsa65);
         let mut mk = Multikey::try_from(&pk).unwrap();
         mk.comment = "hello".into();
         assert!(matches!(
@@ -402,7 +397,7 @@ mod tests {
 
     #[test]
     fn rejects_missing_and_extra_attributes() {
-        let (pk, _, sig) = keys(MlDsaScheme::Dsa65);
+        let Fixture { pk, sig, .. } = fixture(MlDsaScheme::Dsa65);
         let mut mk = Multikey::try_from(&pk).unwrap();
         mk.attributes.insert(KeyAttr::KeyType, vec![0].into());
         assert!(matches!(
@@ -424,7 +419,7 @@ mod tests {
 
     #[test]
     fn rejects_identity_for_a_standard_scheme() {
-        let (pk, _, sig) = keys(MlDsaScheme::Dsa65);
+        let Fixture { pk, sig, .. } = fixture(MlDsaScheme::Dsa65);
         let mk = multi_key::Builder::new(Codec::Identity)
             .with_key_bytes(pk.as_ref())
             .with_algorithm_name("ML-DSA-65")
@@ -448,7 +443,7 @@ mod tests {
 
     #[test]
     fn rejects_the_wrong_codec() {
-        let (pk, _, sig) = keys(MlDsaScheme::Dsa65);
+        let Fixture { pk, sig, .. } = fixture(MlDsaScheme::Dsa65);
         let mk = Multikey::try_from(&pk).unwrap();
         assert!(matches!(
             multiformat_err(MlDsaSigningKey::try_from(&mk)),
@@ -472,7 +467,7 @@ mod tests {
 
     #[test]
     fn checks_identity_attributes() {
-        let (pk, sk, sig) = keys(MlDsaScheme::Dsa44);
+        let Fixture { pk, sk, sig } = fixture(MlDsaScheme::Dsa44);
         let mut mk = Multikey::try_from(&pk).unwrap();
         assert_eq!(mk.attributes[&KeyAttr::KeyType].as_slice(), &[0]);
         assert_eq!(
@@ -528,7 +523,7 @@ mod tests {
 
     #[test]
     fn rejects_attributes_out_of_order() {
-        let (pk, ..) = keys(MlDsaScheme::Dsa44);
+        let Fixture { pk, .. } = fixture(MlDsaScheme::Dsa44);
         let mk = Multikey::try_from(&pk).unwrap();
         let canonical = Vec::<u8>::from(&mk);
         assert!(decode_exact::<Multikey>(&canonical).is_ok());
@@ -567,31 +562,28 @@ mod tests {
             signature: Multisig,
         }
 
-        let (pk, _, sig) = keys(MlDsaScheme::Dsa65);
+        let Fixture { pk: multi, sig, .. } = fixture(MlDsaScheme::Dsa65);
+        let Fixture { pk: plain, .. } = fixture(MlDsaScheme::Dsa87);
         let both = Both {
-            multi: pk.clone(),
-            plain: pk.clone(),
-            signature: sig.clone(),
+            multi,
+            plain,
+            signature: sig,
         };
         crate::test_utils::round_trip_all_formats(&both);
+        let json = serde_json::to_value(&both).unwrap();
+        let bytes = postcard::to_stdvec(&both).unwrap();
         let expected = Expected {
-            multi: Multikey::try_from(&pk).unwrap(),
-            plain: crate::plain::Plain(pk.clone()),
-            signature: Multisig::try_from(&sig).unwrap(),
+            multi: Multikey::try_from(&both.multi).unwrap(),
+            signature: Multisig::try_from(&both.signature).unwrap(),
+            plain: crate::plain::Plain(both.plain),
         };
-        assert_eq!(
-            serde_json::to_value(&both).unwrap(),
-            serde_json::to_value(&expected).unwrap()
-        );
-        assert_eq!(
-            postcard::to_stdvec(&both).unwrap(),
-            postcard::to_stdvec(&expected).unwrap()
-        );
+        assert_eq!(json, serde_json::to_value(&expected).unwrap());
+        assert_eq!(bytes, postcard::to_stdvec(&expected).unwrap());
     }
 
     #[test]
     fn rejects_trailing_bytes() {
-        let (pk, ..) = keys(MlDsaScheme::Dsa65);
+        let Fixture { pk, .. } = fixture(MlDsaScheme::Dsa65);
         let mut bytes = Vec::<u8>::from(&Multikey::try_from(&pk).unwrap());
         bytes.extend_from_slice(&[1, 2, 3]);
         assert!(matches!(

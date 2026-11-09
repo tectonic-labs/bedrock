@@ -415,6 +415,7 @@ macro_rules! multicodec_table {
         }
 
         impl crate::multiformats::SchemeCodec for $scheme {
+            /// Looks up this scheme's row for `role`; no row means the identity codec.
             fn codec(
                 self,
                 role: crate::multiformats::Role,
@@ -425,6 +426,7 @@ macro_rules! multicodec_table {
                     .map(|(_, _, codec)| *codec)
             }
 
+            /// Finds the scheme that `codec` names in `role`, if any row does.
             fn from_codec(
                 codec: crate::multiformats::Codec,
                 role: crate::multiformats::Role,
@@ -485,6 +487,7 @@ macro_rules! multikey_impl {
         impl TryFrom<&$name> for crate::multiformats::Multikey {
             type Error = crate::error::Error;
 
+            /// Frames the key's raw bytes as a Multikey.
             fn try_from(value: &$name) -> crate::error::Result<Self> {
                 crate::multiformats::to_multikey(value, crate::multiformats::Role::$role)
             }
@@ -493,6 +496,8 @@ macro_rules! multikey_impl {
         impl TryFrom<&crate::multiformats::Multikey> for $name {
             type Error = crate::error::Error;
 
+            /// Reads the key out of a Multikey, refusing a codec or attribute set that
+            /// does not match this type.
             fn try_from(mk: &crate::multiformats::Multikey) -> crate::error::Result<Self> {
                 crate::multiformats::from_multikey(mk, crate::multiformats::Role::$role)
             }
@@ -546,6 +551,7 @@ macro_rules! multisig_impl {
         impl TryFrom<&$name> for crate::multiformats::Multisig {
             type Error = crate::error::Error;
 
+            /// Frames the signature's raw bytes as a Multisig.
             fn try_from(value: &$name) -> crate::error::Result<Self> {
                 crate::multiformats::to_multisig(value)
             }
@@ -554,6 +560,8 @@ macro_rules! multisig_impl {
         impl TryFrom<&crate::multiformats::Multisig> for $name {
             type Error = crate::error::Error;
 
+            /// Reads the signature out of a Multisig, refusing a codec or attribute set
+            /// that does not match this type.
             fn try_from(ms: &crate::multiformats::Multisig) -> crate::error::Result<Self> {
                 crate::multiformats::from_multisig(ms)
             }

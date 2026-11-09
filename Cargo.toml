@@ -38,7 +38,7 @@ ml-kem = ["dep:ml-kem"]
 # Serialize keys as Multikey and signatures as Multisig, and convert digests to
 # Multihash. Uses only the traits-only builds of the multi-* crates; with this
 # feature off those types have no serde impls, and `plain` keeps the raw shape.
-multiformats = ["dep:multi-codec", "dep:multi-hash", "dep:multi-key", "dep:multi-sig", "dep:multi-trait", "dep:multi-util", "zeroize"]
+multiformats = ["dep:multi-codec", "dep:multi-hash", "dep:multi-key", "dep:multi-sig", "dep:multi-trait", "dep:multi-util", "dep:strum", "zeroize"]
 random = ["getrandom_v04"]
 rsa-signatures = ["dep:rsa", "dep:signature", "random", "rand_core_010", "sha2", "zeroize"]
 sign = ["fn-dsa-comm", "fn-dsa-sign", "rand_core", "rand_core/getrandom"]
@@ -91,6 +91,7 @@ shake = { version = "0.1", optional = true }
 signature = { version = "3", optional = true }
 slh-dsa = { version = "=0.2.0-rc.5", features = ["zeroize"], optional = true }
 sntrup = { version = "0.4.0", default-features = false, features = ["dcap", "ecap", "kgen"], optional = true }
+strum = { version = "0.28", default-features = false, features = ["derive"], optional = true }
 thiserror = "2.0"
 tiny-bip39 = { version = "2.0.0", optional = true }
 x25519-dalek = { version = "3.0", features = ["getrandom", "static_secrets"], optional = true }

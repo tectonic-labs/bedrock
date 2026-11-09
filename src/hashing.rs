@@ -126,6 +126,7 @@ macro_rules! digest_multihash {
         impl TryFrom<&$digest> for crate::multiformats::Multihash {
             type Error = crate::error::Error;
 
+            /// Wraps the digest in a Multihash carrying this digest's codec.
             fn try_from(digest: &$digest) -> crate::error::Result<Self> {
                 use crate::multiformats::{Codec, MultiformatError};
                 Ok(multi_hash::Builder::new(Codec::$codec)
@@ -139,6 +140,7 @@ macro_rules! digest_multihash {
         impl TryFrom<&crate::multiformats::Multihash> for $digest {
             type Error = crate::error::Error;
 
+            /// Reads the digest back, refusing any other codec or a wrong length.
             fn try_from(mh: &crate::multiformats::Multihash) -> crate::error::Result<Self> {
                 use crate::multiformats::{Codec, MultiformatError};
                 use multi_util::CodecInfo;

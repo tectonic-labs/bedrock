@@ -1637,13 +1637,13 @@ mod tests {
         let (ek, dk) = scheme.keypair().unwrap();
         let (ct, ss) = scheme.encapsulate(&ek).unwrap();
 
-        round_trip_all_formats(&crate::plain::Plain(ek.clone()));
-        round_trip_all_formats(&crate::plain::Plain(dk.clone()));
         #[cfg(feature = "multiformats")]
         {
             round_trip_all_formats(&ek);
             round_trip_all_formats(&dk);
         }
+        round_trip_all_formats(&crate::plain::Plain(ek));
+        round_trip_all_formats(&crate::plain::Plain(dk));
         round_trip_all_formats(&ct);
         round_trip_all_formats(&ss);
     }

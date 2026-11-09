@@ -190,13 +190,13 @@ mod test_utils {
     /// newtype around `inner`, and reads it back.
     pub(crate) fn assert_plain_compatible<T, I>(value: &T, inner: &I)
     where
-        T: RawBytes + Clone + PartialEq + std::fmt::Debug,
+        T: RawBytes + PartialEq + std::fmt::Debug,
         I: Serialize,
     {
         #[derive(Serialize)]
         struct Old<'a, I>(&'a I);
 
-        let plain = Plain(value.clone());
+        let plain = Plain(T::from_raw_bytes(value.scheme(), value.as_ref()).unwrap());
         assert_eq!(encodings(&plain), encodings(&Old(inner)));
         round_trip_all_formats(&plain);
     }

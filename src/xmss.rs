@@ -52,6 +52,8 @@ where
         .map_err(xmss_err)
 }
 
+/// Checks a signing key's length and parameter-set OID only, so untrusted serde input
+/// cannot force the tree rebuild that [`validate_signing_key_bytes`] does.
 fn check_signing_key_shape_bytes<P>(bytes: &[u8]) -> Result<()>
 where
     P: pq_xmss::XmssParameter,
@@ -914,6 +916,7 @@ macro_rules! impl_xmss_wrapper {
                 <$name>::scheme(self)
             }
 
+            /// Builds the value after this type's serde-path check of the bytes.
             fn from_raw_bytes(scheme: XmssScheme, bytes: &[u8]) -> Result<Self> {
                 scheme.$serde_check(bytes)?;
                 Ok(Self(InnerXmss::new(scheme, bytes.to_vec())))
@@ -1783,10 +1786,10 @@ mod tests {
         });
         let started = std::time::Instant::now();
         let key = <XmssSigningKey as RawBytes>::from_raw_bytes(scheme, &bytes).unwrap();
-        let json = serde_json::to_string(&Plain(key.clone())).unwrap();
+        let json = serde_json::to_string(&Plain(key)).unwrap();
         let decoded = serde_json::from_str::<Plain<XmssSigningKey>>(&json).unwrap();
         assert!(started.elapsed() < std::time::Duration::from_secs(5));
-        assert_eq!(decoded.0, key);
+        assert_eq!(decoded.0.as_ref(), bytes.as_slice());
         // the wrong parameter set or length is still refused
         assert!(
             <XmssSigningKey as RawBytes>::from_raw_bytes(XmssScheme::XmssSha2_10_256, &bytes)
