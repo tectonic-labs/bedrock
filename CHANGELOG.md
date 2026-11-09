@@ -44,7 +44,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `multi-trait` 1.1 and `multi-util` 2, optional behind `multiformats`, with
   `default-features = false` so they bring in no signature or KEM implementation. They do
   add `ssh-key` 0.7.0-rc.11 (required by multi-key), `rand` 0.10 and `serde_cbor_2`.
-  `multiformats` also turns on `zeroize`.
+  `multiformats` also adds `strum` and turns on `zeroize`.
 
 ### Known issues
 
