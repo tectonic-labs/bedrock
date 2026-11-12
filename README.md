@@ -258,11 +258,19 @@ schemes.
 
 - `sign(message: &[u8], signing_key: &MlDsaSigningKey) -> Result<MlDsaSignature>`
   Signs a message with the specified signing key (requires the `sign` feature).
+- `sign_randomized(message: &[u8], signing_key: &MlDsaSigningKey) -> Result<MlDsaSignature>`
+  Hedged (randomized) variant of `sign` (requires the `sign` feature).
+- `sign_with_context(message: &[u8], context: &[u8], signing_key: &MlDsaSigningKey) -> Result<MlDsaSignature>`
+  Signs under a FIPS 204 context string of at most 255 bytes (requires the `sign` feature).
+- `sign_randomized_with_context(message: &[u8], context: &[u8], signing_key: &MlDsaSigningKey) -> Result<MlDsaSignature>`
+  Hedged variant of `sign_with_context` (requires the `sign` feature).
 
 **Verification:**
 
 - `verify(message: &[u8], signature: &MlDsaSignature, verification_key: &MlDsaVerificationKey) -> Result<()>`
   Verifies a signature (requires the `vrfy` feature).
+- `verify_with_context(message: &[u8], context: &[u8], signature: &MlDsaSignature, verification_key: &MlDsaVerificationKey) -> Result<()>`
+  Verifies a signature under a FIPS 204 context string of at most 255 bytes (requires the `vrfy` feature).
 
 #### `MlDsaSigningKey`, `MlDsaVerificationKey`, `MlDsaSignature`
 

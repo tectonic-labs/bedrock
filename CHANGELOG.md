@@ -28,6 +28,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added FIPS 204 context-string support to ML-DSA: `MlDsaScheme::sign_with_context`,
+  `MlDsaScheme::sign_randomized_with_context` (feature `sign`) and
+  `MlDsaScheme::verify_with_context` (feature `vrfy`). A context longer than 255 bytes is
+  refused with `Error::MlDsaError` on both sign and verify. `sign`, `sign_randomized` and
+  `verify` delegate with an empty context, so their behavior and output bytes are unchanged.
 - `TryFrom` conversions between every key and `Multikey`, and every signature and
   `Multisig`, plus `CodecInfo`. Schemes with a matching standard multicodec use it; the
   rest use the `identity` codec with `algorithm-name` and `key-type` (keys) or `scheme`

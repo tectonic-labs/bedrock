@@ -107,6 +107,20 @@ macro_rules! with_ml_dsa_params {
     };
 }
 
+/// Maximum FIPS 204 context-string length in bytes (the length is encoded in one byte).
+const MAX_CONTEXT_LEN: usize = 255;
+
+/// Rejects a FIPS 204 context string longer than [`MAX_CONTEXT_LEN`] bytes.
+fn check_context(context: &[u8]) -> Result<()> {
+    if context.len() > MAX_CONTEXT_LEN {
+        return Err(Error::MlDsaError(format!(
+            "context must be at most {MAX_CONTEXT_LEN} bytes, got {}",
+            context.len()
+        )));
+    }
+    Ok(())
+}
+
 impl MlDsaScheme {
     /// Validates a verification (public) key encoding for this scheme.
     fn validate_public_key(&self, bytes: &[u8]) -> Result<()> {
@@ -194,15 +208,35 @@ impl MlDsaScheme {
 
     #[cfg(feature = "sign")]
     /// Signs a message with the specified signing key (deterministic, empty context).
-    #[allow(deprecated)]
+    ///
+    /// Equivalent to [`MlDsaScheme::sign_with_context`] with an empty context.
     pub fn sign(&self, message: &[u8], signing_key: &MlDsaSigningKey) -> Result<MlDsaSignature> {
+        self.sign_with_context(message, &[], signing_key)
+    }
+
+    #[cfg(feature = "sign")]
+    /// Signs a message under a FIPS 204 context string (deterministic).
+    ///
+    /// The `context` is the optional context parameter of ML-DSA.Sign in FIPS 204
+    /// (Algorithm 2): it is bound into the signed message representative, so a
+    /// signature only verifies under the same context. It may be at most 255 bytes;
+    /// a longer context returns [`Error::MlDsaError`]. An empty context yields
+    /// exactly the bytes [`MlDsaScheme::sign`] produces.
+    #[allow(deprecated)]
+    pub fn sign_with_context(
+        &self,
+        message: &[u8],
+        context: &[u8],
+        signing_key: &MlDsaSigningKey,
+    ) -> Result<MlDsaSignature> {
         use ml_dsa::{ExpandedSigningKey, ExpandedSigningKeyBytes};
+        check_context(context)?;
         with_ml_dsa_params!(self, |P| {
             let enc = ExpandedSigningKeyBytes::<P>::try_from(signing_key.0.value.as_slice())
                 .map_err(|_| Error::MlDsaError("an invalid signing key".to_string()))?;
             let sk = ExpandedSigningKey::<P>::from_expanded(&enc);
             let signature = sk
-                .sign_deterministic(message, &[])
+                .sign_deterministic(message, context)
                 .map_err(|e| Error::MlDsaError(e.to_string()))?;
             Ok(InnerMlDsa {
                 scheme: *self,
@@ -222,19 +256,40 @@ impl MlDsaScheme {
     /// attacker replay the identical secret-dependent computation. The signature is a
     /// valid ML-DSA signature verifiable by [`MlDsaScheme::verify`]; only the signing
     /// randomness differs, so two calls over the same message produce different bytes.
-    #[allow(deprecated)]
+    ///
+    /// Equivalent to [`MlDsaScheme::sign_randomized_with_context`] with an empty context.
     pub fn sign_randomized(
         &self,
         message: &[u8],
         signing_key: &MlDsaSigningKey,
     ) -> Result<MlDsaSignature> {
+        self.sign_randomized_with_context(message, &[], signing_key)
+    }
+
+    #[cfg(feature = "sign")]
+    /// Signs a message under a FIPS 204 context string using the hedged (randomized)
+    /// variant, drawing fresh randomness per call.
+    ///
+    /// The `context` is the optional context parameter of ML-DSA.Sign in FIPS 204
+    /// (Algorithm 2); see [`MlDsaScheme::sign_with_context`] for its semantics and the
+    /// 255-byte limit. See [`MlDsaScheme::sign_randomized`] for why hedged signing is
+    /// preferred where the signer may face fault or side-channel adversaries. The result
+    /// verifies with [`MlDsaScheme::verify_with_context`] under the same context.
+    #[allow(deprecated)]
+    pub fn sign_randomized_with_context(
+        &self,
+        message: &[u8],
+        context: &[u8],
+        signing_key: &MlDsaSigningKey,
+    ) -> Result<MlDsaSignature> {
         use ml_dsa::{ExpandedSigningKey, ExpandedSigningKeyBytes};
+        check_context(context)?;
         with_ml_dsa_params!(self, |P| {
             let enc = ExpandedSigningKeyBytes::<P>::try_from(signing_key.0.value.as_slice())
                 .map_err(|_| Error::MlDsaError("an invalid signing key".to_string()))?;
             let sk = ExpandedSigningKey::<P>::from_expanded(&enc);
             let signature = sk
-                .sign_randomized(message, &[], &mut os_rng())
+                .sign_randomized(message, context, &mut os_rng())
                 .map_err(|e| Error::MlDsaError(e.to_string()))?;
             Ok(InnerMlDsa {
                 scheme: *self,
@@ -245,21 +300,41 @@ impl MlDsaScheme {
     }
 
     #[cfg(feature = "vrfy")]
-    /// Verifies a signature.
+    /// Verifies a signature (empty context).
+    ///
+    /// Equivalent to [`MlDsaScheme::verify_with_context`] with an empty context.
     pub fn verify(
         &self,
         message: &[u8],
         signature: &MlDsaSignature,
         verification_key: &MlDsaVerificationKey,
     ) -> Result<()> {
+        self.verify_with_context(message, &[], signature, verification_key)
+    }
+
+    #[cfg(feature = "vrfy")]
+    /// Verifies a signature under a FIPS 204 context string.
+    ///
+    /// The `context` is the optional context parameter of ML-DSA.Verify in FIPS 204
+    /// (Algorithm 3) and must equal the one used when signing. It may be at most 255
+    /// bytes; a longer context returns [`Error::MlDsaError`] rather than a plain
+    /// verification failure.
+    pub fn verify_with_context(
+        &self,
+        message: &[u8],
+        context: &[u8],
+        signature: &MlDsaSignature,
+        verification_key: &MlDsaVerificationKey,
+    ) -> Result<()> {
         use ml_dsa::{EncodedVerifyingKey, Signature, VerifyingKey};
+        check_context(context)?;
         with_ml_dsa_params!(self, |P| {
             let enc = EncodedVerifyingKey::<P>::try_from(verification_key.0.value.as_slice())
                 .map_err(|_| Error::MlDsaError("an invalid public key".to_string()))?;
             let vk = VerifyingKey::<P>::decode(&enc);
             let sig = Signature::<P>::try_from(signature.0.value.as_slice())
                 .map_err(|_| Error::MlDsaError("an invalid signature".to_string()))?;
-            if vk.verify_with_context(message, &[], &sig) {
+            if vk.verify_with_context(message, context, &sig) {
                 Ok(())
             } else {
                 Err(Error::MlDsaError(
@@ -411,6 +486,90 @@ mod tests {
         let det1 = sk.0.scheme.sign(MSG, &sk).unwrap();
         let det2 = sk.0.scheme.sign(MSG, &sk).unwrap();
         assert_eq!(det1.as_ref(), det2.as_ref());
+    }
+
+    #[cfg(all(feature = "kgen", feature = "sign", feature = "vrfy"))]
+    #[rstest]
+    #[case::mldsa44(MlDsaScheme::Dsa44)]
+    #[case::mldsa65(MlDsaScheme::Dsa65)]
+    #[case::mldsa87(MlDsaScheme::Dsa87)]
+    fn context_flow(#[case] scheme: MlDsaScheme) {
+        const MSG: &[u8] = &[0u8; 8];
+        const CTX: &[u8] = b"warden/genesis/v1";
+        let (pk, sk) = scheme.keypair().unwrap();
+
+        for sign in [
+            MlDsaScheme::sign_with_context,
+            MlDsaScheme::sign_randomized_with_context,
+        ] {
+            let sig = sign(&scheme, MSG, CTX, &sk).unwrap();
+            assert!(scheme.verify_with_context(MSG, CTX, &sig, &pk).is_ok());
+            assert!(
+                scheme
+                    .verify_with_context(MSG, b"other-context", &sig, &pk)
+                    .is_err()
+            );
+            assert!(scheme.verify_with_context(MSG, &[], &sig, &pk).is_err());
+            assert!(scheme.verify(MSG, &sig, &pk).is_err());
+            assert!(
+                scheme
+                    .verify_with_context(&[1u8; 8], CTX, &sig, &pk)
+                    .is_err()
+            );
+        }
+    }
+
+    #[cfg(all(feature = "kgen", feature = "sign", feature = "vrfy"))]
+    #[rstest]
+    #[case::mldsa44(MlDsaScheme::Dsa44)]
+    #[case::mldsa65(MlDsaScheme::Dsa65)]
+    #[case::mldsa87(MlDsaScheme::Dsa87)]
+    fn empty_context_is_backward_compatible(#[case] scheme: MlDsaScheme) {
+        const MSG: &[u8] = &[0u8; 8];
+        let (pk, sk) = scheme.keypair().unwrap();
+
+        let sig = scheme.sign(MSG, &sk).unwrap();
+        assert!(scheme.verify(MSG, &sig, &pk).is_ok());
+        assert!(scheme.verify_with_context(MSG, &[], &sig, &pk).is_ok());
+
+        // Deterministic signing with an empty context is byte-identical to `sign`.
+        let sig_ctx = scheme.sign_with_context(MSG, &[], &sk).unwrap();
+        assert_eq!(sig.as_ref(), sig_ctx.as_ref());
+
+        // Hedged signing with an empty context verifies under `verify`.
+        let hedged = scheme.sign_randomized_with_context(MSG, &[], &sk).unwrap();
+        assert!(scheme.verify(MSG, &hedged, &pk).is_ok());
+        let hedged = scheme.sign_randomized(MSG, &sk).unwrap();
+        assert!(scheme.verify_with_context(MSG, &[], &hedged, &pk).is_ok());
+    }
+
+    #[cfg(all(feature = "kgen", feature = "sign", feature = "vrfy"))]
+    #[rstest]
+    #[case::mldsa44(MlDsaScheme::Dsa44)]
+    #[case::mldsa65(MlDsaScheme::Dsa65)]
+    #[case::mldsa87(MlDsaScheme::Dsa87)]
+    fn context_length_limit(#[case] scheme: MlDsaScheme) {
+        const MSG: &[u8] = &[0u8; 8];
+        let (pk, sk) = scheme.keypair().unwrap();
+        let max = [0xA5u8; 255];
+        let too_long = [0xA5u8; 256];
+
+        let sig = scheme.sign_with_context(MSG, &max, &sk).unwrap();
+        assert!(scheme.verify_with_context(MSG, &max, &sig, &pk).is_ok());
+        let sig = scheme.sign_randomized_with_context(MSG, &max, &sk).unwrap();
+        assert!(scheme.verify_with_context(MSG, &max, &sig, &pk).is_ok());
+
+        let err = scheme.sign_with_context(MSG, &too_long, &sk).unwrap_err();
+        assert!(matches!(&err, Error::MlDsaError(m) if m.contains("at most 255 bytes, got 256")));
+        assert!(
+            scheme
+                .sign_randomized_with_context(MSG, &too_long, &sk)
+                .is_err()
+        );
+        let err = scheme
+            .verify_with_context(MSG, &too_long, &sig, &pk)
+            .unwrap_err();
+        assert!(matches!(&err, Error::MlDsaError(m) if m.contains("at most 255 bytes, got 256")));
     }
 
     #[cfg(all(feature = "kgen", feature = "sign", feature = "vrfy"))]
