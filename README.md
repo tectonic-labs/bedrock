@@ -260,17 +260,17 @@ schemes.
   Signs a message with the specified signing key (requires the `sign` feature).
 - `sign_randomized(message: &[u8], signing_key: &MlDsaSigningKey) -> Result<MlDsaSignature>`
   Hedged (randomized) variant of `sign` (requires the `sign` feature).
-- `sign_with_context(message: &[u8], context: &[u8], signing_key: &MlDsaSigningKey) -> Result<MlDsaSignature>`
-  Signs under a FIPS 204 context string of at most 255 bytes (requires the `sign` feature).
-- `sign_randomized_with_context(message: &[u8], context: &[u8], signing_key: &MlDsaSigningKey) -> Result<MlDsaSignature>`
+- `sign_with_context(message: &[u8], context: MlDsaContext, signing_key: &MlDsaSigningKey) -> Result<MlDsaSignature>`
+  Signs under a FIPS 204 context string (requires the `sign` feature).
+- `sign_randomized_with_context(message: &[u8], context: MlDsaContext, signing_key: &MlDsaSigningKey) -> Result<MlDsaSignature>`
   Hedged variant of `sign_with_context` (requires the `sign` feature).
 
 **Verification:**
 
 - `verify(message: &[u8], signature: &MlDsaSignature, verification_key: &MlDsaVerificationKey) -> Result<()>`
   Verifies a signature (requires the `vrfy` feature).
-- `verify_with_context(message: &[u8], context: &[u8], signature: &MlDsaSignature, verification_key: &MlDsaVerificationKey) -> Result<()>`
-  Verifies a signature under a FIPS 204 context string of at most 255 bytes (requires the `vrfy` feature).
+- `verify_with_context(message: &[u8], context: MlDsaContext, signature: &MlDsaSignature, verification_key: &MlDsaVerificationKey) -> Result<()>`
+  Verifies a signature under a FIPS 204 context string (requires the `vrfy` feature).
 
 #### `MlDsaSigningKey`, `MlDsaVerificationKey`, `MlDsaSignature`
 
@@ -280,6 +280,14 @@ Common methods for all types:
 - `to_raw_bytes() -> Vec<u8>` - Converts the value to its raw byte representation.
 - `from_raw_bytes(scheme: MlDsaScheme, bytes: &[u8]) -> Result<Self>` - Constructs a value from raw bytes.
 - `as_ref() -> &[u8]` - Returns a byte-slice reference.
+
+#### `MlDsaContext`
+
+A FIPS 204 context string of at most 255 bytes (`MlDsaContext::MAX_LEN`).
+
+- `try_from(context: &[u8]) -> Result<MlDsaContext>` - Checks the length; a longer context returns `Error::MlDsaError`.
+- `default()` - The empty context that `sign`, `sign_randomized` and `verify` use.
+- `as_ref() -> &[u8]` - Returns the context bytes.
 
 ### Falcon/FN-DSA Methods
 

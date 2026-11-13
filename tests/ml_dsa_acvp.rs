@@ -5,7 +5,7 @@
 #![cfg(feature = "ml-dsa")]
 
 use serde::Deserialize;
-use tectonic_bedrock::ml_dsa::MlDsaScheme;
+use tectonic_bedrock::ml_dsa::{MlDsaContext, MlDsaScheme};
 
 #[cfg(feature = "vrfy")]
 use tectonic_bedrock::ml_dsa::{MlDsaSignature, MlDsaVerificationKey};
@@ -70,10 +70,10 @@ fn sig_ver_matches_acvp() {
             case.parameter_set, case.tc_id, case.reason
         );
         let pk = MlDsaVerificationKey::from_raw_bytes(scheme, &unhex(&case.pk)).unwrap();
+        let context = unhex(&case.context);
+        let context = MlDsaContext::try_from(context.as_slice()).unwrap();
         let accepted = MlDsaSignature::from_raw_bytes(scheme, &unhex(&case.signature))
-            .and_then(|sig| {
-                scheme.verify_with_context(&unhex(&case.message), &unhex(&case.context), &sig, &pk)
-            })
+            .and_then(|sig| scheme.verify_with_context(&unhex(&case.message), context, &sig, &pk))
             .is_ok();
         assert_eq!(accepted, case.test_passed, "{label}");
     }
@@ -90,8 +90,10 @@ fn sig_gen_deterministic_matches_acvp() {
         let scheme = scheme(&case.parameter_set);
         let label = format!("{} tcId {}", case.parameter_set, case.tc_id);
         let sk = MlDsaSigningKey::from_raw_bytes(scheme, &unhex(&case.sk)).unwrap();
+        let context = unhex(&case.context);
+        let context = MlDsaContext::try_from(context.as_slice()).unwrap();
         let sig = scheme
-            .sign_with_context(&unhex(&case.message), &unhex(&case.context), &sk)
+            .sign_with_context(&unhex(&case.message), context, &sk)
             .unwrap();
         assert_eq!(sig.to_raw_bytes(), unhex(&case.signature), "{label}");
     }
