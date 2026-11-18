@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## v0.9.0
+
+### Fixed
+
+- Secret keys are now wiped when dropped. `ZeroizeOnDrop` is only a marker trait, and
+  these types carried it without a `Drop` impl, so nothing was zeroized: the ML-DSA,
+  FN-DSA/ETHFALCON, MAYO, SLH-DSA and Bird-of-Prey signing keys, the KEM decapsulation key
+  and shared secret, and the X-Wing decapsulation key. Each now has a `Drop` that calls
+  `zeroize` (with the `zeroize` feature). XMSS signing keys already did.
+- `FalconSigningKey::into_ethereum` and `into_dsa512` change the scheme in place instead
+  of moving the secret bytes into a new key.
+
+### Added
+
+- `TryFrom` conversions between `symmetric::Sha256Digest`/`Sha384Digest` and
+  `Multihash`, so every bedrock digest has one. They need both the `symmetric` and
+  `multiformats` features.
+- `multiformats::multihash_from_bytes`, which decodes a `Multihash` and refuses trailing
+  bytes. `Multihash::try_from(&[u8])` ignores anything after the value.
+
 ## v0.8.0
 
 ### Changed
