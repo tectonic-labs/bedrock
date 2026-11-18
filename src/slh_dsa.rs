@@ -353,16 +353,6 @@ impl zeroize::Zeroize for InnerSlhDsa {
 }
 
 #[cfg(feature = "zeroize")]
-impl zeroize::ZeroizeOnDrop for InnerSlhDsa {}
-
-#[cfg(feature = "zeroize")]
-impl Drop for InnerSlhDsa {
-    fn drop(&mut self) {
-        zeroize::Zeroize::zeroize(self);
-    }
-}
-
-#[cfg(feature = "zeroize")]
 impl zeroize::Zeroize for SlhDsaSigningKey {
     fn zeroize(&mut self) {
         self.0.zeroize();

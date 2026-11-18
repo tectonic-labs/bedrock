@@ -3,7 +3,8 @@
 //! With the `multiformats` feature (on by default) every key serializes as a
 //! [`Multikey`] and every signature as a [`Multisig`], in both binary
 //! and human-readable serde formats. Each type also converts with `TryFrom` in both
-//! directions, and hash digests convert to and from a [`Multihash`].
+//! directions, and hash digests convert to and from a [`Multihash`];
+//! [`multihash_from_bytes`] reads one from bytes strictly.
 //!
 //! Only the traits-only builds of the multi-* crates are used: bedrock does all the
 //! cryptography, and the multi-* crates only frame the bytes.
@@ -85,6 +86,20 @@ mod envelope;
     feature = "xmss"
 ))]
 pub(crate) use envelope::*;
+
+/// Decodes a [`Multihash`] from its binary form, refusing trailing bytes.
+///
+/// `Multihash::try_from(&[u8])` stops at the end of the value and ignores whatever
+/// follows it. Use this where the input must be exactly one Multihash.
+pub fn multihash_from_bytes(bytes: &[u8]) -> crate::error::Result<Multihash> {
+    use multi_trait::TryDecodeFrom;
+    let (multihash, rest) = Multihash::try_decode_from(bytes).map_err(MultiformatError::from)?;
+    if rest.is_empty() {
+        Ok(multihash)
+    } else {
+        Err(MultiformatError::TrailingBytes(rest.len()).into())
+    }
+}
 
 /// A key or signature whose serde encoding is a Multikey or Multisig.
 ///
