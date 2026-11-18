@@ -12,10 +12,12 @@ name = "tectonic-bedrock"
 readme = "README.md"
 repository = "https://github.com/tectonic-labs/bedrock"
 rust-version = "1.99"
-version = "0.9.0"
+version = "0.10.0"
 
 [features]
 bird-of-prey = ["dep:curve25519-dalek", "falcon", "hmac", "ml-dsa", "sha2", "zeroize", "kgen", "sign", "vrfy"]
+blake2 = ["dep:blake2"]
+blake3 = ["dep:blake3"]
 classical-signatures = ["ecdsa-signatures", "ed25519-signatures", "rsa-signatures"]
 decp = []
 default = ["eth_falcon", "falcon", "ml-dsa", "slh-dsa", "mayo", "decp", "encp", "kgen", "sign", "vrfy", "hhd", "multiformats"]
@@ -25,7 +27,9 @@ encp = []
 eth_falcon = ["falcon", "rand_chacha", "rand_core", "fn-dsa-comm/eth_falcon", "fn-dsa-sign?/eth_falcon", "fn-dsa-vrfy?/eth_falcon", "zeroize"]
 falcon = ["fn-dsa-comm"]
 frodo = ["dep:frodo-kem-rs", "rand_core_010", "getrandom_v04"]
-hashing = ["dep:blake2", "dep:blake3", "sha2", "sha3", "shake"]
+# Every hash in the `hashing` module. Each family (`blake2`, `blake3`, `sha2`,
+# `sha3`, `shake`) can also be enabled alone.
+hashing = ["blake2", "blake3", "sha2", "sha3", "shake"]
 hhd = ["zeroize", "bip32", "hmac", "sha2", "tiny-bip39", "rand_core", "kgen"]
 hqc = ["dep:hqc-kem", "rand_core_010", "getrandom_v04"]
 key-agreement = ["dep:p256", "dep:p384", "random", "x25519-dalek", "x25519-dalek/zeroize", "zeroize"]
@@ -41,6 +45,9 @@ ml-kem = ["dep:ml-kem"]
 multiformats = ["dep:multi-codec", "dep:multi-hash", "dep:multi-key", "dep:multi-sig", "dep:multi-trait", "dep:multi-util", "dep:strum", "zeroize"]
 random = ["getrandom_v04"]
 rsa-signatures = ["dep:rsa", "dep:signature", "random", "rand_core_010", "sha2", "zeroize"]
+sha2 = ["dep:sha2"]
+sha3 = ["dep:sha3"]
+shake = ["dep:shake"]
 sign = ["fn-dsa-comm", "fn-dsa-sign", "rand_core", "rand_core/getrandom"]
 slh-dsa = ["dep:slh-dsa", "rand_core_010", "getrandom_v04"]
 sntrup = ["dep:sntrup", "rand_core_010", "getrandom_v04"]

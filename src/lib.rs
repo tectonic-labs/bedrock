@@ -5,17 +5,20 @@
 
 #[cfg(any(
     feature = "bird-of-prey",
+    feature = "blake2",
+    feature = "blake3",
     feature = "falcon",
     feature = "frodo",
     feature = "hqc",
-    feature = "hashing",
     feature = "ml-dsa",
     feature = "slh-dsa",
     feature = "mceliece",
     feature = "ml-kem",
     feature = "mayo",
+    feature = "sha2",
+    feature = "sha3",
+    feature = "shake",
     feature = "sntrup",
-    feature = "symmetric",
     feature = "xmss"
 ))]
 #[macro_use]
@@ -34,7 +37,13 @@ pub mod det_rng;
 pub mod error;
 #[cfg(feature = "falcon")]
 pub mod falcon;
-#[cfg(feature = "hashing")]
+#[cfg(any(
+    feature = "blake2",
+    feature = "blake3",
+    feature = "sha2",
+    feature = "sha3",
+    feature = "shake"
+))]
 pub mod hashing;
 #[cfg(feature = "hhd")]
 // The module implements deprecated compatibility APIs; downstream uses still warn.

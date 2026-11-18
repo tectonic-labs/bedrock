@@ -46,7 +46,13 @@ macro_rules! serde_impl {
 }
 
 /// Defines an unkeyed incremental hash and its algorithm-specific fixed output.
-#[cfg(feature = "hashing")]
+#[cfg(any(
+    feature = "blake2",
+    feature = "blake3",
+    feature = "sha2",
+    feature = "sha3",
+    feature = "shake"
+))]
 macro_rules! incremental_hash {
     ($context:ident, $digest:ident, $function:ident, $backend:ty, $length:literal,
      $description:literal, $update:expr, $finish:expr) => {
@@ -135,7 +141,13 @@ macro_rules! incremental_hash {
 /// length is checked on the way back in.
 #[cfg(all(
     feature = "multiformats",
-    any(feature = "hashing", feature = "symmetric")
+    any(
+        feature = "blake2",
+        feature = "blake3",
+        feature = "sha2",
+        feature = "sha3",
+        feature = "shake"
+    )
 ))]
 macro_rules! digest_multihash {
     ($($digest:ident => $codec:ident),+ $(,)?) => {$(
@@ -174,7 +186,15 @@ macro_rules! digest_multihash {
 }
 
 /// Checks independent answers plus streaming, forks, defaults and byte conversions.
-#[cfg(all(test, feature = "hashing"))]
+#[cfg(all(
+    test,
+    any(
+        feature = "blake2",
+        feature = "sha2",
+        feature = "sha3",
+        feature = "shake"
+    )
+))]
 macro_rules! incremental_hash_tests {
     ($test:ident, $context:ident, $digest:ident, $function:ident, $length:literal, $empty:literal, $abc:literal, $multiblock:literal) => {
         #[test]

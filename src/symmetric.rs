@@ -15,8 +15,12 @@ use chacha20::cipher::{KeyIvInit, StreamCipher, StreamCipherSeek};
 use chacha20poly1305::ChaCha20Poly1305;
 use hkdf::Hkdf as RustCryptoHkdf;
 use hmac::{Hmac as RustCryptoHmac, Mac};
-use sha2::{Digest as _, Sha256, Sha384};
+use sha2::{Sha256, Sha384};
 use thiserror::Error as ThisError;
+
+pub use crate::hashing::{
+    Sha256Context, Sha256Digest, Sha384Context, Sha384Digest, sha256, sha384,
+};
 
 /// Length in bytes of every supported AEAD authentication tag.
 pub const AEAD_TAG_LEN: usize = 16;
@@ -104,16 +108,6 @@ fixed_bytes!(
     AEAD_TAG_LEN
 );
 fixed_bytes!(
-    /// The output of SHA-256.
-    Sha256Digest,
-    32
-);
-fixed_bytes!(
-    /// The output of SHA-384.
-    Sha384Digest,
-    48
-);
-fixed_bytes!(
     /// An HMAC-SHA-256 authentication tag.
     HmacSha256Tag,
     32
@@ -122,12 +116,6 @@ fixed_bytes!(
     /// An HMAC-SHA-384 authentication tag.
     HmacSha384Tag,
     48
-);
-
-#[cfg(feature = "multiformats")]
-digest_multihash!(
-    Sha256Digest => Sha2256,
-    Sha384Digest => Sha2384,
 );
 
 /// A supported authenticated-encryption algorithm.
@@ -227,68 +215,6 @@ impl AeadAlgorithm {
                     .map_err(|_| SymmetricError::AuthenticationFailed)
             }
         }
-    }
-}
-
-/// Computes SHA-256 over `data`.
-pub fn sha256(data: &[u8]) -> Sha256Digest {
-    Sha256Digest::from(<[u8; 32]>::from(Sha256::digest(data)))
-}
-
-/// Computes SHA-384 over `data`.
-pub fn sha384(data: &[u8]) -> Sha384Digest {
-    Sha384Digest::from(<[u8; 48]>::from(Sha384::digest(data)))
-}
-
-/// Incremental SHA-256 state.
-#[derive(Clone, Debug, Default)]
-pub struct Sha256Context(Sha256);
-
-impl Sha256Context {
-    /// Creates an empty SHA-256 context.
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    /// Adds bytes to the digest.
-    pub fn update(&mut self, data: &[u8]) {
-        self.0.update(data);
-    }
-
-    /// Returns the digest without consuming this context.
-    pub fn fork_finish(&self) -> Sha256Digest {
-        Sha256Digest::from(<[u8; 32]>::from(self.0.clone().finalize()))
-    }
-
-    /// Consumes this context and returns the digest.
-    pub fn finish(self) -> Sha256Digest {
-        Sha256Digest::from(<[u8; 32]>::from(self.0.finalize()))
-    }
-}
-
-/// Incremental SHA-384 state.
-#[derive(Clone, Debug, Default)]
-pub struct Sha384Context(Sha384);
-
-impl Sha384Context {
-    /// Creates an empty SHA-384 context.
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    /// Adds bytes to the digest.
-    pub fn update(&mut self, data: &[u8]) {
-        self.0.update(data);
-    }
-
-    /// Returns the digest without consuming this context.
-    pub fn fork_finish(&self) -> Sha384Digest {
-        Sha384Digest::from(<[u8; 48]>::from(self.0.clone().finalize()))
-    }
-
-    /// Consumes this context and returns the digest.
-    pub fn finish(self) -> Sha384Digest {
-        Sha384Digest::from(<[u8; 48]>::from(self.0.finalize()))
     }
 }
 
@@ -514,52 +440,6 @@ mod tests {
         context.update(b"a");
         context.update(b"bc");
         assert_eq!(context.finish(), sha384(b"abc"));
-    }
-
-    #[cfg(feature = "multiformats")]
-    #[test]
-    fn sha2_digests_convert_to_and_from_multihash() {
-        use crate::{
-            error::Error,
-            multiformats::{Codec, MultiformatError, Multihash, multihash_from_bytes},
-        };
-        use multi_util::CodecInfo;
-
-        let digest = sha256(b"abc");
-        let mh = Multihash::try_from(&digest).unwrap();
-        assert_eq!(mh.codec(), Codec::Sha2256);
-        assert_eq!(mh.as_ref(), digest.as_ref());
-        let bytes = Vec::<u8>::from(&mh);
-        let decoded = multihash_from_bytes(&bytes).unwrap();
-        assert_eq!(Sha256Digest::try_from(&decoded).unwrap(), digest);
-
-        // a valid frame followed by another byte is refused
-        let mut trailing = bytes.clone();
-        trailing.push(0);
-        assert!(matches!(
-            multihash_from_bytes(&trailing),
-            Err(Error::Multiformat(MultiformatError::TrailingBytes(1)))
-        ));
-
-        // the right codec with a digest of the wrong length is refused
-        let mut short = vec![bytes[0], 31];
-        short.extend_from_slice(&[7u8; 31]);
-        let short = multihash_from_bytes(&short).unwrap();
-        assert!(matches!(
-            Sha256Digest::try_from(&short),
-            Err(Error::InvalidLength(31))
-        ));
-
-        let digest = sha384(b"abc");
-        let mh = Multihash::try_from(&digest).unwrap();
-        assert_eq!(mh.codec(), Codec::Sha2384);
-        assert_eq!(Sha384Digest::try_from(&mh).unwrap(), digest);
-
-        // a digest under another codec is refused
-        assert!(matches!(
-            Sha256Digest::try_from(&mh),
-            Err(Error::Multiformat(_))
-        ));
     }
 
     #[test]
