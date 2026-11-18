@@ -1,7 +1,8 @@
 //! Additional transport-neutral, unkeyed incremental hash primitives.
 //!
 //! Enable the optional `hashing` feature. SHA-256 and SHA-384 remain available
-//! through the existing `symmetric` feature/module, with the same Multihash conversions.
+//! through the existing `symmetric` feature/module. Their Multihash conversions,
+//! like the ones here, also need the `multiformats` feature.
 //! These primitives accept exact byte slices. Domains, file lengths, streaming
 //! I/O and resource limits belong to callers, not this module.
 //!

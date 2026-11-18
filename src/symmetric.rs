@@ -521,7 +521,7 @@ mod tests {
     fn sha2_digests_convert_to_and_from_multihash() {
         use crate::{
             error::Error,
-            multiformats::{Codec, Multihash},
+            multiformats::{Codec, MultiformatError, Multihash, multihash_from_bytes},
         };
         use multi_util::CodecInfo;
 
@@ -530,8 +530,25 @@ mod tests {
         assert_eq!(mh.codec(), Codec::Sha2256);
         assert_eq!(mh.as_ref(), digest.as_ref());
         let bytes = Vec::<u8>::from(&mh);
-        let decoded = Multihash::try_from(bytes.as_slice()).unwrap();
+        let decoded = multihash_from_bytes(&bytes).unwrap();
         assert_eq!(Sha256Digest::try_from(&decoded).unwrap(), digest);
+
+        // a valid frame followed by another byte is refused
+        let mut trailing = bytes.clone();
+        trailing.push(0);
+        assert!(matches!(
+            multihash_from_bytes(&trailing),
+            Err(Error::Multiformat(MultiformatError::TrailingBytes(1)))
+        ));
+
+        // the right codec with a digest of the wrong length is refused
+        let mut short = vec![bytes[0], 31];
+        short.extend_from_slice(&[7u8; 31]);
+        let short = multihash_from_bytes(&short).unwrap();
+        assert!(matches!(
+            Sha256Digest::try_from(&short),
+            Err(Error::InvalidLength(31))
+        ));
 
         let digest = sha384(b"abc");
         let mh = Multihash::try_from(&digest).unwrap();
