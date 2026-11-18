@@ -75,7 +75,15 @@ jobs:
     strategy:
       matrix:
         toolchain: ["1.99", stable]
-        features: [hashing, "hashing,symmetric"]
+        features:
+          - hashing
+          - "hashing,symmetric"
+          - symmetric
+          - blake2
+          - blake3
+          - sha2
+          - sha3
+          - shake
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:

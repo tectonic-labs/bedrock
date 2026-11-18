@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## v0.10.0
+
+### Added
+
+- One feature per hash family, so a family can be enabled without the others: `sha2`
+  (SHA-256, SHA-384, SHA-512), `sha3` (SHA3-256, SHA3-384), `shake` (SHAKE128, SHAKE256),
+  `blake2` (BLAKE2s-256, BLAKE2b-512) and `blake3`. `hashing` enables all five.
+
+### Changed
+
+- SHA-256 and SHA-384 moved from `symmetric` to `hashing`, so `hashing` alone provides
+  every hash without the ciphers, HKDF and HMAC. `symmetric` enables `sha2` and
+  re-exports `Sha256Context`, `Sha256Digest`, `Sha384Context`,
+  `Sha384Digest`, `sha256` and `sha384`, so existing paths still resolve.
+- Breaking: `Sha256Digest::try_from(&[u8])` and `Sha384Digest::try_from(&[u8])` now fail
+  with `core::array::TryFromSliceError`, like the other digests, instead of
+  `SymmetricError::InvalidLength`.
+- `sha2`, `sha3` and `shake` were already feature names that only pulled in the crate.
+  They now also expose that family in the `hashing` module, so features that depend on
+  them (such as `bird-of-prey`, `hhd` and `xwing`) expose it too.
+- `Sha256Context` and `Sha384Context` print as an opaque `Debug` value, like the other
+  hash contexts.
+
 ## v0.9.0
 
 ### Fixed

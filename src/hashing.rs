@@ -1,8 +1,11 @@
-//! Additional transport-neutral, unkeyed incremental hash primitives.
+//! Transport-neutral, unkeyed incremental hash primitives.
 //!
-//! Enable the optional `hashing` feature. SHA-256 and SHA-384 remain available
-//! through the existing `symmetric` feature/module. Their Multihash conversions,
-//! like the ones here, also need the `multiformats` feature.
+//! The `hashing` feature enables every hash here. Each family also has its own
+//! feature, so one can be enabled without the rest: `sha2` (SHA-256, SHA-384,
+//! SHA-512), `sha3` (SHA3-256, SHA3-384), `shake` (SHAKE128, SHAKE256),
+//! `blake2` (BLAKE2s-256, BLAKE2b-512) and `blake3`. The `symmetric` module
+//! re-exports SHA-256 and SHA-384 from here. The Multihash conversions also
+//! need the `multiformats` feature.
 //! These primitives accept exact byte slices. Domains, file lengths, streaming
 //! I/O and resource limits belong to callers, not this module.
 //!
@@ -11,7 +14,8 @@
 //! BLAKE3 uses unkeyed hash mode, not keyed hash or derive-key mode.
 //! Availability does not establish application-policy or CNSA compliance.
 //!
-//! ```
+#![cfg_attr(feature = "sha2", doc = "```")]
+#![cfg_attr(not(feature = "sha2"), doc = "```ignore")]
 //! use tectonic_bedrock::hashing::{Sha512Context, sha512};
 //! let mut context = Sha512Context::new();
 //! context.update(b"first");
@@ -21,6 +25,29 @@
 //! assert_eq!(context.finish(), sha512(b"firstsecond"));
 //! ```
 
+#[cfg(feature = "sha2")]
+incremental_hash!(
+    Sha256Context,
+    Sha256Digest,
+    sha256,
+    sha2::Sha256,
+    32,
+    "SHA-256",
+    sha2::Digest::update,
+    |state: sha2::Sha256| sha2::Digest::finalize(state).into()
+);
+#[cfg(feature = "sha2")]
+incremental_hash!(
+    Sha384Context,
+    Sha384Digest,
+    sha384,
+    sha2::Sha384,
+    48,
+    "SHA-384",
+    sha2::Digest::update,
+    |state: sha2::Sha384| sha2::Digest::finalize(state).into()
+);
+#[cfg(feature = "sha2")]
 incremental_hash!(
     Sha512Context,
     Sha512Digest,
@@ -31,6 +58,7 @@ incremental_hash!(
     sha2::Digest::update,
     |state: sha2::Sha512| sha2::Digest::finalize(state).into()
 );
+#[cfg(feature = "sha3")]
 incremental_hash!(
     Sha3_256Context,
     Sha3_256Digest,
@@ -41,6 +69,7 @@ incremental_hash!(
     sha3::Digest::update,
     |state: sha3::Sha3_256| sha3::Digest::finalize(state).into()
 );
+#[cfg(feature = "sha3")]
 incremental_hash!(
     Sha3_384Context,
     Sha3_384Digest,
@@ -51,6 +80,7 @@ incremental_hash!(
     sha3::Digest::update,
     |state: sha3::Sha3_384| sha3::Digest::finalize(state).into()
 );
+#[cfg(feature = "shake")]
 incremental_hash!(
     Shake128_256Context,
     Shake128_256Digest,
@@ -68,6 +98,7 @@ incremental_hash!(
         output
     }
 );
+#[cfg(feature = "shake")]
 incremental_hash!(
     Shake256_512Context,
     Shake256_512Digest,
@@ -85,6 +116,7 @@ incremental_hash!(
         output
     }
 );
+#[cfg(feature = "blake2")]
 incremental_hash!(
     Blake2s256Context,
     Blake2s256Digest,
@@ -95,6 +127,7 @@ incremental_hash!(
     blake2::Digest::update,
     |state: blake2::Blake2s256| blake2::Digest::finalize(state).into()
 );
+#[cfg(feature = "blake2")]
 incremental_hash!(
     Blake2b512Context,
     Blake2b512Digest,
@@ -105,6 +138,7 @@ incremental_hash!(
     blake2::Digest::update,
     |state: blake2::Blake2b512| blake2::Digest::finalize(state).into()
 );
+#[cfg(feature = "blake3")]
 incremental_hash!(
     Blake3_256Context,
     Blake3_256Digest,
@@ -118,17 +152,26 @@ incremental_hash!(
     |state: blake3::Hasher| *state.finalize().as_bytes()
 );
 
-#[cfg(feature = "multiformats")]
-digest_multihash!(
-    Sha512Digest => Sha2512,
-    Sha3_256Digest => Sha3256,
-    Sha3_384Digest => Sha3384,
-    Shake128_256Digest => Shake128,
-    Shake256_512Digest => Shake256,
-    Blake2s256Digest => Blake2S256,
-    Blake2b512Digest => Blake2B512,
-    Blake3_256Digest => Blake3,
-);
+#[cfg(all(feature = "multiformats", feature = "sha2"))]
+digest_multihash!(Sha256Digest => Sha2256);
+#[cfg(all(feature = "multiformats", feature = "sha2"))]
+digest_multihash!(Sha384Digest => Sha2384);
+#[cfg(all(feature = "multiformats", feature = "sha2"))]
+digest_multihash!(Sha512Digest => Sha2512);
+#[cfg(all(feature = "multiformats", feature = "sha3"))]
+digest_multihash!(Sha3_256Digest => Sha3256);
+#[cfg(all(feature = "multiformats", feature = "sha3"))]
+digest_multihash!(Sha3_384Digest => Sha3384);
+#[cfg(all(feature = "multiformats", feature = "shake"))]
+digest_multihash!(Shake128_256Digest => Shake128);
+#[cfg(all(feature = "multiformats", feature = "shake"))]
+digest_multihash!(Shake256_512Digest => Shake256);
+#[cfg(all(feature = "multiformats", feature = "blake2"))]
+digest_multihash!(Blake2s256Digest => Blake2S256);
+#[cfg(all(feature = "multiformats", feature = "blake2"))]
+digest_multihash!(Blake2b512Digest => Blake2B512);
+#[cfg(all(feature = "multiformats", feature = "blake3"))]
+digest_multihash!(Blake3_256Digest => Blake3);
 
 #[cfg(test)]
 mod tests {
@@ -136,6 +179,29 @@ mod tests {
 
     // Pinned empty/abc and 2051-byte (i % 251) answers cross-checked using
     // Node.js crypto/OpenSSL independently of these Rust implementations.
+    #[cfg(feature = "sha2")]
+    incremental_hash_tests!(
+        sha256_vectors,
+        Sha256Context,
+        Sha256Digest,
+        sha256,
+        32,
+        "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+        "c73f0cbd1cecec24098a2e51a52632eeea8eecb0cd00bdb835f96374c43d9c00"
+    );
+    #[cfg(feature = "sha2")]
+    incremental_hash_tests!(
+        sha384_vectors,
+        Sha384Context,
+        Sha384Digest,
+        sha384,
+        48,
+        "38b060a751ac96384cd9327eb1b1e36a21fdb71114be07434c0cc7bf63f6e1da274edebfe76f65fbd51ad2f14898b95b",
+        "cb00753f45a35e8bb5a03d699ac65007272c32ab0eded1631a8b605a43ff5bed8086072ba1e7cc2358baeca134c825a7",
+        "48bf1e025599b42a033d5f9a6dcd2568b75e07c8f1087fd265fe0f9f330f1e95604f4bb15a35ade740dc4866d8cb79df"
+    );
+    #[cfg(feature = "sha2")]
     incremental_hash_tests!(
         sha512_vectors,
         Sha512Context,
@@ -146,6 +212,7 @@ mod tests {
         "ddaf35a193617abacc417349ae20413112e6fa4e89a97ea20a9eeee64b55d39a2192992a274fc1a836ba3c23a3feebbd454d4423643ce80e2a9ac94fa54ca49f",
         "916df35ebff475189e6eb6b8d79c8da42a497e2ecc0350173f923ef823ed9507f33a05fbecdb3c79c9fcb8f9a3986466c47f971f24bf9d089435f30a6c8742da"
     );
+    #[cfg(feature = "sha3")]
     incremental_hash_tests!(
         sha3_256_vectors,
         Sha3_256Context,
@@ -156,6 +223,7 @@ mod tests {
         "3a985da74fe225b2045c172d6bd390bd855f086e3e9d525b46bfe24511431532",
         "9275be9357f3534948d913fc4f3a16ba763beb3ee0f9dd61482a7a0740ba197b"
     );
+    #[cfg(feature = "sha3")]
     incremental_hash_tests!(
         sha3_384_vectors,
         Sha3_384Context,
@@ -166,6 +234,7 @@ mod tests {
         "ec01498288516fc926459f58e2c6ad8df9b473cb0fc08c2596da7cf0e49be4b298d88cea927ac7f539f1edf228376d25",
         "810bc32550268930df130c893a6003bb29099d8daa32f36ecaae7e1901e90df0bc2f52c21452aea248f88b5a1db71def"
     );
+    #[cfg(feature = "shake")]
     incremental_hash_tests!(
         shake128_vectors,
         Shake128_256Context,
@@ -176,6 +245,7 @@ mod tests {
         "5881092dd818bf5cf8a3ddb793fbcba74097d5c526a6d35f97b83351940f2cc8",
         "8bb4f9d9a8d098dda0929935b394062b0e5c44ec1782e43b64a81e41a5fb30a2"
     );
+    #[cfg(feature = "shake")]
     incremental_hash_tests!(
         shake256_vectors,
         Shake256_512Context,
@@ -186,6 +256,7 @@ mod tests {
         "483366601360a8771c6863080cc4114d8db44530f8f1e1ee4f94ea37e78b5739d5a15bef186a5386c75744c0527e1faa9f8726e462a12a4feb06bd8801e751e4",
         "e3e10befc6917ae6d66f5285f92cafcce1f98f461641fe17c18ba7b9bc07cc88a77b395417ee47a897c6826804d3bc6d721761666da92d8862eb308958a81354"
     );
+    #[cfg(feature = "blake2")]
     incremental_hash_tests!(
         blake2s_vectors,
         Blake2s256Context,
@@ -196,6 +267,7 @@ mod tests {
         "508c5e8c327c14e2e1a72ba34eeb452f37458b209ed63a294d999b4c86675982",
         "2eb9dbb0a4a7f58eac265d53d63a4d94ab109a52f14429e8b74888a42fb82293"
     );
+    #[cfg(feature = "blake2")]
     incremental_hash_tests!(
         blake2b_vectors,
         Blake2b512Context,
@@ -207,6 +279,7 @@ mod tests {
         "848c752eabc0ac93a6cd634920e7b94150365c6b948980efcb0cc1b1a2b8f5527a77e4fe03ea389b485117f7d8d2c2ebd007f62545f8919336fe58e028f404c4"
     );
 
+    #[cfg(feature = "blake3")]
     #[test]
     fn blake3_official_vectors_and_tree_boundaries() {
         // https://github.com/BLAKE3-team/BLAKE3/blob/1.8.7/test_vectors/test_vectors.json
@@ -294,7 +367,53 @@ mod tests {
         );
     }
 
-    #[cfg(feature = "multiformats")]
+    #[cfg(all(feature = "multiformats", feature = "sha2"))]
+    #[test]
+    fn sha2_digests_convert_to_and_from_multihash() {
+        use crate::{
+            error::Error,
+            multiformats::{Codec, MultiformatError, Multihash, multihash_from_bytes},
+        };
+        use multi_util::CodecInfo;
+
+        let digest = sha256(b"abc");
+        let mh = Multihash::try_from(&digest).unwrap();
+        assert_eq!(mh.codec(), Codec::Sha2256);
+        assert_eq!(mh.as_ref(), digest.as_ref());
+        let bytes = Vec::<u8>::from(&mh);
+        let decoded = multihash_from_bytes(&bytes).unwrap();
+        assert_eq!(Sha256Digest::try_from(&decoded).unwrap(), digest);
+
+        // a valid frame followed by another byte is refused
+        let mut trailing = bytes.clone();
+        trailing.push(0);
+        assert!(matches!(
+            multihash_from_bytes(&trailing),
+            Err(Error::Multiformat(MultiformatError::TrailingBytes(1)))
+        ));
+
+        // the right codec with a digest of the wrong length is refused
+        let mut short = vec![bytes[0], 31];
+        short.extend_from_slice(&[7u8; 31]);
+        let short = multihash_from_bytes(&short).unwrap();
+        assert!(matches!(
+            Sha256Digest::try_from(&short),
+            Err(Error::InvalidLength(31))
+        ));
+
+        let digest = sha384(b"abc");
+        let mh = Multihash::try_from(&digest).unwrap();
+        assert_eq!(mh.codec(), Codec::Sha2384);
+        assert_eq!(Sha384Digest::try_from(&mh).unwrap(), digest);
+
+        // a digest under another codec is refused
+        assert!(matches!(
+            Sha256Digest::try_from(&mh),
+            Err(Error::Multiformat(_))
+        ));
+    }
+
+    #[cfg(all(feature = "multiformats", feature = "hashing"))]
     #[test]
     fn multihash_conversions() {
         use crate::{
@@ -316,6 +435,8 @@ mod tests {
             }};
         }
 
+        check!(sha256(b"abc"), Sha256Digest, Codec::Sha2256);
+        check!(sha384(b"abc"), Sha384Digest, Codec::Sha2384);
         check!(sha512(b"abc"), Sha512Digest, Codec::Sha2512);
         check!(sha3_256(b"abc"), Sha3_256Digest, Codec::Sha3256);
         check!(sha3_384(b"abc"), Sha3_384Digest, Codec::Sha3384);

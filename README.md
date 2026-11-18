@@ -663,6 +663,8 @@ With the `hashing` feature, `tectonic_bedrock::hashing` exposes:
 
 | One-shot function | Incremental context | Output bytes |
 |---|---|---:|
+| `sha256` | `Sha256Context` | 32 |
+| `sha384` | `Sha384Context` | 48 |
 | `sha512` | `Sha512Context` | 64 |
 | `sha3_256` | `Sha3_256Context` | 32 |
 | `sha3_384` | `Sha3_384Context` | 48 |
@@ -682,8 +684,11 @@ uses unkeyed hash mode, not keyed or derive-key mode.
 These APIs hash only the supplied bytes. File I/O (`Read` or asynchronous),
 domain separation, length checks, encoding, and operational limits remain with
 the caller. No hash context or digest serialization format is introduced.
-The existing `symmetric::{Sha256Context, Sha384Context, sha256, sha384}` APIs
-remain unchanged. Enable both features when all ten operations are needed.
+`hashing` enables all ten. Each family also has its own feature, so one can be
+enabled without the rest: `sha2` (SHA-256, SHA-384, SHA-512), `sha3` (SHA3-256,
+SHA3-384), `shake` (SHAKE128, SHAKE256), `blake2` (BLAKE2s-256, BLAKE2b-512) and
+`blake3`. `symmetric` enables `sha2` and re-exports
+`{Sha256Context, Sha256Digest, Sha384Context, Sha384Digest, sha256, sha384}`.
 No algorithm is automatically admitted into a protocol or security profile.
 
 `blake2` and `blake3` are optional dependencies. BLAKE3 uses its `pure` feature
