@@ -143,13 +143,10 @@ impl FalconSigningKey {
         self.convert(FalconScheme::Ethereum, FalconScheme::Dsa512)
     }
 
-    fn convert(self, from: FalconScheme, to: FalconScheme) -> Result<Self> {
+    fn convert(mut self, from: FalconScheme, to: FalconScheme) -> Result<Self> {
         if self.0.scheme == from {
-            Ok(InnerFalcon {
-                scheme: to,
-                value: self.0.value,
-            }
-            .into())
+            self.0.scheme = to;
+            Ok(self)
         } else {
             Err(Error::InvalidSchemeStr(format!(
                 "Unsupported scheme change from {} to {}",

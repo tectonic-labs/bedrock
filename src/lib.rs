@@ -15,6 +15,7 @@
     feature = "ml-kem",
     feature = "mayo",
     feature = "sntrup",
+    feature = "symmetric",
     feature = "xmss"
 ))]
 #[macro_use]

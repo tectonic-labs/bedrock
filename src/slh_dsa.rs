@@ -356,6 +356,13 @@ impl zeroize::Zeroize for InnerSlhDsa {
 impl zeroize::ZeroizeOnDrop for InnerSlhDsa {}
 
 #[cfg(feature = "zeroize")]
+impl Drop for InnerSlhDsa {
+    fn drop(&mut self) {
+        zeroize::Zeroize::zeroize(self);
+    }
+}
+
+#[cfg(feature = "zeroize")]
 impl zeroize::Zeroize for SlhDsaSigningKey {
     fn zeroize(&mut self) {
         self.0.zeroize();
@@ -364,6 +371,13 @@ impl zeroize::Zeroize for SlhDsaSigningKey {
 
 #[cfg(feature = "zeroize")]
 impl zeroize::ZeroizeOnDrop for SlhDsaSigningKey {}
+
+#[cfg(feature = "zeroize")]
+impl Drop for SlhDsaSigningKey {
+    fn drop(&mut self) {
+        zeroize::Zeroize::zeroize(self);
+    }
+}
 
 #[cfg(test)]
 #[allow(clippy::unwrap_used)]

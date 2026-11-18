@@ -124,6 +124,12 @@ fixed_bytes!(
     48
 );
 
+#[cfg(feature = "multiformats")]
+digest_multihash!(
+    Sha256Digest => Sha2256,
+    Sha384Digest => Sha2384,
+);
+
 /// A supported authenticated-encryption algorithm.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum AeadAlgorithm {
@@ -508,6 +514,35 @@ mod tests {
         context.update(b"a");
         context.update(b"bc");
         assert_eq!(context.finish(), sha384(b"abc"));
+    }
+
+    #[cfg(feature = "multiformats")]
+    #[test]
+    fn sha2_digests_convert_to_and_from_multihash() {
+        use crate::{
+            error::Error,
+            multiformats::{Codec, Multihash},
+        };
+        use multi_util::CodecInfo;
+
+        let digest = sha256(b"abc");
+        let mh = Multihash::try_from(&digest).unwrap();
+        assert_eq!(mh.codec(), Codec::Sha2256);
+        assert_eq!(mh.as_ref(), digest.as_ref());
+        let bytes = Vec::<u8>::from(&mh);
+        let decoded = Multihash::try_from(bytes.as_slice()).unwrap();
+        assert_eq!(Sha256Digest::try_from(&decoded).unwrap(), digest);
+
+        let digest = sha384(b"abc");
+        let mh = Multihash::try_from(&digest).unwrap();
+        assert_eq!(mh.codec(), Codec::Sha2384);
+        assert_eq!(Sha384Digest::try_from(&mh).unwrap(), digest);
+
+        // a digest under another codec is refused
+        assert!(matches!(
+            Sha256Digest::try_from(&mh),
+            Err(Error::Multiformat(_))
+        ));
     }
 
     #[test]

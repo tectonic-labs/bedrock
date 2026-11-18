@@ -304,6 +304,13 @@ impl zeroize::Zeroize for MayoSigningKey {
 #[cfg(feature = "zeroize")]
 impl zeroize::ZeroizeOnDrop for MayoSigningKey {}
 
+#[cfg(feature = "zeroize")]
+impl Drop for MayoSigningKey {
+    fn drop(&mut self) {
+        zeroize::Zeroize::zeroize(self);
+    }
+}
+
 #[cfg(test)]
 #[allow(clippy::unwrap_used)]
 mod tests {

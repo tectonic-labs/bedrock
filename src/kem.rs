@@ -1042,6 +1042,13 @@ impl zeroize::Zeroize for KemDecapsulationKey {
 impl zeroize::ZeroizeOnDrop for KemDecapsulationKey {}
 
 #[cfg(feature = "zeroize")]
+impl Drop for KemDecapsulationKey {
+    fn drop(&mut self) {
+        zeroize::Zeroize::zeroize(self);
+    }
+}
+
+#[cfg(feature = "zeroize")]
 impl zeroize::Zeroize for KemSharedSecret {
     fn zeroize(&mut self) {
         self.0.zeroize();
@@ -1050,6 +1057,13 @@ impl zeroize::Zeroize for KemSharedSecret {
 
 #[cfg(feature = "zeroize")]
 impl zeroize::ZeroizeOnDrop for KemSharedSecret {}
+
+#[cfg(feature = "zeroize")]
+impl Drop for KemSharedSecret {
+    fn drop(&mut self) {
+        zeroize::Zeroize::zeroize(self);
+    }
+}
 
 #[derive(Clone, Serialize, Deserialize)]
 #[cfg_attr(test, derive(PartialEq, Eq))]

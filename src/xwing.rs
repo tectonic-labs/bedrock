@@ -327,6 +327,13 @@ impl zeroize::Zeroize for DecapsulationKey {
 #[cfg(feature = "zeroize")]
 impl zeroize::ZeroizeOnDrop for DecapsulationKey {}
 
+#[cfg(feature = "zeroize")]
+impl Drop for DecapsulationKey {
+    fn drop(&mut self) {
+        zeroize::Zeroize::zeroize(self);
+    }
+}
+
 impl DecapsulationKey {
     /// Decapsulates the ciphertext to produce the shared secret.
     pub fn decapsulate(&self, ct: &Ciphertext) -> Result<SharedSecret> {
