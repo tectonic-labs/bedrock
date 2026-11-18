@@ -298,6 +298,13 @@ impl zeroize::Zeroize for FalconSigningKey {
 #[cfg(feature = "zeroize")]
 impl zeroize::ZeroizeOnDrop for FalconSigningKey {}
 
+#[cfg(feature = "zeroize")]
+impl Drop for FalconSigningKey {
+    fn drop(&mut self) {
+        zeroize::Zeroize::zeroize(self);
+    }
+}
+
 #[cfg(test)]
 #[allow(clippy::unwrap_used)]
 mod tests {

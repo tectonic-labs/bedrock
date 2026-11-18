@@ -185,6 +185,13 @@ impl zeroize::Zeroize for BirdOfPreySigningKey {
 #[cfg(feature = "zeroize")]
 impl zeroize::ZeroizeOnDrop for BirdOfPreySigningKey {}
 
+#[cfg(feature = "zeroize")]
+impl Drop for BirdOfPreySigningKey {
+    fn drop(&mut self) {
+        zeroize::Zeroize::zeroize(self);
+    }
+}
+
 fn sha512(parts: &[&[u8]]) -> [u8; 64] {
     let mut hasher = Sha512::new();
     for part in parts {

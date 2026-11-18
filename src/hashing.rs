@@ -1,7 +1,7 @@
 //! Additional transport-neutral, unkeyed incremental hash primitives.
 //!
 //! Enable the optional `hashing` feature. SHA-256 and SHA-384 remain available
-//! through the existing `symmetric` feature/module; their APIs are unchanged.
+//! through the existing `symmetric` feature/module, with the same Multihash conversions.
 //! These primitives accept exact byte slices. Domains, file lengths, streaming
 //! I/O and resource limits belong to callers, not this module.
 //!
@@ -116,46 +116,6 @@ incremental_hash!(
     },
     |state: blake3::Hasher| *state.finalize().as_bytes()
 );
-
-/// Converts each digest to and from the [`Multihash`](crate::multiformats::Multihash) value
-/// with its codec. The SHAKE and BLAKE3 codecs are extendable-output, so the digest
-/// length is checked on the way back in.
-#[cfg(feature = "multiformats")]
-macro_rules! digest_multihash {
-    ($($digest:ident => $codec:ident),+ $(,)?) => {$(
-        impl TryFrom<&$digest> for crate::multiformats::Multihash {
-            type Error = crate::error::Error;
-
-            /// Wraps the digest in a Multihash carrying this digest's codec.
-            fn try_from(digest: &$digest) -> crate::error::Result<Self> {
-                use crate::multiformats::{Codec, MultiformatError};
-                Ok(multi_hash::Builder::new(Codec::$codec)
-                    .map_err(MultiformatError::from)?
-                    .with_hash(digest.as_ref())
-                    .try_build()
-                    .map_err(MultiformatError::from)?)
-            }
-        }
-
-        impl TryFrom<&crate::multiformats::Multihash> for $digest {
-            type Error = crate::error::Error;
-
-            /// Reads the digest back, refusing any other codec or a wrong length.
-            fn try_from(mh: &crate::multiformats::Multihash) -> crate::error::Result<Self> {
-                use crate::multiformats::{Codec, MultiformatError};
-                use multi_util::CodecInfo;
-                if mh.codec() != Codec::$codec {
-                    return Err(MultiformatError::UnexpectedCodec {
-                        codec: mh.codec(),
-                        expected: stringify!($digest),
-                    }
-                    .into());
-                }
-                Self::try_from(mh.as_ref()).map_err(|_| crate::error::Error::InvalidLength(mh.as_ref().len()))
-            }
-        }
-    )+};
-}
 
 #[cfg(feature = "multiformats")]
 digest_multihash!(
