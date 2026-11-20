@@ -5,8 +5,9 @@
 //! `wasm-bindgen`). That backend is only wired up at build time, so this test runs the real
 //! thing: it generates a key, signs and verifies, all of which draw entropy.
 //!
-//! It compiles to nothing on other targets, so a native `cargo test` ignores it. Run it with
-//! `wasm-pack test --node -- --test wasm_smoke --features wasm`.
+//! It compiles to nothing on other targets, so a native `cargo test` ignores it. CI runs
+//! it with `wasm-pack test --node -- --test wasm_smoke --features wasm` and again with
+//! `--headless --chrome`, so both the Node and the browser wasm-bindgen glue are covered.
 
 #![cfg(all(target_arch = "wasm32", feature = "wasm"))]
 

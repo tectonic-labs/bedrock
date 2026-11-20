@@ -160,6 +160,9 @@ jobs:
       - uses: cargo-bins/cargo-binstall@v1.17.7
       - run: cargo binstall --no-confirm wasm-pack
       - run: wasm-pack test --node -- --test wasm_smoke --features wasm --locked
+      # The client runs in a browser, so run the same tests there too: this loads the
+      # module with the web wasm-bindgen glue instead of the Node glue.
+      - run: wasm-pack test --headless --chrome -- --test wasm_smoke --features wasm --locked
 
   test:
     runs-on: ubuntu-latest
