@@ -592,6 +592,7 @@ impl KemScheme {
     /// Byte length is not a reliable discriminator between parameter sets, so every
     /// dispatch path binds to the value's own stored scheme rather than inferring it
     /// from the encoding. See [`Error::SchemeMismatch`].
+    #[cfg(any(feature = "encp", feature = "decp"))]
     fn ensure_scheme(&self, actual: KemScheme) -> Result<()> {
         if actual == *self {
             Ok(())
