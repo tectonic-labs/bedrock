@@ -3,7 +3,9 @@
 //! Implements the ETHFALCON variant as specified in the
 //! [ZKnox ETHFALCON repository](https://github.com/zknoxhq/ETHFALCON).
 
-use super::{FalconScheme, FalconSignature, FalconSigningKey, FalconVerificationKey, InnerFalcon};
+#[cfg(feature = "sign")]
+use super::InnerFalcon;
+use super::{FalconScheme, FalconSignature, FalconSigningKey, FalconVerificationKey};
 use crate::error::*;
 
 /// An NTT-packed verification key for the ETHFALCON signing scheme.

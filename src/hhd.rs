@@ -174,6 +174,9 @@ mod kems;
 mod keys;
 mod mnemonic;
 mod signatures;
+// Only reachable from the feature-gated key-derivation paths (`falcon`, `hqc`, `mayo`,
+// `ml-dsa`) and their tests, so a build with `hhd` alone leaves these helpers unused.
+#[allow(dead_code)]
 mod slip10;
 
 pub use bip32::secp256k1::ecdsa;

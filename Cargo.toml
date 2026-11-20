@@ -35,8 +35,6 @@ hqc = ["dep:hqc-kem", "rand_core_010", "getrandom_v04"]
 key-agreement = ["dep:p256", "dep:p384", "random", "x25519-dalek", "x25519-dalek/zeroize", "zeroize"]
 kgen = ["fn-dsa-comm", "fn-dsa-kgen", "rand_core", "rand_core/getrandom"]
 mayo = ["dep:pq-mayo", "dep:signature", "rand_core_010", "getrandom_v04"]
-# Deprecated: legacy interoperability only, including McEliece-based X-Wing.
-mceliece = ["dep:pq-mceliece", "rand_core_010", "getrandom_v04"]
 ml-dsa = ["dep:ml-dsa", "rand_core_010", "getrandom_v04"]
 ml-kem = ["dep:ml-kem"]
 # Serialize keys as Multikey and signatures as Multisig, and convert digests to
@@ -53,9 +51,17 @@ slh-dsa = ["dep:slh-dsa", "rand_core_010", "getrandom_v04"]
 sntrup = ["dep:sntrup", "rand_core_010", "getrandom_v04"]
 symmetric = ["dep:aes", "dep:aes-gcm", "dep:chacha20", "dep:chacha20poly1305", "dep:hkdf", "hmac", "sha2", "zeroize"]
 vrfy = ["fn-dsa-comm", "fn-dsa-vrfy"]
+# wasm32-unknown-unknown has no RNG of its own, and every RNG-backed feature uses
+# getrandom (0.4 directly, 0.2 through bip32, tiny-bip39 and fn-dsa-sign). Both copies
+# refuse that target at compile time unless their JavaScript backend is enabled, which
+# calls crypto.getRandomValues through wasm-bindgen. wasm32-wasip1 has a real RNG
+# syscall and builds without this feature. The 0.4 edge cannot use `?`: other features
+# reach getrandom 0.4 through third-party crates (`ml-kem` through `crypto-common`), and
+# cargo unifies features per package, so the backend is requested unconditionally.
+wasm = ["dep:getrandom_v02_js", "getrandom_v04/wasm_js"]
 xmss = ["dep:pq-xmss", "rand_core_010", "getrandom_v04", "zeroize"]
 xmss-extra-depths = ["xmss", "pq-xmss/extra-depths"]
-xwing = ["rand_core_010", "getrandom_v04", "sha3", "shake", "x25519-dalek"]
+xwing = ["rand_core_010", "getrandom_v04", "sha3", "shake", "x25519-dalek", "kgen", "encp", "decp"]
 
 [dependencies]
 aes = { version = "0.9.3", default-features = false, features = ["zeroize"], optional = true }
@@ -68,6 +74,9 @@ chacha20poly1305 = { version = "0.11.0", default-features = false, features = ["
 curve25519-dalek = { version = "5", default-features = false, features = ["alloc", "zeroize"], optional = true }
 ed25519-dalek = { version = "3.0.0", default-features = false, features = ["alloc", "fast", "pkcs8", "signature", "zeroize"], optional = true }
 frodo-kem-rs = { version = "0.9", default-features = false, features = ["frodo"], optional = true }
+# Only enabled by the `wasm` feature: getrandom 0.2 is a transitive dependency, so its
+# `js` backend has to be requested through a dependency of our own.
+getrandom_v02_js = { package = "getrandom", version = "0.2", features = ["js"], optional = true }
 getrandom_v04 = { package = "getrandom", version = "0.4", features = ["sys_rng"], optional = true }
 hkdf = { version = "0.13.0", optional = true }
 hmac = { version = "0.13", features = ["zeroize"], optional = true }
@@ -104,16 +113,6 @@ tiny-bip39 = { version = "2.0.0", optional = true }
 x25519-dalek = { version = "3.0", features = ["getrandom", "static_secrets"], optional = true }
 zeroize = { version = "1.8", optional = true }
 
-[dependencies.pq-mceliece]
-default-features = false
-features = [
-    "iso",
-    "kem",
-    "mceliece348864",
-]
-optional = true
-version = "0.2.1"
-
 [dependencies.fn-dsa-comm]
 optional = true
 package = "tectonic-fn-dsa-comm"
@@ -139,7 +138,6 @@ package = "tectonic-fn-dsa"
 version = "0.3.0"
 
 [dev-dependencies]
-criterion = "0.8"
 falcon-rust = "0.1.3"
 hex = "0.4"
 postcard = { version = "1.0", default-features = false, features = ["use-std"] }
@@ -151,6 +149,14 @@ serde_cbor_2 = "0.13"
 serde_json = "1.0"
 toml = "0.8"
 yaml_serde = "0.10"
+
+# Benches only run natively, and criterion refuses wasm targets.
+[target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
+criterion = "0.8"
+
+# Runs the wasm smoke test in Node through wasm-bindgen; native tests do not pull it in.
+[target.'cfg(target_arch = "wasm32")'.dev-dependencies]
+wasm-bindgen-test = "0.3"
 
 [lints.rust]
 missing_copy_implementations = "warn"
@@ -172,10 +178,23 @@ rustdoc-args = ["--cfg", "docsrs"]
 harness = false
 name = "xwing"
 path = "benches/xwing.rs"
-required-features = ["mceliece", "ml-kem", "xwing"]
+required-features = ["ml-kem", "xwing"]
 
 [[bench]]
 harness = false
 name = "falcon"
 path = "benches/falcon.rs"
 required-features = ["eth_falcon", "falcon", "kgen", "sign", "vrfy"]
+
+# The wasm smoke tests need a wasm target and the APIs they call, so that partial-feature
+# builds such as `--no-default-features --features wasm,random` skip them instead of
+# failing to compile against modules that are not there.
+[[test]]
+name = "wasm_smoke"
+path = "tests/wasm_smoke.rs"
+required-features = ["wasm", "ml-dsa", "kgen", "sign", "vrfy"]
+
+[[test]]
+name = "wasm_smoke_browser"
+path = "tests/wasm_smoke_browser.rs"
+required-features = ["wasm", "ml-dsa", "kgen", "sign", "vrfy"]

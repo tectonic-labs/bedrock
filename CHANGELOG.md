@@ -7,6 +7,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Added
+
+- A `wasm` feature for `wasm32-unknown-unknown`, which has no RNG of its own. It enables
+  the JavaScript backend of `getrandom`: both the 0.4 copy the crate depends on directly
+  and the 0.2 copy that `bip32`, `tiny-bip39` and `tectonic-fn-dsa-sign` bring in, which
+  otherwise refuse to compile for that target. The default features already build for
+  `wasm32-wasip1`, which has an RNG syscall, so the feature is only needed for
+  `unknown-unknown`, where it requires JavaScript glue at run time
+  (`crypto.getRandomValues` through `wasm-bindgen`). CI now builds both targets and runs
+  a smoke test, `tests/wasm_smoke.rs`, in Node and in headless Chrome: it generates an
+  ML-DSA key, signs, verifies, and checks that two key generations differ, so the
+  JavaScript RNG path is exercised, not just compiled.
+
+### Removed
+
+- Breaking: Classic McEliece is gone, following key-recovery research
+  (<https://eprint.iacr.org/2026/1984>). The `mceliece` feature and the
+  `KemScheme::ClassicMcEliece*` variants no longer exist, and neither does
+  `XwingScheme::X25519McEliece348864`. Their wire discriminants and names stay reserved:
+  `TryFrom<u8>` and `FromStr` return `Error::DeprecatedScheme` naming ML-KEM-768 or
+  ML-KEM-1024, so data written by an older release fails with a migration error instead
+  of an unreadable identifier. `Error::McElieceError` was removed with the family.
+
+### Fixed
+
+- Builds that enable one algorithm family without the default features now compile with
+  warnings denied (and therefore in CI): `frodo`, `hqc`, `sntrup`, `ml-dsa`, `slh-dsa`,
+  `mayo`, `eth_falcon` and `hhd`. The randomness helper is allowed to go unused, the KEM
+  module only imports it for the operations that call it, the FrodoKEM and HQC
+  dispatchers' fallback arms tolerate being unreachable when no other family is
+  compiled in, and the SLIP-0010 helpers are marked as used only from feature-gated
+  paths. A new `kem-feature-sets` CI job builds each family on its own.
+- `xwing` enables `kgen`, `encp` and `decp`, which its keypair, encapsulate and
+  decapsulate methods call, so `--no-default-features --features ml-kem,xwing` builds.
+  The guard against `xwing` without `ml-kem` now uses the built-in `compile_error!`; the
+  previous `compiler_error!` call never resolved, so the intended message was never
+  emitted (and the build failed with unrelated errors instead).
+
 ## v0.10.0
 
 ### Added

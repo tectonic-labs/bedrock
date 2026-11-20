@@ -11,7 +11,6 @@ use criterion::{
 
 use tectonic_bedrock::xwing::*;
 
-#[expect(deprecated, reason = "benchmarks intentional legacy interoperability")]
 fn bench_keygen<'a, M: Measurement>(group: &mut BenchmarkGroup<'a, M>) {
     group.bench_function("KeyGen Ml-Kem-768", |b| {
         b.iter(|| {
@@ -24,15 +23,8 @@ fn bench_keygen<'a, M: Measurement>(group: &mut BenchmarkGroup<'a, M>) {
             let (_pk, _sk) = XwingScheme::X25519MlKem1024.keypair().unwrap();
         });
     });
-
-    group.bench_function("KeyGen McEliece348864", |b| {
-        b.iter(|| {
-            let (_pk, _sk) = XwingScheme::X25519McEliece348864.keypair().unwrap();
-        });
-    });
 }
 
-#[expect(deprecated, reason = "benchmarks intentional legacy interoperability")]
 fn bench_encapsulate<'a, M: Measurement>(group: &mut BenchmarkGroup<'a, M>) {
     let (pk, _sk) = XwingScheme::X25519MlKem768.keypair().unwrap();
     group.bench_function("Encapsulate-Ml-Kem-768", |b| {
@@ -47,16 +39,8 @@ fn bench_encapsulate<'a, M: Measurement>(group: &mut BenchmarkGroup<'a, M>) {
             let (_ct, _ss) = pk.encapsulate().unwrap();
         });
     });
-
-    let (pk, _sk) = XwingScheme::X25519McEliece348864.keypair().unwrap();
-    group.bench_function("Encapsulate-McEliece348864", |b| {
-        b.iter(|| {
-            let (_ct, _ss) = pk.encapsulate().unwrap();
-        });
-    });
 }
 
-#[expect(deprecated, reason = "benchmarks intentional legacy interoperability")]
 fn bench_decapsulate<'a, M: Measurement>(group: &mut BenchmarkGroup<'a, M>) {
     let (pk, sk) = XwingScheme::X25519MlKem768.keypair().unwrap();
     let (ct, _ss) = pk.encapsulate().unwrap();
@@ -71,15 +55,6 @@ fn bench_decapsulate<'a, M: Measurement>(group: &mut BenchmarkGroup<'a, M>) {
     let (ct, _ss) = pk.encapsulate().unwrap();
     let dk = sk.expand().unwrap();
     group.bench_function("Decapsulate-Ml-Kem-1024", |b| {
-        b.iter(|| {
-            let _ss1 = dk.decapsulate(&ct).unwrap();
-        });
-    });
-
-    let (pk, sk) = XwingScheme::X25519McEliece348864.keypair().unwrap();
-    let dk = sk.expand().unwrap();
-    let (ct, _ss) = pk.encapsulate().unwrap();
-    group.bench_function("Decapsulate-McEliece348864", |b| {
         b.iter(|| {
             let _ss1 = dk.decapsulate(&ct).unwrap();
         });

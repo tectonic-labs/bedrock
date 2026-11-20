@@ -96,6 +96,36 @@ jobs:
       - run: cargo test --locked --lib --no-default-features --features "${{ matrix.features }}"
       - run: cargo test --locked --doc --no-default-features --features "${{ matrix.features }}"
 
+  kem-feature-sets:
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        features:
+          - ml-kem
+          - ml-kem,xwing
+          - frodo
+          - frodo,encp
+          - hqc
+          - sntrup
+          - ml-dsa
+          - slh-dsa
+          - mayo
+          - xmss
+          - eth_falcon
+          - hhd
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: stable
+          components: clippy
+      # Each family is a supported build on its own, and `xwing` pulls the operations it
+      # calls (`kgen`, `encp`, `decp`). Without the default features none of these
+      # combinations were built before, and several did not compile under `-D warnings`.
+      - run: cargo clippy --locked --lib --no-default-features --features "${{ matrix.features }}" -- -D warnings
+
   doc:
     runs-on: ubuntu-latest
     steps:
@@ -140,6 +170,36 @@ jobs:
         with:
           toolchain: stable
       - run: cargo build
+
+  wasm:
+    # The browser run drives Chrome through chromedriver, which is the one step here that
+    # can hang instead of failing; cap it so a stall cannot hold the job open for hours.
+    timeout-minutes: 15
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: stable
+          targets: wasm32-wasip1,wasm32-unknown-unknown
+      # WASI provides an RNG syscall, so the default features build unchanged.
+      - run: cargo build --locked --lib --target wasm32-wasip1
+      # wasm32-unknown-unknown has no RNG of its own; `wasm` enables getrandom's
+      # JavaScript backend (crypto.getRandomValues through wasm-bindgen).
+      - run: cargo build --locked --lib --target wasm32-unknown-unknown --features wasm
+      # `ml-kem` reaches getrandom 0.4 through `crypto-common` without any feature of ours
+      # that needs 0.4, which is the case the `wasm` feature has to cover; it also keeps
+      # this feature set building, since no other job builds it.
+      - run: cargo build --locked --lib --target wasm32-unknown-unknown --no-default-features --features wasm,ml-kem
+      # Run that backend for real. wasm-pack installs the wasm-bindgen version the lock
+      # file pins and runs the tests in Node, whose global crypto.getRandomValues is the
+      # same Web Crypto API a browser provides.
+      - uses: cargo-bins/cargo-binstall@v1.17.7
+      - run: cargo binstall --no-confirm wasm-pack
+      - run: wasm-pack test --node -- --test wasm_smoke --features wasm --locked
+      # The client runs in a browser, so run the same tests there too: this loads the
+      # module with the web wasm-bindgen glue instead of the Node glue.
+      - run: wasm-pack test --headless --chrome -- --test wasm_smoke_browser --features wasm --locked
 
   test:
     runs-on: ubuntu-latest
