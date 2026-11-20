@@ -6,8 +6,10 @@
 //! tests in a browser and skips them, which would pass while testing nothing.
 //!
 //! CI: `wasm-pack test --headless --chrome -- --test wasm_smoke_browser --features wasm`.
+//! The features the tests need are declared as `required-features` on the target in
+//! `Cargo.toml`, so partial-feature builds skip this crate instead of failing.
 
-#![cfg(all(target_arch = "wasm32", feature = "wasm"))]
+#![cfg(target_arch = "wasm32")]
 
 wasm_bindgen_test::wasm_bindgen_test_configure!(run_in_browser);
 

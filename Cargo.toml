@@ -57,8 +57,10 @@ vrfy = ["fn-dsa-comm", "fn-dsa-vrfy"]
 # getrandom (0.4 directly, 0.2 through bip32, tiny-bip39 and fn-dsa-sign). Both copies
 # refuse that target at compile time unless their JavaScript backend is enabled, which
 # calls crypto.getRandomValues through wasm-bindgen. wasm32-wasip1 has a real RNG
-# syscall and builds without this feature.
-wasm = ["dep:getrandom_v02_js", "getrandom_v04?/wasm_js"]
+# syscall and builds without this feature. The 0.4 edge cannot use `?`: other features
+# reach getrandom 0.4 through third-party crates (`ml-kem` through `crypto-common`), and
+# cargo unifies features per package, so the backend is requested unconditionally.
+wasm = ["dep:getrandom_v02_js", "getrandom_v04/wasm_js"]
 xmss = ["dep:pq-xmss", "rand_core_010", "getrandom_v04", "zeroize"]
 xmss-extra-depths = ["xmss", "pq-xmss/extra-depths"]
 xwing = ["rand_core_010", "getrandom_v04", "sha3", "shake", "x25519-dalek"]
@@ -195,3 +197,16 @@ harness = false
 name = "falcon"
 path = "benches/falcon.rs"
 required-features = ["eth_falcon", "falcon", "kgen", "sign", "vrfy"]
+
+# The wasm smoke tests need a wasm target and the APIs they call, so that partial-feature
+# builds such as `--no-default-features --features wasm,random` skip them instead of
+# failing to compile against modules that are not there.
+[[test]]
+name = "wasm_smoke"
+path = "tests/wasm_smoke.rs"
+required-features = ["wasm", "ml-dsa", "kgen", "sign", "vrfy"]
+
+[[test]]
+name = "wasm_smoke_browser"
+path = "tests/wasm_smoke_browser.rs"
+required-features = ["wasm", "ml-dsa", "kgen", "sign", "vrfy"]
