@@ -154,6 +154,12 @@ jobs:
       # wasm32-unknown-unknown has no RNG of its own; `wasm` enables getrandom's
       # JavaScript backend (crypto.getRandomValues through wasm-bindgen).
       - run: cargo build --locked --lib --target wasm32-unknown-unknown --features wasm
+      # Run that backend for real. wasm-pack installs the wasm-bindgen version the lock
+      # file pins and runs the tests in Node, whose global crypto.getRandomValues is the
+      # same Web Crypto API a browser provides.
+      - uses: cargo-bins/cargo-binstall@v1.17.7
+      - run: cargo binstall --no-confirm wasm-pack
+      - run: wasm-pack test --node -- --test wasm_smoke --features wasm --locked
 
   test:
     runs-on: ubuntu-latest

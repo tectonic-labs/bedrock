@@ -15,7 +15,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   otherwise refuse to compile for that target. The default features already build for
   `wasm32-wasip1`, which has an RNG syscall, so the feature is only needed for
   `unknown-unknown`, where it requires JavaScript glue at run time
-  (`crypto.getRandomValues` through `wasm-bindgen`). CI now builds both targets.
+  (`crypto.getRandomValues` through `wasm-bindgen`). CI now builds both targets and runs
+  a smoke test in Node: `tests/wasm_smoke.rs` generates an ML-DSA key, signs, verifies,
+  and checks that two key generations differ, so the JavaScript RNG path is exercised,
+  not just compiled.
 
 ## v0.10.0
 
