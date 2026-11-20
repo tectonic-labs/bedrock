@@ -141,6 +141,20 @@ jobs:
           toolchain: stable
       - run: cargo build
 
+  wasm:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: stable
+          targets: wasm32-wasip1,wasm32-unknown-unknown
+      # WASI provides an RNG syscall, so the default features build unchanged.
+      - run: cargo build --locked --lib --target wasm32-wasip1
+      # wasm32-unknown-unknown has no RNG of its own; `wasm` enables getrandom's
+      # JavaScript backend (crypto.getRandomValues through wasm-bindgen).
+      - run: cargo build --locked --lib --target wasm32-unknown-unknown --features wasm
+
   test:
     runs-on: ubuntu-latest
     steps:

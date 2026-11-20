@@ -53,6 +53,12 @@ slh-dsa = ["dep:slh-dsa", "rand_core_010", "getrandom_v04"]
 sntrup = ["dep:sntrup", "rand_core_010", "getrandom_v04"]
 symmetric = ["dep:aes", "dep:aes-gcm", "dep:chacha20", "dep:chacha20poly1305", "dep:hkdf", "hmac", "sha2", "zeroize"]
 vrfy = ["fn-dsa-comm", "fn-dsa-vrfy"]
+# wasm32-unknown-unknown has no RNG of its own, and every RNG-backed feature uses
+# getrandom (0.4 directly, 0.2 through bip32, tiny-bip39 and fn-dsa-sign). Both copies
+# refuse that target at compile time unless their JavaScript backend is enabled, which
+# calls crypto.getRandomValues through wasm-bindgen. wasm32-wasip1 has a real RNG
+# syscall and builds without this feature.
+wasm = ["dep:getrandom_v02_js", "getrandom_v04?/wasm_js"]
 xmss = ["dep:pq-xmss", "rand_core_010", "getrandom_v04", "zeroize"]
 xmss-extra-depths = ["xmss", "pq-xmss/extra-depths"]
 xwing = ["rand_core_010", "getrandom_v04", "sha3", "shake", "x25519-dalek"]
@@ -68,6 +74,9 @@ chacha20poly1305 = { version = "0.11.0", default-features = false, features = ["
 curve25519-dalek = { version = "5", default-features = false, features = ["alloc", "zeroize"], optional = true }
 ed25519-dalek = { version = "3.0.0", default-features = false, features = ["alloc", "fast", "pkcs8", "signature", "zeroize"], optional = true }
 frodo-kem-rs = { version = "0.9", default-features = false, features = ["frodo"], optional = true }
+# Only enabled by the `wasm` feature: getrandom 0.2 is a transitive dependency, so its
+# `js` backend has to be requested through a dependency of our own.
+getrandom_v02_js = { package = "getrandom", version = "0.2", features = ["js"], optional = true }
 getrandom_v04 = { package = "getrandom", version = "0.4", features = ["sys_rng"], optional = true }
 hkdf = { version = "0.13.0", optional = true }
 hmac = { version = "0.13", features = ["zeroize"], optional = true }

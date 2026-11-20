@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Added
+
+- A `wasm` feature for `wasm32-unknown-unknown`, which has no RNG of its own. It enables
+  the JavaScript backend of `getrandom`: both the 0.4 copy the crate depends on directly
+  and the 0.2 copy that `bip32`, `tiny-bip39` and `tectonic-fn-dsa-sign` bring in, which
+  otherwise refuse to compile for that target. The default features already build for
+  `wasm32-wasip1`, which has an RNG syscall, so the feature is only needed for
+  `unknown-unknown`, where it requires JavaScript glue at run time
+  (`crypto.getRandomValues` through `wasm-bindgen`). CI now builds both targets.
+
 ## v0.10.0
 
 ### Added
