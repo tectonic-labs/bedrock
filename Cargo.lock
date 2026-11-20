@@ -1589,21 +1589,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "pq-mceliece"
-version = "0.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8b457f75d5dc42721e540087954a85cc68c301cccade2acd78e54b3bffc7669e"
-dependencies = [
- "ctutils",
- "hybrid-array",
- "kem",
- "rand_core 0.10.1",
- "shake",
- "thiserror 2.0.20",
- "zeroize",
-]
-
-[[package]]
 name = "pq-xmss"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2310,7 +2295,6 @@ dependencies = [
  "p384",
  "postcard",
  "pq-mayo",
- "pq-mceliece",
  "pq-xmss",
  "rand 0.10.2",
  "rand_chacha 0.10.0",

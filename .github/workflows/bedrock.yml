@@ -96,6 +96,36 @@ jobs:
       - run: cargo test --locked --lib --no-default-features --features "${{ matrix.features }}"
       - run: cargo test --locked --doc --no-default-features --features "${{ matrix.features }}"
 
+  kem-feature-sets:
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        features:
+          - ml-kem
+          - ml-kem,xwing
+          - frodo
+          - frodo,encp
+          - hqc
+          - sntrup
+          - ml-dsa
+          - slh-dsa
+          - mayo
+          - xmss
+          - eth_falcon
+          - hhd
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: stable
+          components: clippy
+      # Each family is a supported build on its own, and `xwing` pulls the operations it
+      # calls (`kgen`, `encp`, `decp`). Without the default features none of these
+      # combinations were built before, and several did not compile under `-D warnings`.
+      - run: cargo clippy --locked --lib --no-default-features --features "${{ matrix.features }}" -- -D warnings
+
   doc:
     runs-on: ubuntu-latest
     steps:

@@ -12,7 +12,6 @@
     feature = "hqc",
     feature = "ml-dsa",
     feature = "slh-dsa",
-    feature = "mceliece",
     feature = "ml-kem",
     feature = "mayo",
     feature = "sha2",
@@ -52,17 +51,9 @@ pub mod hhd;
 #[cfg(any(
     feature = "frodo",
     feature = "hqc",
-    feature = "mceliece",
     feature = "ml-kem",
     feature = "sntrup"
 ))]
-#[cfg_attr(
-    feature = "mceliece",
-    expect(
-        deprecated,
-        reason = "implements and tests intentional McEliece legacy compatibility; downstream uses still warn"
-    )
-)]
 pub mod kem;
 #[cfg(feature = "key-agreement")]
 pub mod key_agreement;
@@ -80,7 +71,6 @@ pub mod multiformats;
     feature = "frodo",
     feature = "hqc",
     feature = "mayo",
-    feature = "mceliece",
     feature = "ml-dsa",
     feature = "ml-kem",
     feature = "multiformats",
@@ -97,32 +87,27 @@ pub mod slh_dsa;
 pub mod symmetric;
 #[cfg(feature = "xmss")]
 pub mod xmss;
-#[cfg(feature = "xwing")]
-#[cfg_attr(
-    feature = "mceliece",
-    expect(
-        deprecated,
-        reason = "implements and tests intentional McEliece legacy compatibility; downstream uses still warn"
-    )
-)]
+#[cfg(all(feature = "xwing", feature = "ml-kem"))]
 pub mod xwing;
 
-#[cfg(all(feature = "xwing", not(any(feature = "ml-kem", feature = "mceliece"))))]
-compiler_error!(
-    "cannot enable `xwing` without selecting an underlying KEM; enable `ml-kem` or `mceliece`"
-);
+#[cfg(all(feature = "xwing", not(feature = "ml-kem")))]
+compile_error!("cannot enable `xwing` without `ml-kem`, the KEM it combines with X25519");
 
 #[cfg(any(
     feature = "bird-of-prey",
     feature = "frodo",
     feature = "hqc",
     feature = "ml-dsa",
-    feature = "mceliece",
     feature = "mayo",
     feature = "slh-dsa",
     feature = "sntrup",
-    feature = "xmss"
+    feature = "xmss",
+    feature = "xwing"
 ))]
+// Callers are feature-gated (key generation, encapsulation, signing), so a build that
+// enables one of the modules above without the operation that draws randomness defines
+// this without using it.
+#[allow(dead_code)]
 pub(crate) fn os_rng() -> rand_core_010::UnwrapErr<getrandom_v04::SysRng> {
     rand_core_010::UnwrapErr(getrandom_v04::SysRng)
 }
@@ -135,7 +120,6 @@ pub(crate) fn os_rng() -> rand_core_010::UnwrapErr<getrandom_v04::SysRng> {
         feature = "frodo",
         feature = "hqc",
         feature = "mayo",
-        feature = "mceliece",
         feature = "ml-dsa",
         feature = "ml-kem",
         feature = "slh-dsa",

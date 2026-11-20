@@ -3,10 +3,7 @@
 //! X-Wing creates an encapsulation and decapsulation keypair. Anyone can use the
 //! encapsulation key to establish a shared secret with the holder of the decapsulation
 //! key. It is a general-purpose hybrid post-quantum KEM that combines X25519 with ML-KEM
-//! or, for legacy interoperability only, deprecated Classic McEliece.
-//! Direct references to the McEliece variant warn; parsing and deserialization
-//! remain operational without runtime warnings. The legacy default when only
-//! `mceliece` is enabled is unchanged; select an ML-KEM combination for new use.
+//! The ML-KEM combinations defined here are the ones in the X-Wing Internet-Draft.
 
 use crate::{error::*, kem::*, os_rng};
 use rand_core_010::Rng;
@@ -50,19 +47,6 @@ pub enum XwingScheme {
     #[cfg(feature = "ml-kem")]
     /// X25519 with ML-KEM-1024.
     X25519MlKem1024,
-    #[cfg(feature = "mceliece")]
-    #[cfg_attr(not(feature = "ml-kem"), default)]
-    /// X25519 with Classic McEliece 348864, retained only for legacy interoperability.
-    ///
-    /// Direct use produces a deprecation warning:
-    /// ```compile_fail
-    /// #![deny(deprecated)]
-    /// let _ = tectonic_bedrock::xwing::XwingScheme::X25519McEliece348864;
-    /// ```
-    #[deprecated(
-        note = "McEliece-based X-Wing is retained only for legacy interoperability following key-recovery research; use X25519MlKem768 or X25519MlKem1024 for new deployments"
-    )]
-    X25519McEliece348864,
 }
 
 impl From<XwingScheme> for u8 {
@@ -73,8 +57,6 @@ impl From<XwingScheme> for u8 {
             X25519MlKem768 => 2,
             #[cfg(feature = "ml-kem")]
             X25519MlKem1024 => 3,
-            #[cfg(feature = "mceliece")]
-            X25519McEliece348864 => 4,
         }
     }
 }
@@ -94,12 +76,16 @@ impl TryFrom<u8> for XwingScheme {
             2 => Ok(XwingScheme::X25519MlKem768),
             #[cfg(feature = "ml-kem")]
             3 => Ok(XwingScheme::X25519MlKem1024),
-            #[cfg(feature = "mceliece")]
-            4 => Ok(XwingScheme::X25519McEliece348864),
             // Deprecated: X25519-ML-KEM-512 was removed for building on the too-weak
-            // ML-KEM-512. Discriminant 1 stays reserved for a clear migration error.
+            // ML-KEM-512, and X25519-ClassicMcEliece348864 after key-recovery research
+            // against Classic McEliece. The discriminants stay reserved for a clear
+            // migration error.
             1 => Err(Error::DeprecatedScheme {
                 scheme: "X25519-ML-KEM-512",
+                replacement: "X25519-ML-KEM-768",
+            }),
+            4 => Err(Error::DeprecatedScheme {
+                scheme: "X25519-ClassicMcEliece348864",
                 replacement: "X25519-ML-KEM-768",
             }),
             _ => Err(Error::InvalidScheme(v)),
@@ -117,8 +103,6 @@ impl Display for XwingScheme {
                 Self::X25519MlKem768 => "X25519-ML-KEM-768",
                 #[cfg(feature = "ml-kem")]
                 Self::X25519MlKem1024 => "X25519-ML-KEM-1024",
-                #[cfg(feature = "mceliece")]
-                Self::X25519McEliece348864 => "X25519-ClassicMcEliece348864",
             }
         )
     }
@@ -133,10 +117,12 @@ impl FromStr for XwingScheme {
             "X25519-ML-KEM-768" => Ok(XwingScheme::X25519MlKem768),
             #[cfg(feature = "ml-kem")]
             "X25519-ML-KEM-1024" => Ok(XwingScheme::X25519MlKem1024),
-            #[cfg(feature = "mceliece")]
-            "X25519-ClassicMcEliece348864" => Ok(XwingScheme::X25519McEliece348864),
             "X25519-ML-KEM-512" => Err(Error::DeprecatedScheme {
                 scheme: "X25519-ML-KEM-512",
+                replacement: "X25519-ML-KEM-768",
+            }),
+            "X25519-ClassicMcEliece348864" => Err(Error::DeprecatedScheme {
+                scheme: "X25519-ClassicMcEliece348864",
                 replacement: "X25519-ML-KEM-768",
             }),
             _ => Err(Error::InvalidSchemeStr(s.to_string())),
@@ -153,8 +139,6 @@ impl From<XwingScheme> for KemScheme {
             XwingScheme::X25519MlKem768 => KemScheme::MlKem768,
             #[cfg(feature = "ml-kem")]
             XwingScheme::X25519MlKem1024 => KemScheme::MlKem1024,
-            #[cfg(feature = "mceliece")]
-            XwingScheme::X25519McEliece348864 => KemScheme::ClassicMcEliece348864,
         }
     }
 }
@@ -171,12 +155,6 @@ impl XwingScheme {
         let seed = match self {
             #[cfg(feature = "ml-kem")]
             XwingScheme::X25519MlKem768 | XwingScheme::X25519MlKem1024 => {
-                let mut seed = [0u8; 32];
-                os_rng().fill_bytes(&mut seed);
-                seed.to_vec()
-            }
-            #[cfg(feature = "mceliece")]
-            XwingScheme::X25519McEliece348864 => {
                 let mut seed = [0u8; 32];
                 os_rng().fill_bytes(&mut seed);
                 seed.to_vec()
@@ -377,8 +355,6 @@ impl DecapsulationKey {
             XwingScheme::X25519MlKem768 => (64, KemScheme::MlKem768),
             #[cfg(feature = "ml-kem")]
             XwingScheme::X25519MlKem1024 => (64, KemScheme::MlKem1024),
-            #[cfg(feature = "mceliece")]
-            XwingScheme::X25519McEliece348864 => (32, KemScheme::ClassicMcEliece348864),
         };
 
         let mut seed = vec![0u8; seed_length];
@@ -473,29 +449,6 @@ mod tests {
     use super::*;
     use rstest::*;
 
-    #[cfg(feature = "mceliece")]
-    #[test]
-    fn legacy_mceliece_wire_contract() {
-        let scheme = XwingScheme::X25519McEliece348864;
-        let name = "X25519-ClassicMcEliece348864";
-        assert_eq!(u8::from(scheme), 4);
-        assert_eq!(XwingScheme::try_from(4).unwrap(), scheme);
-        assert_eq!(name.parse::<XwingScheme>().unwrap(), scheme);
-        assert_eq!(scheme.to_string(), name);
-        assert_eq!(KemScheme::from(scheme), KemScheme::ClassicMcEliece348864);
-        let json = serde_json::to_string(&scheme).unwrap();
-        assert_eq!(json, format!("\"{name}\""));
-        assert_eq!(serde_json::from_str::<XwingScheme>(&json).unwrap(), scheme);
-        assert_eq!(postcard::to_stdvec(&scheme).unwrap(), [4]);
-        assert_eq!(postcard::from_bytes::<XwingScheme>(&[4]).unwrap(), scheme);
-    }
-
-    #[cfg(all(feature = "mceliece", not(feature = "ml-kem")))]
-    #[test]
-    fn legacy_mceliece_default_is_unchanged() {
-        assert_eq!(XwingScheme::default(), XwingScheme::X25519McEliece348864);
-    }
-
     #[cfg(feature = "ml-kem")]
     #[test]
     fn mlkem_default_is_unchanged() {
@@ -505,10 +458,6 @@ mod tests {
     #[rstest]
     #[cfg_attr(feature = "ml-kem", case::mlkem768(XwingScheme::X25519MlKem768))]
     #[cfg_attr(feature = "ml-kem", case::mlkem1024(XwingScheme::X25519MlKem1024))]
-    #[cfg_attr(
-        feature = "mceliece",
-        case::mceliece348864(XwingScheme::X25519McEliece348864)
-    )]
     fn round_trip(#[case] scheme: XwingScheme) {
         let (ek, dk) = scheme.keypair().unwrap();
         let (ct, ss_e) = ek.encapsulate().unwrap();
@@ -520,10 +469,6 @@ mod tests {
     #[rstest]
     #[cfg_attr(feature = "ml-kem", case::mlkem768(XwingScheme::X25519MlKem768))]
     #[cfg_attr(feature = "ml-kem", case::mlkem1024(XwingScheme::X25519MlKem1024))]
-    #[cfg_attr(
-        feature = "mceliece",
-        case::mceliece348864(XwingScheme::X25519McEliece348864)
-    )]
     fn serialize_bytes(#[case] scheme: XwingScheme) {
         let (ek, dk) = scheme.keypair().unwrap();
         let (ct, _ss_e) = ek.encapsulate().unwrap();
@@ -544,10 +489,6 @@ mod tests {
     #[rstest]
     #[cfg_attr(feature = "ml-kem", case::mlkem768(XwingScheme::X25519MlKem768))]
     #[cfg_attr(feature = "ml-kem", case::mlkem1024(XwingScheme::X25519MlKem1024))]
-    #[cfg_attr(
-        feature = "mceliece",
-        case::mceliece348864(XwingScheme::X25519McEliece348864)
-    )]
     fn serialize_text(#[case] scheme: XwingScheme) {
         let (ek, dk) = scheme.keypair().unwrap();
         let (ct, _ss_e) = ek.encapsulate().unwrap();
@@ -628,6 +569,26 @@ mod tests {
             let ss = sk.decapsulate(&ct).unwrap();
             assert_eq!(ss, test.ss.0);
         }
+    }
+
+    /// The removed X25519-ClassicMcEliece348864 hybrid reports a deprecation error (not a
+    /// generic `InvalidScheme`) via its old wire discriminant and display string.
+    #[test]
+    fn x25519_mceliece_is_deprecated() {
+        assert!(matches!(
+            XwingScheme::try_from(4),
+            Err(Error::DeprecatedScheme {
+                scheme: "X25519-ClassicMcEliece348864",
+                replacement: "X25519-ML-KEM-768",
+            })
+        ));
+        assert!(matches!(
+            "X25519-ClassicMcEliece348864".parse::<XwingScheme>(),
+            Err(Error::DeprecatedScheme {
+                scheme: "X25519-ClassicMcEliece348864",
+                ..
+            })
+        ));
     }
 
     /// The removed X25519-ML-KEM-512 hybrid reports a deprecation error (not a generic

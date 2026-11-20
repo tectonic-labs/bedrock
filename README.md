@@ -63,35 +63,15 @@ Two security levels following NIST standards:
 - **ML-KEM-768** (NIST Level 3) - Default when the `ml-kem` feature is enabled
 - **ML-KEM-1024** (NIST Level 5)
 
-### Classic McEliece (Deprecated Legacy Key Encapsulation)
+### Classic McEliece (Removed)
 
-All five parameter sets remain operational, but are deprecated for new deployments:
-
-- **ClassicMcEliece-348864**
-- **ClassicMcEliece-460896** - Unchanged legacy default when `mceliece` is enabled without `ml-kem`
-- **ClassicMcEliece-6688128**
-- **ClassicMcEliece-6960119**
-- **ClassicMcEliece-8192128**
-
-Recent [key-recovery research](https://eprint.iacr.org/2026/1984) lowers estimated
-security margins under partly heuristic assumptions; it does not demonstrate practical
-key recovery at production parameter sizes. A separate
-[challenge-key recovery](https://eprint.iacr.org/2026/1986) demonstrates progress on
-small challenge parameters, not a break of Bedrock's production parameter sets.
-Bedrock conservatively deprecates the entire family, including McEliece-based X-Wing.
-Previously listed security levels are historical targets, not current assurances.
-
-Rust emits deprecation warnings for direct references to these variants. Key generation,
-seed derivation, encapsulation, decapsulation, raw imports, and serialization remain
-available with unchanged names and wire IDs. Dynamic parsing/deserialization and
-`Default::default()` do not emit runtime warnings or return `DeprecatedScheme`.
-The `mceliece` Cargo feature remains opt-in; Cargo features cannot carry Rust
-deprecation attributes. Its legacy-only defaults are intentionally unchanged.
-
-For new deployments, enable `ml-kem` and explicitly select `KemScheme::MlKem768`
-or `KemScheme::MlKem1024`; for hybrid use select `XwingScheme::X25519MlKem768`
-or `XwingScheme::X25519MlKem1024`. Migration requires new keys and explicit protocol
-agreement, not relabeling existing keys or ciphertexts.
+Classic McEliece was removed following
+[key-recovery research](https://eprint.iacr.org/2026/1984). The whole family, including
+McEliece-based X-Wing, is no longer available. Its names and wire IDs stay reserved, so
+keys and ciphertexts produced by an earlier release deserialize to
+`Error::DeprecatedScheme`, which names ML-KEM-768 or ML-KEM-1024 as the replacement.
+Migration needs new keys and explicit protocol agreement, not relabeling existing keys
+or ciphertexts.
 
 Every legacy size continues to support deterministic key generation from a 32-byte seed.
 
@@ -629,7 +609,6 @@ Control which algorithms and operations are enabled:
 - `falcon` - Enable Falcon/FN-DSA signature schemes (default)
 - `eth_falcon` - Enable ETHFALCON Ethereum-compatible variant (default, requires `falcon`)
 - `ml-kem` - Enable ML-KEM key encapsulation
-- `mceliece` - Enable deprecated Classic McEliece for legacy interoperability only
 - `frodo` - Enable FrodoKEM key encapsulation
 - `hqc` - Enable HQC key encapsulation and, with `hhd`, HQC HD derivation
 - `ecdsa-signatures` - Enable transport-neutral P-256 and P-384 ECDSA signing,
@@ -648,7 +627,7 @@ Control which algorithms and operations are enabled:
 - `xmss` - Enable XMSS stateful signatures
 - `xmss-extra-depths` - Enable all 147 non-standard `pq-xmss` tree-depth parameter sets
 - `bird-of-prey` - Enable Bird-of-Prey-2 hybrid signatures
-- `xwing` - Enable X-Wing hybrid KEM (requires `ml-kem` or `mceliece`)
+- `xwing` - Enable X-Wing hybrid KEM (requires `ml-kem`)
 - `symmetric` - Enable transport-neutral AES-GCM, ChaCha20-Poly1305, SHA-2,
   HMAC/HKDF, AES block, and ChaCha20 stream primitives
 - `hashing` - Enable additional standalone, unkeyed SHA-512, SHA3-256/384,
@@ -827,4 +806,3 @@ as above without any additional terms or conditions.
 - [ML-KEM (FIPS 203)](https://csrc.nist.gov/pubs/fips/203/final)
 - [ETHFALCON Specification](https://github.com/zknoxhq/ETHFALCON)
 - [X-Wing (IETF Draft)](https://datatracker.ietf.org/doc/draft-connolly-cfrg-xwing-kem/)
-- [pq-mceliece](https://github.com/mikelodder7/pq-mceliece)
