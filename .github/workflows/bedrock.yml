@@ -142,6 +142,9 @@ jobs:
       - run: cargo build
 
   wasm:
+    # The browser run drives Chrome through chromedriver, which is the one step here that
+    # can hang instead of failing; cap it so a stall cannot hold the job open for hours.
+    timeout-minutes: 15
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
